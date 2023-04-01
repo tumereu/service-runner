@@ -1,4 +1,4 @@
 [server]
 port=6765
 daemon=false
-executable="./target/build/server"
+executable="./target/debug/server"

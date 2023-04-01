@@ -1,11 +1,13 @@
 use std::future::Future;
 use std::task::Poll;
-use std::thread;
+use std::{env, thread};
+use std::error::Error;
 use shared::config::Config;
 use crate::{ClientState, Status};
 use reqwest::Client;
+use std::process::{Command, Stdio};
 
-pub async fn process_state(client_state: &mut ClientState, config: &Config, http: &Client) {
+pub async fn process_state(client_state: &mut ClientState, config: &Config, http: &Client) -> Result<(), Box<dyn Error>> {
     let port = config.server.port;
 
     match client_state.status {
@@ -16,13 +18,19 @@ pub async fn process_state(client_state: &mut ClientState, config: &Config, http
                 Ok(_) => {
                     client_state.status = Status::Idle
                 }
-                _ => {
+                Err(_) => {
                     client_state.status = Status::StartingServer
                 }
             }
         }
         Status::StartingServer => {
-            
+            Command::new(config.server.executable.clone())
+                .current_dir(env::current_dir()?)
+                .stdout(Stdio::null())
+                .stdin(Stdio::null())
+                .spawn()?;
+
+            client_state.status = Status::CheckingServerStatus
         }
         Status::Finishing => {
             if config.server.daemon == false {
@@ -35,6 +43,8 @@ pub async fn process_state(client_state: &mut ClientState, config: &Config, http
 
         }
     }
+
+    Ok(())
 }
 
 fn start_server() {

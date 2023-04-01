@@ -8,7 +8,7 @@ use crate::ClientState;
 pub fn render<B>(term: &mut Terminal<B>, client_state: &ClientState) -> IOResult<()>  where B : Backend {
     term.draw(|f| {
         let size = f.size();
-        let status = client_state.status;
+        let status = &client_state.status;
 
         let block = Block::default()
             .style(

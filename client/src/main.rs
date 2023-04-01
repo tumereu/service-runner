@@ -1,11 +1,4 @@
-use std::{
-    error::Error,
-    fs::File,
-    io::{BufReader, Result as IOResult, stdout},
-    path::Path,
-    thread,
-    time::Duration
-};
+use std::{env, error::Error, fs::File, io::{BufReader, Result as IOResult, stdout}, path::Path, thread, time::Duration};
 
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -59,13 +52,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     loop {
-        process_inputs(&mut client_state);
-
+        process_inputs(&mut client_state)?;
         async_runtime.block_on(async {
             process_state(&mut client_state, &config, &http_client).await
-        });
-
-        render(&mut terminal, &client_state);
+        })?;
+        render(&mut terminal, &client_state)?;
 
         if client_state.status == Status::ReadyToExit {
             break;
