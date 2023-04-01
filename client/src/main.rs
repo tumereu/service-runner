@@ -1,61 +1,62 @@
-use model::config::{ServiceConfig, read_config};
 use std::{
-    thread,
-    fs::File,
     error::Error,
-    io::{BufReader, stdout, Result as IOResult},
+    fs::File,
+    io::{BufReader, Result as IOResult, stdout},
     path::Path,
+    thread,
     time::Duration
 };
-use tui::{
-    backend::CrosstermBackend,
-    widgets::{Widget, Block, Borders},
-    layout::{Layout, Constraint, Direction},
-    Terminal
-};
+
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use tui::{
+    backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout},
+    Terminal,
+    widgets::{Block, Borders, Widget}
 };
 use tui::style::{Color, Style};
 
-fn main() -> IOResult<()> {
-    let config = read_config(Path::new("./sampleConfig.yml"));
+use model::config::{read_config, ServiceConfig};
+
+use crate::app_state::{AppState, Phase};
+use crate::input::process_inputs;
+use crate::ui::render;
+
+mod app_state;
+mod ui;
+mod input;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let config = read_config(Path::new("./sampleConfig.yml"))?;
+    let mut app_state = AppState {
+        config,
+        phase: Phase::Initializing
+    };
 
     enable_raw_mode()?;
 
-    let stdout = stdout();
+    let mut stdout = stdout();
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture
+    )?;
+
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let mut executing = true;
 
-    while executing {
-        terminal.draw(|f| {
-            let size = f.size();
-
-            let block = Block::default()
-                .style(
-                    Style::default()
-                        .bg(Color::Black)
-                ).title(format!("Block"))
-                .borders(Borders::ALL);
-            f.render_widget(block, size);
-        })?;
-
-        let has_event = event::poll(Duration::from_millis(20))?;
-
-        if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Esc => {
-                    executing = false;
-                },
-                _ => {}
-            }
-        }
+    while app_state.phase != Phase::Exit {
+        render(&mut terminal, &app_state);
+        process_inputs(&mut app_state);
+        thread::sleep(Duration::from_millis(10));
     }
 
-    // restore terminal
+    // Clear terminal and restore normal mode
+    terminal.clear()?;
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),

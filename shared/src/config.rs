@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Result as IOResult};
 use std::path::Path;
 use serde::Deserialize;
 use Vec;
