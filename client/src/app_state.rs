@@ -1,7 +1,7 @@
-use model::config::ServiceConfig;
+use shared::config::Config;
 
 pub struct AppState {
-    pub config: ServiceConfig,
+    pub config: Config,
     pub phase: Phase
 }
 

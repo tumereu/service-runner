@@ -20,7 +20,7 @@ use tui::{
 };
 use tui::style::{Color, Style};
 
-use model::config::{read_config, ServiceConfig};
+use shared::config::{read_config, Config};
 
 use crate::app_state::{AppState, Phase};
 use crate::input::process_inputs;
@@ -31,7 +31,7 @@ mod ui;
 mod input;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let config = read_config(Path::new("./sampleConfig.yml"))?;
+    let config = read_config(Path::new("./config.toml"))?;
     let mut app_state = AppState {
         config,
         phase: Phase::Initializing
