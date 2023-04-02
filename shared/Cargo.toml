@@ -9,3 +9,4 @@ edition = "2021"
 serde = { version = "1.0.158", features = ["derive"] }
 serde-aux = "4.1.2"
 toml = "0.7.3"
+walkdir = "2.3.3"

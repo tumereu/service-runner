@@ -22,14 +22,54 @@ pub struct ServerConfig {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Service {
+#[serde(tag = "type")]
+pub enum Service {
+    Compilable(CompilableService),
+}
+impl Service {
+    pub fn name(&self) -> &String {
+        match self {
+            Service::Compilable(service) => &service.name
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CompilableService {
+    pub name: String,
+    pub dir: String,
+    pub compile: Vec<ExecutableEntry>,
+    pub run: Vec<ExecutableEntry>,
+    pub reset: Vec<ExecutableEntry>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ExecutableEntry {
+    pub executable: String,
     #[serde(default)]
-    pub depends_on: Vec<String>,
-    pub compile: Option<String>,
-    pub run: String
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+    #[serde(default)]
+    pub artifact: Vec<ArtifactEntry>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ArtifactEntry {
+    pub path: String,
+    pub name: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub enum ServiceType {
+    Compilable
 }
 
 pub fn read_main_config(path: &str) -> Result<Config, Box<dyn Error>> {
+    Ok(toml::from_str(&read_to_string(path)?)?)
+}
+
+pub fn read_service(path: &Path) -> Result<Service, Box<dyn Error>> {
     Ok(toml::from_str(&read_to_string(path)?)?)
 }
 

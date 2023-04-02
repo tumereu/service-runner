@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             &http_client
         );
 
-        if let Err(error) = result {
+        if let Err(_) = result {
             // TODO proper error handling?
             error_msg = Some(String::from("Something went wrong in tick"))
         }
@@ -110,7 +110,7 @@ fn tick<B>(
         process_inputs(client_state.clone())?;
         process_state(client_state.clone(), config, http_client).await
     })?;
-    render(terminal, client_state)?;
+    render(terminal, client_state, &config)?;
 
     Ok(())
 }
