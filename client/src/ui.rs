@@ -15,14 +15,15 @@ pub fn render<B>(
 ) -> IOResult<()>  where B : Backend {
     term.draw(|f| {
         let size = f.size();
-        let status = &state.lock().unwrap().status;
+        let status = state.lock().unwrap().status;
         let num_services = config.services.len();
+        let check = state.lock().unwrap().last_status_check.clone();
 
         let block = Block::default()
             .style(
                 Style::default()
                     .bg(Color::Black)
-            ).title(format!("{status:?} {num_services}"))
+            ).title(format!("{status:?} {num_services} {check:?}"))
             .borders(Borders::ALL);
         f.render_widget(block, size);
 

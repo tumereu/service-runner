@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct SystemState {
     pub status: Status
 }
@@ -9,7 +12,7 @@ impl SystemState {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, Clone, Copy, Eq, PartialEq, Debug)]
 pub enum Status {
     Idle,
     Exiting

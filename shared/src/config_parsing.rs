@@ -12,7 +12,7 @@ pub struct Config {
     pub server: ServerConfig
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ServerConfig {
     pub port: u16,
     #[serde(default="bool_true")]
@@ -21,29 +21,27 @@ pub struct ServerConfig {
     pub executable: String
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Service {
-    Compilable(CompilableService),
+    #[serde(rename = "compilable")]
+    Compilable {
+        name: String,
+        dir: String,
+        compile: Vec<ExecutableEntry>,
+        run: Vec<ExecutableEntry>,
+        reset: Vec<ExecutableEntry>,
+    }
 }
 impl Service {
     pub fn name(&self) -> &String {
         match self {
-            Service::Compilable(service) => &service.name
+            Service::Compilable { name, dir: _, compile: _, run: _, reset: _ } => &name,
         }
     }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct CompilableService {
-    pub name: String,
-    pub dir: String,
-    pub compile: Vec<ExecutableEntry>,
-    pub run: Vec<ExecutableEntry>,
-    pub reset: Vec<ExecutableEntry>,
-}
-
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ExecutableEntry {
     pub executable: String,
     #[serde(default)]
@@ -54,15 +52,27 @@ pub struct ExecutableEntry {
     pub artifact: Vec<ArtifactEntry>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ArtifactEntry {
     pub path: String,
     pub name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub enum ServiceType {
     Compilable
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Profile {
+    pub name: String,
+    #[serde(default, rename = "service")]
+    pub services: Vec<ServiceRef>
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct ServiceRef {
+    pub name: String
 }
 
 pub fn read_main_config(path: &str) -> Result<Config, Box<dyn Error>> {
@@ -70,6 +80,10 @@ pub fn read_main_config(path: &str) -> Result<Config, Box<dyn Error>> {
 }
 
 pub fn read_service(path: &Path) -> Result<Service, Box<dyn Error>> {
+    Ok(toml::from_str(&read_to_string(path)?)?)
+}
+
+pub fn read_profile(path: &Path) -> Result<Profile, Box<dyn Error>> {
     Ok(toml::from_str(&read_to_string(path)?)?)
 }
 

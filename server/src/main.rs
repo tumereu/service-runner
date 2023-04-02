@@ -1,18 +1,12 @@
 use std::convert::Infallible;
 use std::error::Error;
-use std::future::Future;
 use std::net::SocketAddr;
-use std::path::Path;
-use std::pin::Pin;
 use std::{env, thread};
 use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
 use std::time::Duration;
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
-use hyper::body::HttpBody;
 use hyper::service::{make_service_fn, service_fn};
 use shared::config::read_config;
-use shared::system_state::Status::Idle;
 use shared::system_state::{Status, SystemState};
 
 async fn process_request(req: Request<Body>, state: Arc<Mutex<SystemState>>) -> Result<Response<Body>, Infallible> {
@@ -20,8 +14,8 @@ async fn process_request(req: Request<Body>, state: Arc<Mutex<SystemState>>) -> 
 
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/status") => {
-            let status = state.lock().unwrap().status;
-            *response.body_mut() = Body::from(format!("{status:?}"));
+            let state: SystemState = state.lock().unwrap().clone();
+            *response.body_mut() = Body::from(serde_json::to_string(&state).unwrap());
         },
         (&Method::POST, "/shutdown") => {
             {

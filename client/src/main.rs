@@ -1,4 +1,4 @@
-use std::{env, error::Error, fs::File, io::{BufReader, Result as IOResult, stdout}, path::Path, thread, time::Duration};
+use std::{env, error::Error, fs::File, io::{BufReader, Result as IOResult, stdout}, path::Path, task, thread, time::Duration};
 use std::sync::{Arc, Mutex};
 
 use crossterm::{
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
 
     let async_runtime = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(4)
+        .worker_threads(1)
         .enable_all()
         .build()?;
 
@@ -61,13 +61,51 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
     let mut error_msg: Option<String> = None;
 
+    {
+        let config = config.clone();
+        let http_client = http_client.clone();
+        let client_state = client_state.clone();
+
+        async_runtime.spawn(async move {
+            loop {
+                process_inputs(client_state.clone(), &config, &http_client).await?;
+
+                if client_state.lock().unwrap().status == Status::Exiting {
+                    break;
+                } else {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }
+
+            Ok::<(), String>(())
+        });
+    }
+
+    {
+        let config = config.clone();
+        let http_client = http_client.clone();
+        let client_state = client_state.clone();
+
+        async_runtime.spawn(async move {
+            loop {
+                process_state(client_state.clone(), &config, &http_client).await?;
+
+                if client_state.lock().unwrap().status == Status::Exiting {
+                    break;
+                } else {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }
+
+            Ok::<(), String>(())
+        });
+    }
+
     loop {
         let result = tick(
             &mut terminal,
-            &async_runtime,
             client_state.clone(),
             &config,
-            &http_client
         );
 
         if let Err(_) = result {
@@ -75,7 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             error_msg = Some(String::from("Something went wrong in tick"))
         }
 
-        if client_state.lock().unwrap().status == Status::ReadyToExit {
+        if client_state.lock().unwrap().status == Status::Exiting {
             break;
         } else {
             thread::sleep(Duration::from_millis(10));
@@ -101,15 +139,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn tick<B>(
     terminal: &mut Terminal<B>,
-    async_runtime: &Runtime,
     client_state: Arc<Mutex<ClientState>>,
     config: &Config,
-    http_client: &Client
 ) -> Result<(), Box<dyn Error>> where B : Backend {
-    async_runtime.block_on(async {
-        process_inputs(client_state.clone())?;
-        process_state(client_state.clone(), config, http_client).await
-    })?;
     render(terminal, client_state, &config)?;
 
     Ok(())
