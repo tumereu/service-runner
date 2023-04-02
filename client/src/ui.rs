@@ -1,14 +1,15 @@
 use std::io::Result as IOResult;
+use std::sync::{Arc, Mutex};
 use tui::backend::Backend;
 use tui::style::{Color, Style};
 use tui::Terminal;
 use tui::widgets::{Block, Borders};
 use crate::ClientState;
 
-pub fn render<B>(term: &mut Terminal<B>, client_state: &ClientState) -> IOResult<()>  where B : Backend {
+pub fn render<B>(term: &mut Terminal<B>, state: Arc<Mutex<ClientState>>) -> IOResult<()>  where B : Backend {
     term.draw(|f| {
         let size = f.size();
-        let status = &client_state.status;
+        let status = &state.lock().unwrap().status;
 
         let block = Block::default()
             .style(

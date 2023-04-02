@@ -15,11 +15,10 @@ impl ClientState {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Status {
     CheckingServerStatus,
     StartingServer,
-    InitializationError(String),
     Idle,
     Finishing,
     ReadyToExit,

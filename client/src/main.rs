@@ -1,4 +1,5 @@
 use std::{env, error::Error, fs::File, io::{BufReader, Result as IOResult, stdout}, path::Path, thread, time::Duration};
+use std::sync::{Arc, Mutex};
 
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -17,6 +18,8 @@ use shared::config::{read_config, Config};
 use crate::process_client::process_state;
 
 use reqwest::Client;
+use tokio::runtime::Runtime;
+use tui::backend::Backend;
 
 use crate::client_state::{ClientState, Status};
 use crate::input::process_inputs;
@@ -30,12 +33,13 @@ mod process_client;
 fn main() -> Result<(), Box<dyn Error>> {
     let config = read_config(Path::new("./config.toml"))?;
 
-    let mut client_state = ClientState::new();
+    let mut client_state = Arc::new(Mutex::new(ClientState::new()));
     let http_client = Client::builder()
         .timeout(Duration::from_millis(1000))
         .build()?;
 
-    let async_runtime = tokio::runtime::Builder::new_current_thread()
+    let async_runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(4)
         .enable_all()
         .build()?;
 
@@ -50,15 +54,23 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    let mut error_msg: Option<String> = None;
 
     loop {
-        process_inputs(&mut client_state)?;
-        async_runtime.block_on(async {
-            process_state(&mut client_state, &config, &http_client).await
-        })?;
-        render(&mut terminal, &client_state)?;
+        let result = tick(
+            &mut terminal,
+            &async_runtime,
+            client_state.clone(),
+            &config,
+            &http_client
+        );
 
-        if client_state.status == Status::ReadyToExit {
+        if let Err(error) = result {
+            // TODO proper error handling?
+            error_msg = Some(String::from("Something went wrong in tick"))
+        }
+
+        if client_state.lock().unwrap().status == Status::ReadyToExit {
             break;
         } else {
             thread::sleep(Duration::from_millis(10));
@@ -74,6 +86,26 @@ fn main() -> Result<(), Box<dyn Error>> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
+
+    if let Some(error) = error_msg {
+        eprintln!("{error}")
+    }
+
+    Ok(())
+}
+
+fn tick<B>(
+    terminal: &mut Terminal<B>,
+    async_runtime: &Runtime,
+    client_state: Arc<Mutex<ClientState>>,
+    config: &Config,
+    http_client: &Client
+) -> Result<(), Box<dyn Error>> where B : Backend {
+    async_runtime.block_on(async {
+        process_inputs(client_state.clone())?;
+        process_state(client_state.clone(), config, http_client).await
+    })?;
+    render(terminal, client_state)?;
 
     Ok(())
 }

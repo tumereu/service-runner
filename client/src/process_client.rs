@@ -6,20 +6,23 @@ use shared::config::Config;
 use crate::{ClientState, Status};
 use reqwest::Client;
 use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
 
-pub async fn process_state(client_state: &mut ClientState, config: &Config, http: &Client) -> Result<(), Box<dyn Error>> {
+pub async fn process_state(state: Arc<Mutex<ClientState>>, config: &Config, http: &Client) -> Result<(), Box<dyn Error>> {
     let port = config.server.port;
+    let status = state.lock().unwrap().status;
 
-    match client_state.status {
+    match status {
         Status::CheckingServerStatus => {
             let response = http.get(format!("http://127.0.0.1:{port}/status")).send().await;
 
+            let mut state = state.lock().unwrap();
             match response {
                 Ok(_) => {
-                    client_state.status = Status::Idle
+                    state.status = Status::Idle
                 }
                 Err(_) => {
-                    client_state.status = Status::StartingServer
+                    state.status = Status::StartingServer
                 }
             }
         }
@@ -30,14 +33,16 @@ pub async fn process_state(client_state: &mut ClientState, config: &Config, http
                 .stdin(Stdio::null())
                 .spawn()?;
 
-            client_state.status = Status::CheckingServerStatus
+            let mut state = state.lock().unwrap();
+            state.status = Status::CheckingServerStatus
         }
         Status::Finishing => {
             if config.server.daemon == false {
                 http.post(format!("http://127.0.0.1:{port}/shutdown")).send().await;
             }
 
-            client_state.status = Status::ReadyToExit;
+            let mut state = state.lock().unwrap();
+            state.status = Status::ReadyToExit;
         }
         _ => {
 
