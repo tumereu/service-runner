@@ -31,7 +31,12 @@ mod input;
 mod process_client;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let config = read_config(Path::new("./config.toml"))?;
+    let config_dir: String = env::args().collect::<Vec<String>>()
+        .get(1)
+        .ok_or("Specify the configuration directory in order to run the app")?
+        .clone();
+
+    let config = read_config(&config_dir)?;
 
     let mut client_state = Arc::new(Mutex::new(ClientState::new()));
     let http_client = Client::builder()

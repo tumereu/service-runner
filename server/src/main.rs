@@ -4,7 +4,7 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
-use std::thread;
+use std::{env, thread};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -39,7 +39,12 @@ async fn process_request(req: Request<Body>, state: Arc<Mutex<SystemState>>) -> 
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let config = read_config(Path::new("./config.toml"))?;
+    let config_dir: String = env::args().collect::<Vec<String>>()
+        .get(1)
+        .ok_or("Specify the configuration directory in order to run the app")?
+        .clone();
+
+    let config = read_config(&config_dir)?;
     let state = Arc::new(Mutex::new(SystemState::new()));
     // Initialize a shutdown signal
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();

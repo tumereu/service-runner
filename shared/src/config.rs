@@ -7,31 +7,21 @@ use serde::Deserialize;
 use serde_aux::field_attributes::bool_true;
 use Vec;
 
-#[derive(Deserialize, Debug)]
+pub use crate::config_parsing::{read_main_config, Config as TomlConfig, ServerConfig};
+
+#[derive(Debug)]
 pub struct Config {
-    pub server: ServerConfig
+    pub server: ServerConfig,
+    pub conf_dir: String
 }
 
-#[derive(Deserialize, Debug)]
-pub struct ServerConfig {
-    pub port: u16,
-    #[serde(default="bool_true")]
-    pub daemon: bool,
-    #[serde(default="default_server_executable")]
-    pub executable: String
-}
+pub fn read_config(dir: &str) -> Result<Config, Box<dyn Error>> {
+    let main_config =  read_main_config(&format!("{dir}/config.toml"))?;
 
-#[derive(Deserialize, Debug)]
-pub struct Service {
-    #[serde(default)]
-    pub depends_on: Vec<String>,
-    pub compile: Option<String>,
-    pub run: String
-}
-
-pub fn read_config<P: AsRef<Path>>(path: P) -> Result<Config, Box<dyn Error>> {
-    let contents = read_to_string(path)?;
-    Ok(toml::from_str(&contents)?)
+    Ok(Config {
+        server: main_config.server,
+        conf_dir: dir.into()
+    })
 }
 
 fn default_server_executable() -> String {

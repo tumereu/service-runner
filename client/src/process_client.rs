@@ -28,6 +28,7 @@ pub async fn process_state(state: Arc<Mutex<ClientState>>, config: &Config, http
         }
         Status::StartingServer => {
             Command::new(config.server.executable.clone())
+                .arg(&config.conf_dir)
                 .current_dir(env::current_dir()?)
                 .stdout(Stdio::null())
                 .stdin(Stdio::null())
