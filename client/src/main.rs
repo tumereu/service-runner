@@ -1,20 +1,18 @@
-use std::{env, error::Error, fs::File, io::{BufReader, Result as IOResult, stdout}, path::Path, task, thread, time::Duration};
+use std::{env, error::Error, io::{stdout}, thread, time::Duration};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
-    terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use tui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
-    Terminal,
-    widgets::{Block, Borders, Widget}
+    Terminal
 };
 use tui::backend::Backend;
-use tui::style::{Color, Style};
+
 
 use shared::config::{Config, read_config};
 
@@ -35,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let config = Arc::new(read_config(&config_dir)?);
 
-    let mut client_state = Arc::new(Mutex::new(ClientState::new()));
+    let client_state = Arc::new(Mutex::new(ClientState::new()));
 
     enable_raw_mode()?;
 
@@ -108,7 +106,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn connect_to_server(state: Arc<Mutex<ClientState>>, config: Arc<Config>) -> Result<(), String> {
-    let port = config.server.port;
+    let _port = config.server.port;
     let status = state.lock().unwrap().status;
 
     match status {

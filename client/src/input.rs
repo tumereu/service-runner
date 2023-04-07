@@ -1,5 +1,5 @@
-use std::error::Error;
-use std::fs::read;
+
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -11,7 +11,7 @@ use crate::{ClientState, Status};
 
 pub fn process_inputs(state: Arc<Mutex<ClientState>>, config: Arc<Config>) -> Result<(), String> {
     if poll_events(Duration::from_millis(0)).unwrap() {
-        let port = config.server.port;
+        let _port = config.server.port;
         let event = read_event().unwrap();
 
         if let Event::Key(key) = event {

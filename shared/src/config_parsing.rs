@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_to_string;
-use std::io::{BufReader, Result as IOResult};
+
 use std::path::Path;
 use Vec;
 

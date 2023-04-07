@@ -1,15 +1,15 @@
 use std::env;
-use std::error::Error;
+
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+
 
 use shared::config::Config;
 
 use crate::{ClientState, Status};
 
 pub fn connect_to_server(state: Arc<Mutex<ClientState>>, config: Arc<Config>) -> Result<(), String> {
-    let port = config.server.port;
+    let _port = config.server.port;
     let status = state.lock().unwrap().status;
 
     match status {
