@@ -1,13 +1,14 @@
 extern crate core;
 
 use core::panicking::panic;
+use std::{env, thread};
 use std::convert::Infallible;
 use std::error::Error;
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
-use std::{env, thread};
 use std::io::ErrorKind;
+use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use hyper::service::{make_service_fn, service_fn};
 use shared::config::{Config, read_config};

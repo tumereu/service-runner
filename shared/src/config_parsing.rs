@@ -3,9 +3,10 @@ use std::error::Error;
 use std::fs::read_to_string;
 use std::io::{BufReader, Result as IOResult};
 use std::path::Path;
+use Vec;
+
 use serde::Deserialize;
 use serde_aux::field_attributes::bool_true;
-use Vec;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {

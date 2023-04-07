@@ -13,17 +13,16 @@ use tui::{
     Terminal,
     widgets::{Block, Borders, Widget}
 };
+use tui::backend::Backend;
 use tui::style::{Color, Style};
 
-use shared::config::{read_config, Config};
-use crate::process_client::process_state;
-
 use reqwest::Client;
+use shared::config::{Config, read_config};
 use tokio::runtime::Runtime;
-use tui::backend::Backend;
 
 use crate::client_state::{ClientState, Status};
 use crate::input::process_inputs;
+use crate::process_client::process_state;
 use crate::ui::render;
 
 mod client_state;

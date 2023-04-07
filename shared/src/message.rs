@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+
 use crate::system_state::SystemState;
 
 #[derive(Serialize, Deserialize)]

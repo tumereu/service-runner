@@ -1,10 +1,13 @@
 use std::error::Error;
 use std::fs::read;
-use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
 use crossterm::event::{Event, KeyCode, poll as poll_events, read as read_event};
+
 use reqwest::Client;
 use shared::config::Config;
+
 use crate::{ClientState, Status};
 
 pub fn process_inputs(state: Arc<Mutex<ClientState>>, config: Arc<Config>) -> Result<(), String> {

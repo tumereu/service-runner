@@ -1,11 +1,14 @@
 use std::io::Result as IOResult;
 use std::sync::{Arc, Mutex};
+
 use tui::backend::Backend;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::Terminal;
 use tui::widgets::{Block, Borders, List, ListItem};
+
 use shared::config::Config;
+
 use crate::ClientState;
 
 pub fn render<B>(
