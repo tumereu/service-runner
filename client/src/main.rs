@@ -1,4 +1,5 @@
 use std::{env, error::Error, io::{stdout}, thread, time::Duration};
+use std::net::{SocketAddr, TcpStream};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
@@ -31,9 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or("Specify the configuration directory in order to run the app")?
         .clone();
 
-    let config = Arc::new(read_config(&config_dir)?);
-
-    let client_state = Arc::new(Mutex::new(ClientState::new()));
+    let client_state = Arc::new(ClientState::new(read_config(&config_dir)?));
 
     enable_raw_mode()?;
 
@@ -48,40 +47,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
     let mut error_msg: Option<String> = None;
 
-    {
-        let config = config.clone();
-        let client_state = client_state.clone();
-
-        thread::spawn(move || {
-            loop {
-                process_inputs(client_state.clone(), config.clone())?;
-
-                if client_state.lock().unwrap().status == Status::Exiting {
-                    break;
-                } else {
-                    thread::sleep(Duration::from_millis(10));
-                }
-            }
-
-            Ok::<(), String>(())
-        });
-    }
-
-    connect_to_server(client_state.clone(), config.clone());
+    connect_to_server(client_state.clone());
 
     loop {
-        let result = tick(
-            &mut terminal,
-            client_state.clone(),
-            &config,
-        );
+        process_inputs(client_state.clone())?;
+        render(&mut terminal, client_state.clone())?;
 
         if let Err(_) = result {
             // TODO proper error handling?
             error_msg = Some(String::from("Something went wrong in tick"))
         }
 
-        if client_state.lock().unwrap().status == Status::Exiting {
+        if *client_state.status.lock().unwrap() == Status::Exiting {
             break;
         } else {
             thread::sleep(Duration::from_millis(10));
@@ -105,48 +82,43 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn connect_to_server(state: Arc<Mutex<ClientState>>, config: Arc<Config>) -> Result<(), String> {
-    let _port = config.server.port;
-    let status = state.lock().unwrap().status;
+pub fn connect_to_server(state: Arc<ClientState>) -> Result<(), String> {
+    let port = state.config.server.port;
 
-    match status {
-        Status::CheckingServerStatus => {
-            // TODO open socket
-        }
-        Status::StartingServer => {
-            Command::new(config.server.executable.clone())
-                .arg(&config.conf_dir)
-                .current_dir(env::current_dir().map_err(|err| {
-                    let msg = err.to_string();
-                    format!("Failed to read current workdir: {msg}")
-                })?)
-                .stdout(Stdio::null())
-                .stdin(Stdio::null())
-                .spawn()
-                .map_err(|err| {
-                    let msg = err.to_string();
-                    format!("Failed to spawn server process: {msg}")
-                })?;
-
-            let mut state = state.lock().unwrap();
-            state.status = Status::CheckingServerStatus
-        }
-        Status::Ready => {
-        }
-        _ => {
-
+    fn open_stream(port: u16) -> Option<TcpStream> {
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        if let Ok(stream) = TcpStream::connect_timeout(&addr, Duration::from_millis(1000)) {
+            Some(stream)
+        } else {
+            None
         }
     }
 
-    Ok(())
-}
+    let stream = open_stream(port);
+    let stream = if stream.is_none() {
+        Command::new(config.server.executable.clone())
+            .arg(&config.conf_dir)
+            .current_dir(env::current_dir().map_err(|err| {
+                let msg = err.to_string();
+                format!("Failed to read current workdir: {msg}")
+            })?)
+            .stdout(Stdio::null())
+            .stdin(Stdio::null())
+            .spawn()
+            .map_err(|err| {
+                let msg = err.to_string();
+                format!("Failed to spawn server process: {msg}")
+            })?;
 
-fn tick<B>(
-    terminal: &mut Terminal<B>,
-    client_state: Arc<Mutex<ClientState>>,
-    config: &Config,
-) -> Result<(), Box<dyn Error>> where B : Backend {
-    render(terminal, client_state, &config)?;
+        open_stream(port)
+    } else {
+        stream
+    };
 
-    Ok(())
+    if stream.is_none() {
+        Err(format!("Could not connect to server on port {port}"))
+    } else {
+        *state.stream.lock().unwrap() = stream;
+        Ok(())
+    }
 }

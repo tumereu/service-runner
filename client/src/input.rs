@@ -9,7 +9,9 @@ use shared::config::Config;
 
 use crate::{ClientState, Status};
 
-pub fn process_inputs(state: Arc<Mutex<ClientState>>, config: Arc<Config>) -> Result<(), String> {
+pub fn process_inputs(state: Arc<ClientState>) -> Result<(), String> {
+    let config = state.config.clone();
+
     if poll_events(Duration::from_millis(0)).unwrap() {
         let _port = config.server.port;
         let event = read_event().unwrap();
@@ -19,8 +21,7 @@ pub fn process_inputs(state: Arc<Mutex<ClientState>>, config: Arc<Config>) -> Re
                 KeyCode::Esc => {
                     // TODO send shutdown message
 
-                    let mut state = state.lock().unwrap();
-                    state.status = Status::Exiting;
+                    *state.status.lock().unwrap() = Status::Exiting;
                 },
                 _ => {}
             }
