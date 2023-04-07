@@ -1,10 +1,10 @@
 extern crate core;
 
 use std::{env, thread};
-use std::convert::Infallible;
+
 use std::error::Error;
 use std::io::ErrorKind;
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let port = config.server.port;
     let state = Arc::new(Mutex::new(SystemState::new()));
 
-    let mut listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
     listener.set_nonblocking(true).unwrap();
 
     while state.lock().unwrap().status != Status::Exiting {
@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn handle_connection(
     stream: TcpStream,
-    config: Arc<Config>,
+    _config: Arc<Config>,
     state: Arc<Mutex<SystemState>>
 ) {
     thread::spawn(move || {
