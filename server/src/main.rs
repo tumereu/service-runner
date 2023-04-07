@@ -8,32 +8,8 @@ use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use hyper::{Body, Method, Request, Response, Server, StatusCode};
-use hyper::service::{make_service_fn, service_fn};
 use shared::config::{Config, read_config};
 use shared::system_state::{Status, SystemState};
-
-async fn process_request(req: Request<Body>, state: Arc<Mutex<SystemState>>) -> Result<Response<Body>, Infallible> {
-    let mut response = Response::new(Body::empty());
-
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/status") => {
-            let state: SystemState = state.lock().unwrap().clone();
-            *response.body_mut() = Body::from(serde_json::to_string(&state).unwrap());
-        },
-        (&Method::POST, "/shutdown") => {
-            {
-                let mut state = state.lock().unwrap();
-                state.status = Status::Exiting;
-            }
-        },
-        _ => {
-            *response.status_mut() = StatusCode::NOT_FOUND;
-        },
-    };
-
-    Ok(response)
-}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let config_dir: String = env::args().collect::<Vec<String>>()
@@ -68,7 +44,7 @@ fn handle_connection(
     config: Arc<Config>,
     state: Arc<Mutex<SystemState>>
 ) {
-    thread::spawn(|| {
+    thread::spawn(move || {
         while state.lock().unwrap().status != Status::Exiting {
 
         }
