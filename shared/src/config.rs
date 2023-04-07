@@ -1,17 +1,10 @@
-
 use std::error::Error;
-
-
-
-
 use Vec;
-
-
 
 use walkdir::WalkDir;
 
-pub use crate::config_parsing::ServerConfig;
 use crate::config_parsing::{Profile, read_main_config, read_profile, read_service, Service};
+pub use crate::config_parsing::ServerConfig;
 
 #[derive(Debug, Clone)]
 pub struct Config {

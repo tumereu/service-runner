@@ -1,7 +1,6 @@
 extern crate core;
 
 use std::{env, thread};
-
 use std::error::Error;
 use std::io::ErrorKind;
 use std::net::{Shutdown, TcpListener, TcpStream};

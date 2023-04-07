@@ -1,8 +1,8 @@
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
-use std::time::{Instant};
-use shared::config::Config;
+use std::time::Instant;
 
+use shared::config::Config;
 use shared::system_state::SystemState;
 
 pub struct ClientState {

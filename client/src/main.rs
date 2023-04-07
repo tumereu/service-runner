@@ -1,4 +1,4 @@
-use std::{env, error::Error, io::{stdout}, thread, time::Duration};
+use std::{env, error::Error, io::stdout, thread, time::Duration};
 use std::net::{SocketAddr, TcpStream};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -13,7 +13,6 @@ use tui::{
     Terminal
 };
 use tui::backend::Backend;
-
 
 use shared::config::{Config, read_config};
 
@@ -53,11 +52,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         process_inputs(client_state.clone())?;
         render(&mut terminal, client_state.clone())?;
 
-        if let Err(_) = result {
-            // TODO proper error handling?
-            error_msg = Some(String::from("Something went wrong in tick"))
-        }
-
         if *client_state.status.lock().unwrap() == Status::Exiting {
             break;
         } else {
@@ -96,8 +90,8 @@ pub fn connect_to_server(state: Arc<ClientState>) -> Result<(), String> {
 
     let stream = open_stream(port);
     let stream = if stream.is_none() {
-        Command::new(config.server.executable.clone())
-            .arg(&config.conf_dir)
+        Command::new(&state.config.server.executable)
+            .arg(&state.config.conf_dir)
             .current_dir(env::current_dir().map_err(|err| {
                 let msg = err.to_string();
                 format!("Failed to read current workdir: {msg}")

@@ -17,7 +17,7 @@ pub fn render<B>(
 ) -> IOResult<()>  where B : Backend {
     term.draw(|f| {
         let size = f.size();
-        let status = state.status;
+        let status = state.status.lock().unwrap();
         let num_services = state.config.services.len();
 
         let block = Block::default()
@@ -29,7 +29,7 @@ pub fn render<B>(
         f.render_widget(block, size);
 
         let list = List::new(
-            config.services.iter()
+            state.config.services.iter()
                 .map(|service| {
                     ListItem::new(service.name().clone())
                 }).collect::<Vec<ListItem>>()
