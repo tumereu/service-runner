@@ -46,7 +46,7 @@ fn handle_connection(
     thread::spawn(move || {
         while state.lock().unwrap().status != Status::Exiting {
             let message: Action = stream.recv()?;
-            process_action(state.clone(), &mut stream, message);
+            process_action(state.clone(), &mut stream, message)?;
         }
 
         stream.shutdown(Shutdown::Both)?;
@@ -59,11 +59,13 @@ fn process_action(
     state: Arc<Mutex<SystemState>>,
     stream: &mut TcpStream,
     action: Action
-) {
+) -> std::io::Result<()> {
     match action {
         Action::Shutdown => {
             state.lock().unwrap().status = Status::Exiting;
-            stream.shutdown(Shutdown::Both);
+            stream.shutdown(Shutdown::Both)?;
         }
     }
+
+    Ok(())
 }
