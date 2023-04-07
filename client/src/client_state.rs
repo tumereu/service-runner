@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::time::{Instant, SystemTime};
 
-use reqwest::Response;
 use shared::config::Config;
 use shared::system_state::SystemState;
 

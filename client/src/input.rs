@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use crossterm::event::{Event, KeyCode, poll as poll_events, read as read_event};
 
-use reqwest::Client;
 use shared::config::Config;
 
 use crate::{ClientState, Status};

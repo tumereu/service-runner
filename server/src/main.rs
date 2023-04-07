@@ -1,6 +1,5 @@
 extern crate core;
 
-use core::panicking::panic;
 use std::{env, thread};
 use std::convert::Infallible;
 use std::error::Error;

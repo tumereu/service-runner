@@ -4,7 +4,6 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use reqwest::Client;
 use shared::config::Config;
 
 use crate::{ClientState, Status};

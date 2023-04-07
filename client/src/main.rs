@@ -16,13 +16,10 @@ use tui::{
 use tui::backend::Backend;
 use tui::style::{Color, Style};
 
-use reqwest::Client;
 use shared::config::{Config, read_config};
-use tokio::runtime::Runtime;
 
 use crate::client_state::{ClientState, Status};
 use crate::input::process_inputs;
-use crate::process_client::process_state;
 use crate::ui::render;
 
 mod client_state;
@@ -59,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         thread::spawn(move || {
             loop {
-                process_inputs(client_state.clone(), config)?;
+                process_inputs(client_state.clone(), config.clone())?;
 
                 if client_state.lock().unwrap().status == Status::Exiting {
                     break;
