@@ -1,4 +1,5 @@
 use std::{env, error::Error, fs::File, io::{BufReader, Result as IOResult, stdout}, path::Path, task, thread, time::Duration};
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use crossterm::{
@@ -36,17 +37,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or("Specify the configuration directory in order to run the app")?
         .clone();
 
-    let config = read_config(&config_dir)?;
+    let config = Arc::new(read_config(&config_dir)?);
 
     let mut client_state = Arc::new(Mutex::new(ClientState::new()));
-    let http_client = Client::builder()
-        .timeout(Duration::from_millis(1000))
-        .build()?;
-
-    let async_runtime = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(1)
-        .enable_all()
-        .build()?;
 
     enable_raw_mode()?;
 
@@ -63,17 +56,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     {
         let config = config.clone();
-        let http_client = http_client.clone();
         let client_state = client_state.clone();
 
-        async_runtime.spawn(async move {
+        thread::spawn(move || {
             loop {
-                process_inputs(client_state.clone(), &config, &http_client).await?;
+                process_inputs(client_state.clone(), config)?;
 
                 if client_state.lock().unwrap().status == Status::Exiting {
                     break;
                 } else {
-                    tokio::time::sleep(Duration::from_millis(10)).await;
+                    thread::sleep(Duration::from_millis(10));
                 }
             }
 
@@ -81,25 +73,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         });
     }
 
-    {
-        let config = config.clone();
-        let http_client = http_client.clone();
-        let client_state = client_state.clone();
-
-        async_runtime.spawn(async move {
-            loop {
-                process_state(client_state.clone(), &config, &http_client).await?;
-
-                if client_state.lock().unwrap().status == Status::Exiting {
-                    break;
-                } else {
-                    tokio::time::sleep(Duration::from_millis(10)).await;
-                }
-            }
-
-            Ok::<(), String>(())
-        });
-    }
+    connect_to_server(client_state.clone(), config.clone());
 
     loop {
         let result = tick(
@@ -132,6 +106,42 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(error) = error_msg {
         eprintln!("{error}")
+    }
+
+    Ok(())
+}
+
+pub fn connect_to_server(state: Arc<Mutex<ClientState>>, config: Arc<Config>) -> Result<(), String> {
+    let port = config.server.port;
+    let status = state.lock().unwrap().status;
+
+    match status {
+        Status::CheckingServerStatus => {
+            // TODO open socket
+        }
+        Status::StartingServer => {
+            Command::new(config.server.executable.clone())
+                .arg(&config.conf_dir)
+                .current_dir(env::current_dir().map_err(|err| {
+                    let msg = err.to_string();
+                    format!("Failed to read current workdir: {msg}")
+                })?)
+                .stdout(Stdio::null())
+                .stdin(Stdio::null())
+                .spawn()
+                .map_err(|err| {
+                    let msg = err.to_string();
+                    format!("Failed to spawn server process: {msg}")
+                })?;
+
+            let mut state = state.lock().unwrap();
+            state.status = Status::CheckingServerStatus
+        }
+        Status::Ready => {
+        }
+        _ => {
+
+        }
     }
 
     Ok(())

@@ -1,12 +1,16 @@
+extern crate core;
+
+use core::panicking::panic;
 use std::convert::Infallible;
 use std::error::Error;
-use std::net::SocketAddr;
+use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::{env, thread};
+use std::io::ErrorKind;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use hyper::service::{make_service_fn, service_fn};
-use shared::config::read_config;
+use shared::config::{Config, read_config};
 use shared::system_state::{Status, SystemState};
 
 async fn process_request(req: Request<Body>, state: Arc<Mutex<SystemState>>) -> Result<Response<Body>, Infallible> {
@@ -31,53 +35,46 @@ async fn process_request(req: Request<Body>, state: Arc<Mutex<SystemState>>) -> 
     Ok(response)
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let config_dir: String = env::args().collect::<Vec<String>>()
         .get(1)
         .ok_or("Specify the configuration directory in order to run the app")?
         .clone();
 
-    let config = read_config(&config_dir)?;
+    let config = Arc::new(read_config(&config_dir)?);
+    let port = config.server.port;
     let state = Arc::new(Mutex::new(SystemState::new()));
-    // Initialize a shutdown signal
-    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let runner_state = state.clone();
-    thread::spawn(move || {
-        loop {
-            {
-                let mut state = runner_state.lock().unwrap();
-                let status = state.status;
-                if status == Status::Exiting {
-                    break;
+    let mut listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
+    listener.set_nonblocking(true).unwrap();
+
+    while state.lock().unwrap().status != Status::Exiting {
+        for stream in listener.incoming() {
+            match stream {
+                Ok(stream) => handle_connection(stream, config.clone(), state.clone()),
+                Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(10))
                 }
+                Err(e) => panic!("Encountered an unexpected IO error {e}")
             }
-            thread::sleep(Duration::from_millis(10))
         }
-
-        println!("Exiting server");
-        shutdown_tx.send(())
-    });
-
-    let addr = SocketAddr::from(([127, 0, 0, 1], config.server.port));
-
-    let make_service = make_service_fn(move |_| {
-        let state = state.clone();
-        let service = service_fn(move |req| process_request(req, state.clone()));
-        async move { Ok::<_, Infallible>(service) }
-    });
-
-    let server = Server::bind(&addr)
-        .serve(make_service)
-        .with_graceful_shutdown(async {
-            shutdown_rx.await.ok();
-        })
-        .await;
-
-    if let Err(e) = server {
-        eprintln!("Unexpected error in server: {}", e);
     }
 
     Ok(())
+}
+
+fn handle_connection(
+    stream: TcpStream,
+    config: Arc<Config>,
+    state: Arc<Mutex<SystemState>>
+) {
+    thread::spawn(|| {
+        while state.lock().unwrap().status != Status::Exiting {
+
+        }
+
+        stream.shutdown(Shutdown::Both)?;
+
+        Ok::<(), std::io::Error>(())
+    });
 }
