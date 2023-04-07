@@ -37,6 +37,7 @@ impl Message for Action {
     }
 
     fn decode(bytes: &Vec<u8>) -> Self {
+        println!("Decoding bytes {bytes:?}");
         bincode::deserialize(bytes).unwrap()
     }
 }
@@ -60,12 +61,12 @@ impl MessageTransmitter<std::io::Error> for TcpStream {
 
     fn recv<M>(&mut self) -> Result<M, std::io::Error> where M: Message {
         let mut len_bytes = [0 as u8; size_of::<u64>()];
-        self.read(&mut len_bytes)?;
+        self.read_exact(&mut len_bytes)?;
 
         let len: usize = u64::from_be_bytes(len_bytes).try_into().unwrap();
 
-        let mut msg_bytes: Vec<u8> = Vec::with_capacity(len);
-        self.read_exact(&mut msg_bytes)?;
+        let mut msg_bytes: Vec<u8> = vec![0; len];
+        self.read(&mut msg_bytes)?;
 
         Ok(M::decode(&msg_bytes))
     }

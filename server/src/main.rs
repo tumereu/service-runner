@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use shared::config::{Config, read_config};
+use shared::message::{Action, Message, MessageTransmitter};
 use shared::system_state::{Status, SystemState};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -24,14 +25,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     listener.set_nonblocking(true).unwrap();
 
     while state.lock().unwrap().status != Status::Exiting {
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => handle_connection(stream, config.clone(), state.clone()),
-                Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(10))
-                }
-                Err(e) => panic!("Encountered an unexpected IO error {e}")
+        let stream = listener.accept();
+        match stream {
+            Ok((stream, _)) => handle_connection(stream, config.clone(), state.clone()),
+            Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(10))
             }
+            Err(e) => panic!("Encountered an unexpected IO error {e}")
         }
     }
 
@@ -39,17 +39,31 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn handle_connection(
-    stream: TcpStream,
+    mut stream: TcpStream,
     _config: Arc<Config>,
     state: Arc<Mutex<SystemState>>
 ) {
     thread::spawn(move || {
         while state.lock().unwrap().status != Status::Exiting {
-
+            let message: Action = stream.recv()?;
+            process_action(state.clone(), &mut stream, message);
         }
 
         stream.shutdown(Shutdown::Both)?;
 
         Ok::<(), std::io::Error>(())
     });
+}
+
+fn process_action(
+    state: Arc<Mutex<SystemState>>,
+    stream: &mut TcpStream,
+    action: Action
+) {
+    match action {
+        Action::Shutdown => {
+            state.lock().unwrap().status = Status::Exiting;
+            stream.shutdown(Shutdown::Both);
+        }
+    }
 }

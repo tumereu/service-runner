@@ -2,6 +2,7 @@ use std::{env, error::Error, io::stdout, thread, time::Duration};
 use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -60,8 +61,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    disconnect_from_server(state.clone())?;
-
     // Clear terminal and restore normal mode
     terminal.clear()?;
     disable_raw_mode()?;
@@ -71,6 +70,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
+
+    println!("Exiting app, performing disconnect");
+    disconnect_from_server(state.clone())?;
 
     if let Some(error) = error_msg {
         eprintln!("{error}")
@@ -84,7 +86,9 @@ pub fn connect_to_server(state: Arc<ClientState>) -> Result<(), String> {
 
     fn open_stream(port: u16) -> Option<TcpStream> {
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
-        if let Ok(stream) = TcpStream::connect_timeout(&addr, Duration::from_millis(1000)) {
+        let result = TcpStream::connect_timeout(&addr, Duration::from_millis(1000));
+
+        if let Ok(stream) = result {
             Some(stream)
         } else {
             None
@@ -107,6 +111,9 @@ pub fn connect_to_server(state: Arc<ClientState>) -> Result<(), String> {
                 format!("Failed to spawn server process: {msg}")
             })?;
 
+        // TODO implement better
+        thread::sleep(Duration::from_millis(1000));
+
         open_stream(port)
     } else {
         stream
@@ -124,11 +131,9 @@ pub fn disconnect_from_server(state: Arc<ClientState>) -> std::io::Result<()> {
     let mut stream = state.stream.lock().unwrap();
 
     if let Some(ref mut stream) = *stream {
-        if state.config.server.daemon {
+        if !state.config.server.daemon {
             stream.send(Action::Shutdown)?;
         }
-
-        stream.shutdown(Shutdown::Both)?;
     }
 
     Ok(())
