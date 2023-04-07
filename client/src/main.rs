@@ -1,5 +1,5 @@
 use std::{env, error::Error, io::stdout, thread, time::Duration};
-use std::net::{SocketAddr, TcpStream};
+use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
@@ -15,6 +15,7 @@ use tui::{
 use tui::backend::Backend;
 
 use shared::config::{Config, read_config};
+use shared::message::{Action, MessageTransmitter};
 
 use crate::client_state::{ClientState, Status};
 use crate::input::process_inputs;
@@ -31,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or("Specify the configuration directory in order to run the app")?
         .clone();
 
-    let client_state = Arc::new(ClientState::new(read_config(&config_dir)?));
+    let state = Arc::new(ClientState::new(read_config(&config_dir)?));
 
     enable_raw_mode()?;
 
@@ -46,18 +47,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
     let mut error_msg: Option<String> = None;
 
-    connect_to_server(client_state.clone());
+    connect_to_server(state.clone())?;
 
     loop {
-        process_inputs(client_state.clone())?;
-        render(&mut terminal, client_state.clone())?;
+        process_inputs(state.clone())?;
+        render(&mut terminal, state.clone())?;
 
-        if *client_state.status.lock().unwrap() == Status::Exiting {
+        if *state.status.lock().unwrap() == Status::Exiting {
             break;
         } else {
             thread::sleep(Duration::from_millis(10));
         }
     }
+
+    disconnect_from_server(state.clone())?;
 
     // Clear terminal and restore normal mode
     terminal.clear()?;
@@ -115,4 +118,18 @@ pub fn connect_to_server(state: Arc<ClientState>) -> Result<(), String> {
         *state.stream.lock().unwrap() = stream;
         Ok(())
     }
+}
+
+pub fn disconnect_from_server(state: Arc<ClientState>) -> std::io::Result<()> {
+    let mut stream = state.stream.lock().unwrap();
+
+    if let Some(ref mut stream) = *stream {
+        if state.config.server.daemon {
+            stream.send(Action::Shutdown)?;
+        }
+
+        stream.shutdown(Shutdown::Both)?;
+    }
+
+    Ok(())
 }
