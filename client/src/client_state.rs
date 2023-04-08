@@ -3,22 +3,28 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use shared::config::Config;
+use shared::message::{Action, Broadcast};
 use shared::system_state::SystemState;
+use crate::ui::UIState;
 
 pub struct ClientState {
-    pub status: Arc<Mutex<Status>>,
-    pub system: Arc<Mutex<Option<SystemState>>>,
-    pub stream: Arc<Mutex<Option<TcpStream>>>,
-    pub config: Arc<Config>,
+    pub status: Status,
+    pub system: Option<SystemState>,
+    pub actions_out: Vec<Action>,
+    pub broadcasts_in: Vec<Broadcast>,
+    pub ui: UIState,
+    pub config: Config,
 }
 
 impl ClientState {
     pub fn new(config: Config) -> ClientState {
         ClientState {
-            status: Arc::new(Mutex::new(Status::Ready)),
-            system: Arc::new(Mutex::new(None)),
-            stream: Arc::new(Mutex::new(None)),
-            config: Arc::new(config),
+            status: Status::Ready,
+            system: None,
+            actions_out: Vec::new(),
+            broadcasts_in: Vec::new(),
+            ui: UIState::Initializing,
+            config,
         }
     }
 }

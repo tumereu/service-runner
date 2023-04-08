@@ -1,4 +1,7 @@
-use std::io::Result as IOResult;
+mod state;
+mod init;
+mod profile_select;
+
 use std::sync::{Arc, Mutex};
 
 use tui::backend::Backend;
@@ -10,26 +13,22 @@ use tui::widgets::{Block, Borders, List, ListItem};
 use shared::config::Config;
 
 use crate::ClientState;
+pub use state::UIState;
+use crate::ui::init::render_init;
+use crate::ui::profile_select::render_profile_select;
 
 pub fn render<B>(
     term: &mut Terminal<B>,
-    state: Arc<ClientState>,
-) -> IOResult<()>  where B : Backend {
+    state: Arc<Mutex<ClientState>>,
+) -> std::io::Result<()> where B : Backend {
     term.draw(|f| {
-        let size = f.size();
-        let status = state.status.lock().unwrap();
-        let num_services = state.config.services.len();
-
-        let block = Block::default()
-            .style(
-                Style::default()
-                    .bg(Color::Black)
-            ).title(format!("{status:?} {num_services}"))
-            .borders(Borders::ALL);
-        f.render_widget(block, size);
+        match state.lock().unwrap().ui {
+            UIState::Initializing => render_init(f, state.clone()),
+            UIState::ProfileSelect { .. } => render_profile_select(f, state.clone())
+        }
 
         let list = List::new(
-            state.config.services.iter()
+            state.lock().unwrap().config.services.iter()
                 .map(|service| {
                     ListItem::new(service.name().clone())
                 }).collect::<Vec<ListItem>>()

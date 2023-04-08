@@ -45,7 +45,7 @@ fn handle_connection(
 ) {
     thread::spawn(move || {
         while state.lock().unwrap().status != Status::Exiting {
-            let message: Action = stream.recv()?;
+            let message: Action = stream.receive()?;
             process_action(state.clone(), &mut stream, message)?;
         }
 

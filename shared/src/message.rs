@@ -30,21 +30,20 @@ pub trait Message {
     fn encode(&self) -> Vec<u8>;
     fn decode(bytes: &Vec<u8>) -> Self;
 }
-
-impl Message for Action {
+impl<M> Message for M where M : Serialize + for<'de> Deserialize<'de> {
     fn encode(&self) -> Vec<u8> {
         bincode::serialize(self).unwrap()
     }
 
     fn decode(bytes: &Vec<u8>) -> Self {
-        println!("Decoding bytes {bytes:?}");
         bincode::deserialize(bytes).unwrap()
     }
 }
 
 pub trait MessageTransmitter<E : Error> {
     fn send<M, R>(&mut self, msg: R) -> Result<(), E> where M : Message, R: AsRef<M>;
-    fn recv<M>(&mut self) -> Result<M, E> where M : Message;
+    fn receive<M>(&mut self) -> Result<M, E> where M : Message;
+    fn has_incoming(&self) -> Result<bool, E>;
 }
 
 impl MessageTransmitter<std::io::Error> for TcpStream {
@@ -59,7 +58,7 @@ impl MessageTransmitter<std::io::Error> for TcpStream {
         Ok(())
     }
 
-    fn recv<M>(&mut self) -> Result<M, std::io::Error> where M: Message {
+    fn receive<M>(&mut self) -> Result<M, std::io::Error> where M: Message {
         let mut len_bytes = [0 as u8; size_of::<u64>()];
         self.read_exact(&mut len_bytes)?;
 
@@ -69,5 +68,10 @@ impl MessageTransmitter<std::io::Error> for TcpStream {
         self.read(&mut msg_bytes)?;
 
         Ok(M::decode(&msg_bytes))
+    }
+
+    fn has_incoming(&self) -> Result<bool, std::io::Error> {
+        let mut len_bytes = [0 as u8; size_of::<u64>()];
+        Ok(self.peek(&mut len_bytes)? > 0)
     }
 }
