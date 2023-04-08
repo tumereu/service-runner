@@ -1,7 +1,3 @@
-mod state;
-mod init;
-mod profile_select;
-
 use std::sync::{Arc, Mutex};
 
 use tui::backend::Backend;
@@ -11,11 +7,15 @@ use tui::Terminal;
 use tui::widgets::{Block, Borders, List, ListItem};
 
 use shared::config::Config;
+pub use state::UIState;
 
 use crate::ClientState;
-pub use state::UIState;
 use crate::ui::init::render_init;
 use crate::ui::profile_select::render_profile_select;
+
+mod state;
+mod init;
+mod profile_select;
 
 pub fn render<B>(
     term: &mut Terminal<B>,

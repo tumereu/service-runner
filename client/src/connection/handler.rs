@@ -2,9 +2,11 @@ use std::net::{Shutdown, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
 use shared::config::Config;
 use shared::message::{Action, Broadcast, MessageTransmitter};
 use shared::system_state::SystemState;
+
 use crate::client_state::{ClientState, Status};
 
 pub fn handle_stream(

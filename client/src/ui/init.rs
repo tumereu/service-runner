@@ -1,6 +1,8 @@
 use std::sync::{Arc, Mutex};
-use tui::backend::Backend;
+
 use tui::{Frame, Terminal};
+use tui::backend::Backend;
+
 use crate::client_state::ClientState;
 
 pub fn render_init<B>(

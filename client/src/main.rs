@@ -13,11 +13,12 @@ use tui::{
     backend::CrosstermBackend,
     Terminal
 };
+
 use shared::config::{Config, read_config};
 use shared::message::{Action, MessageTransmitter};
 
 use crate::client_state::{ClientState, Status};
-use crate::connection::{connect_to_server};
+use crate::connection::connect_to_server;
 use crate::input::process_inputs;
 use crate::ui::render;
 
@@ -70,7 +71,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     terminal.show_cursor()?;
 
-    println!("Exiting app, waiting for communication thread to join");
     stream_thread.join().expect("Could not join the stream-handler")?;
 
     if let Some(error) = error_msg {

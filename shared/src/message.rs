@@ -2,6 +2,7 @@ use std::error::Error;
 use std::io::{Read, Write};
 use std::mem::size_of;
 use std::net::TcpStream;
+
 use serde::{Deserialize, Serialize};
 
 use crate::system_state::SystemState;
