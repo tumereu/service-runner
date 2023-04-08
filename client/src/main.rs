@@ -17,8 +17,8 @@ use tui::{
 use shared::config::{Config, read_config};
 use shared::message::{Action, MessageTransmitter};
 
-use crate::client_state::{ClientState, Status};
-use crate::connection::connect_to_server;
+use crate::client_state::{ClientState, ClientStatus};
+use crate::connection::{connect_to_server, start_broadcast_processor};
 use crate::input::process_inputs;
 use crate::ui::render;
 
@@ -49,13 +49,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut error_msg: Option<String> = None;
 
     render(&mut terminal, state.clone())?;
+    let broadcast_thread = start_broadcast_processor(state.clone());
     let stream_thread = connect_to_server(state.clone())?;
 
     loop {
         process_inputs(state.clone())?;
         render(&mut terminal, state.clone())?;
 
-        if state.lock().unwrap().status == Status::Exiting {
+        if state.lock().unwrap().status == ClientStatus::Exiting {
             break;
         } else {
             thread::sleep(Duration::from_millis(10));
@@ -73,6 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     terminal.show_cursor()?;
 
     stream_thread.join().expect("Could not join the stream-handler")?;
+    broadcast_thread.join().expect("Could not join the broadcast handler");
 
     if let Some(error) = error_msg {
         eprintln!("{error}")

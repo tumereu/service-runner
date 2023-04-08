@@ -5,7 +5,7 @@ use crossterm::event::{Event, KeyCode, poll as poll_events, read as read_event};
 
 use shared::config::Config;
 
-use crate::{ClientState, Status};
+use crate::{ClientState, ClientStatus};
 
 pub fn process_inputs(state: Arc<Mutex<ClientState>>) -> Result<(), String> {
     let config = state.lock().unwrap().config.clone();
@@ -17,7 +17,7 @@ pub fn process_inputs(state: Arc<Mutex<ClientState>>) -> Result<(), String> {
         if let Event::Key(key) = event {
             match key.code {
                 KeyCode::Esc => {
-                    state.lock().unwrap().status = Status::Exiting;
+                    state.lock().unwrap().status = ClientStatus::Exiting;
                 },
                 _ => {}
             }

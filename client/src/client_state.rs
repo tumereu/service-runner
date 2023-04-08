@@ -9,8 +9,8 @@ use shared::system_state::SystemState;
 use crate::ui::UIState;
 
 pub struct ClientState {
-    pub status: Status,
-    pub system: Option<SystemState>,
+    pub status: ClientStatus,
+    pub system_state: Option<SystemState>,
     pub actions_out: Vec<Action>,
     pub broadcasts_in: Vec<Broadcast>,
     pub ui: UIState,
@@ -20,8 +20,8 @@ pub struct ClientState {
 impl ClientState {
     pub fn new(config: Config) -> ClientState {
         ClientState {
-            status: Status::Ready,
-            system: None,
+            status: ClientStatus::Ready,
+            system_state: None,
             actions_out: Vec::new(),
             broadcasts_in: Vec::new(),
             ui: UIState::Initializing,
@@ -31,7 +31,7 @@ impl ClientState {
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub enum Status {
+pub enum ClientStatus {
     Ready,
     Exiting,
 }

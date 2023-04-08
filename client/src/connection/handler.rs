@@ -7,14 +7,14 @@ use shared::config::Config;
 use shared::message::{Action, Broadcast, MessageTransmitter};
 use shared::system_state::SystemState;
 
-use crate::client_state::{ClientState, Status};
+use crate::client_state::{ClientState, ClientStatus};
 
 pub fn handle_stream(
     mut stream: TcpStream,
     state: Arc<Mutex<ClientState>>
 ) -> thread::JoinHandle<std::io::Result<()>> {
     thread::spawn(move || {
-        while state.lock().unwrap().status != Status::Exiting {
+        while state.lock().unwrap().status != ClientStatus::Exiting {
             while stream.has_incoming(Duration::from_millis(10))? {
                 let incoming: Broadcast = stream.receive()?;
                 state.lock().unwrap().broadcasts_in.push(incoming);
