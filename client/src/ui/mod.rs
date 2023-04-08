@@ -16,6 +16,7 @@ use crate::ui::profile_select::render_profile_select;
 mod state;
 mod init;
 mod profile_select;
+mod widgets;
 
 pub fn render<B>(
     term: &mut Terminal<B>,

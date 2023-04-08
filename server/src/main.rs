@@ -1,9 +1,5 @@
 extern crate core;
 
-mod server_state;
-mod connection;
-mod action_processor;
-
 use std::{env, thread};
 use std::error::Error;
 use std::io::ErrorKind;
@@ -14,9 +10,14 @@ use std::time::Duration;
 use shared::config::{Config, read_config};
 use shared::message::{Action, Message, MessageTransmitter};
 use shared::system_state::{Status, SystemState};
+
 use crate::action_processor::start_action_processor;
 use crate::connection::run_server;
 use crate::server_state::ServerState;
+
+mod server_state;
+mod connection;
+mod action_processor;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let config_dir: String = env::args().collect::<Vec<String>>()

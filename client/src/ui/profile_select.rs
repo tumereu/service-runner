@@ -2,8 +2,10 @@ use std::sync::{Arc, Mutex};
 
 use tui::{Frame, Terminal};
 use tui::backend::Backend;
-use tui::layout::Rect;
-use tui::widgets::{List, ListItem};
+use tui::layout::{Direction, Layout, Rect};
+use tui::style::Style;
+use tui::text::Text;
+use tui::widgets::{Cell, List, ListItem, Row, Table};
 
 use crate::client_state::ClientState;
 

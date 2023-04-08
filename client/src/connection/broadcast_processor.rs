@@ -1,8 +1,10 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
 use shared::message::{Action, Broadcast};
-use shared::system_state::{SystemState};
+use shared::system_state::SystemState;
+
 use crate::client_state::{ClientState, ClientStatus};
 use crate::ui::UIState;
 

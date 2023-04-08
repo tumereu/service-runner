@@ -1,8 +1,10 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
 use shared::message::Action;
 use shared::system_state::{Status, SystemState};
+
 use crate::server_state::ServerState;
 
 pub fn start_action_processor(state: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {

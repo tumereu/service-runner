@@ -3,8 +3,10 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
 use shared::message::{Action, Broadcast, MessageTransmitter};
 use shared::system_state::Status;
+
 use crate::server_state::ServerState;
 
 pub fn run_server(port: u16, state: Arc<Mutex<ServerState>>) {
