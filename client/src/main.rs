@@ -48,6 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
     let mut error_msg: Option<String> = None;
 
+    render(&mut terminal, state.clone())?;
     let stream_thread = connect_to_server(state.clone())?;
 
     loop {

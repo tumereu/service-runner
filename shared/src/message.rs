@@ -2,6 +2,7 @@ use std::error::Error;
 use std::io::{Read, Write};
 use std::mem::size_of;
 use std::net::TcpStream;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -44,7 +45,7 @@ impl<M> Message for M where M : Serialize + for<'de> Deserialize<'de> {
 pub trait MessageTransmitter<E : Error> {
     fn send<M, R>(&mut self, msg: R) -> Result<(), E> where M : Message, R: AsRef<M>;
     fn receive<M>(&mut self) -> Result<M, E> where M : Message;
-    fn has_incoming(&self) -> Result<bool, E>;
+    fn has_incoming(&self, block_for: Duration) -> Result<bool, E>;
 }
 
 impl MessageTransmitter<std::io::Error> for TcpStream {
@@ -60,6 +61,8 @@ impl MessageTransmitter<std::io::Error> for TcpStream {
     }
 
     fn receive<M>(&mut self) -> Result<M, std::io::Error> where M: Message {
+        self.set_read_timeout(None)?;
+
         let mut len_bytes = [0 as u8; size_of::<u64>()];
         self.read_exact(&mut len_bytes)?;
 
@@ -71,8 +74,14 @@ impl MessageTransmitter<std::io::Error> for TcpStream {
         Ok(M::decode(&msg_bytes))
     }
 
-    fn has_incoming(&self) -> Result<bool, std::io::Error> {
+    fn has_incoming(&self, block_for: Duration) -> Result<bool, std::io::Error> {
         let mut len_bytes = [0 as u8; size_of::<u64>()];
-        Ok(self.peek(&mut len_bytes)? > 0)
+        self.set_read_timeout(Some(block_for))?;
+
+        if let Ok(num_read) = self.peek(&mut len_bytes) {
+            Ok(num_read > 0)
+        } else {
+            Ok(false)
+        }
     }
 }

@@ -1,5 +1,9 @@
 extern crate core;
 
+mod server_state;
+mod connection;
+mod action_processor;
+
 use std::{env, thread};
 use std::error::Error;
 use std::io::ErrorKind;
@@ -10,6 +14,9 @@ use std::time::Duration;
 use shared::config::{Config, read_config};
 use shared::message::{Action, Message, MessageTransmitter};
 use shared::system_state::{Status, SystemState};
+use crate::action_processor::start_action_processor;
+use crate::connection::run_server;
+use crate::server_state::ServerState;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let config_dir: String = env::args().collect::<Vec<String>>()
@@ -19,40 +26,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let config = Arc::new(read_config(&config_dir)?);
     let port = config.server.port;
-    let state = Arc::new(Mutex::new(SystemState::new()));
+    let state = Arc::new(Mutex::new(ServerState::new()));
 
-    let listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
-    listener.set_nonblocking(true).unwrap();
-
-    while state.lock().unwrap().status != Status::Exiting {
-        let stream = listener.accept();
-        match stream {
-            Ok((stream, _)) => handle_connection(stream, config.clone(), state.clone()),
-            Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
-                thread::sleep(Duration::from_millis(10))
-            }
-            Err(e) => panic!("Encountered an unexpected IO error {e}")
-        }
-    }
+    start_action_processor(state.clone());
+    run_server(port, state.clone());
 
     Ok(())
-}
-
-fn handle_connection(
-    mut stream: TcpStream,
-    _config: Arc<Config>,
-    state: Arc<Mutex<SystemState>>
-) {
-    thread::spawn(move || {
-        while state.lock().unwrap().status != Status::Exiting {
-            let message: Action = stream.receive()?;
-            process_action(state.clone(), &mut stream, message)?;
-        }
-
-        stream.shutdown(Shutdown::Both)?;
-
-        Ok::<(), std::io::Error>(())
-    });
 }
 
 fn process_action(

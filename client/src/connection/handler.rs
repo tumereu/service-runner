@@ -15,15 +15,13 @@ pub fn handle_stream(
 ) -> thread::JoinHandle<std::io::Result<()>> {
     thread::spawn(move || {
         while state.lock().unwrap().status != Status::Exiting {
-            while stream.has_incoming()? {
+            while stream.has_incoming(Duration::from_millis(10))? {
                 let incoming: Broadcast = stream.receive()?;
                 state.lock().unwrap().broadcasts_in.push(incoming);
             }
             while let Some(outgoing) = state.lock().unwrap().actions_out.pop() {
                 stream.send(outgoing)?;
             }
-
-            thread::sleep(Duration::from_millis(1))
         }
 
         if !state.lock().unwrap().config.server.daemon {
