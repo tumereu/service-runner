@@ -26,6 +26,13 @@ impl Size {
             min(self.height, other.height)
         ).into()
     }
+
+    pub fn empty() -> Size {
+        Size {
+            width: 0,
+            height: 0
+        }
+    }
 }
 
 impl<X : Into<u16>, Y : Into<u16>> From<(X, Y)> for Size {

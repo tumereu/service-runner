@@ -17,7 +17,7 @@ pub fn render_profile_select<B>(
 
     render_root(
         Flex::new(vec![
-           List::new().items(
+           List::new().simple_items(
                 state.config.profiles.iter().map(|prof| prof.name.clone()).collect()
            ).selection(*selected_idx)
                .into_flex()

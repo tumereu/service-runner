@@ -9,6 +9,12 @@ pub struct Text {
     text: String
 }
 impl Text {
+    pub fn new(text: String) -> Text {
+        Text {
+            text
+        }
+    }
+
     pub fn from(text: &str) -> Text {
         Text {
             text: text.to_string()

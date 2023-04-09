@@ -4,13 +4,12 @@ use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
-use tui::text::Text;
 use tui::widgets::{List as TuiList, ListItem as TuiListItem};
 
-use crate::ui::widgets::{Renderable, Size};
+use crate::ui::widgets::{Flex, FlexDir, IntoFlexElement, Renderable, Size, Styleable, Text};
 
 pub struct List {
-    items: Vec<String>,
+    items: Vec<Renderable>,
     selection: usize,
 }
 impl List {
@@ -21,7 +20,16 @@ impl List {
         }
     }
 
-    pub fn items(self, items: Vec<String>) -> Self {
+    pub fn simple_items(self, items: Vec<String>) -> Self {
+        List {
+            items: items.into_iter()
+                .map(|item| Text::new(item).into())
+                .collect(),
+            ..self
+        }
+    }
+
+    pub fn items(self, items: Vec<Renderable>) -> Self {
         List {
             items,
             ..self
@@ -36,33 +44,28 @@ impl List {
     }
 
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
-        let list = TuiList::new(
-            self.items.iter()
+        Flex::new(
+            self.items.into_iter()
                 .enumerate()
                 .map(|(index, item)| {
-                    TuiListItem::new(Text::from(item.clone()))
-                        .style(
-                            if self.selection == index {
-                                Style::default()
-                                    .bg(Color::Rgb(204, 153, 0))
-                            } else {
-                                Style::default()
-                            }
-                        )
-                }).collect::<Vec<TuiListItem>>()
-        );
-
-        frame.render_widget(list, rect);
+                    if self.selection == index {
+                        item.styling().bg(Color::Rgb(204, 153, 0)).into_flex()
+                    } else {
+                        item.into_flex()
+                    }
+                }).collect()
+        ).direction(FlexDir::Column).render(rect, frame);
     }
 
     pub fn measure(&self) -> Size {
-        (
-            self.items.iter()
-                .map(|item| item.len() as u16)
-                .reduce(|a, b| max(a, b))
-                .unwrap_or(0),
-            self.items.len() as u16
-        ).into()
+        self.items.iter()
+            .map(|item| item.measure())
+            .reduce(|a, b| {
+                (
+                    max(a.width, b.width),
+                    a.height + b.height
+                ).into()
+            }).unwrap_or(Size::empty()).into()
     }
 }
 
