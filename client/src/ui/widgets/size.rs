@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::fmt::Debug;
+
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
