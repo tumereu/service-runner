@@ -11,8 +11,8 @@ pub fn render_view_profile<B>(
     state: &ClientState,
 ) where B : Backend {
     match &state.ui {
-        UIState::ViewProfile { } => {},
-        any @ _ => panic!("Invalid UI state in render_profile_select: {any:?}")
+        UIState::ViewProfile { .. } => {},
+        any @ _ => panic!("Invalid UI state in render_view_profile: {any:?}")
     };
 
     let profile = state.system_state.as_ref().map(|it| it.current_profile.as_ref()).flatten();
