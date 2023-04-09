@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use std::error::Error;
+
 use Vec;
 use serde::Deserialize;
 use serde_aux::field_attributes::bool_true;
 
-use walkdir::WalkDir;
+
 
 #[derive(Debug, Clone)]
 pub struct Config {

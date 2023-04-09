@@ -1,5 +1,5 @@
 use std::{env, error::Error, io::stdout, thread, time::Duration};
-use std::fmt::format;
+
 
 
 use std::sync::{Arc, Mutex};
