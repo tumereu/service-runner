@@ -1,17 +1,16 @@
-use std::cmp::min;
+use std::cmp::{max, min};
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 
-use crate::ui::widgets::{Measured, Renderable, Size};
-use crate::ui::widgets::FlexSize::Wrap;
+use crate::ui::widgets::{Renderable, Size};
 
-pub struct Flex<B: Backend> {
-    pub children: Vec<FlexElement<B>>,
+pub struct Flex {
+    pub children: Vec<FlexElement>,
     pub direction: FlexDir
 }
-impl<B: Backend> Renderable<B> for Flex<B> {
-    fn render(self, rect: Rect, frame: &mut Frame<B>) {
+impl Flex {
+    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         let mut free_space = if self.direction == FlexDir::Column {
             rect.height
         } else {
@@ -25,15 +24,15 @@ impl<B: Backend> Renderable<B> for Flex<B> {
             } else {
                 &element.size_horiz
             };
-
+            let measured_size = element.renderable.measure();
 
             free_space = free_space.saturating_sub(
                 match size {
                     FlexSize::Wrap => {
                         if self.direction == FlexDir::Column {
-                            element.element.size.height
+                            measured_size.height
                         } else {
-                            element.element.size.width
+                            measured_size.width
                         }
                     },
                     FlexSize::Fixed(size) => *size,
@@ -50,25 +49,29 @@ impl<B: Backend> Renderable<B> for Flex<B> {
         let mut current_pos = 0;
 
         for child in self.children {
-            let layout_width = match child.size_horiz {
-                _ if self.direction == FlexDir::Column => rect.width,
-                FlexSize::Wrap => child.element.size.width,
-                FlexSize::Fixed(size) => size,
-                FlexSize::Grow => grow_size,
-            };
-            let layout_height = match child.size_vert {
-                _ if self.direction == FlexDir::Row => rect.height,
-                FlexSize::Wrap => child.element.size.height,
-                FlexSize::Fixed(size) => size,
-                FlexSize::Grow => grow_size,
-            };
+            let measured_size = child.renderable.measure();
+            let layout_size: Size = (
+                match child.size_horiz {
+                    _ if self.direction == FlexDir::Column => rect.width,
+                    FlexSize::Wrap => measured_size.width,
+                    FlexSize::Fixed(size) => size,
+                    FlexSize::Grow => grow_size,
+                },
+                match child.size_vert {
+                    _ if self.direction == FlexDir::Row => rect.height,
+                    FlexSize::Wrap => measured_size.height,
+                    FlexSize::Fixed(size) => size,
+                    FlexSize::Grow => grow_size,
+                }
+            ).into();
+            let actual_size = measured_size.intersect(&layout_size);
 
             let (x, y) = if self.direction == FlexDir::Column {
                 (
                     match child.align_horiz {
                         FlexAlign::Start => 0,
-                        FlexAlign::End => layout_width - child.element.size.width,
-                        FlexAlign::Center => (layout_width - child.element.size.width) / 2
+                        FlexAlign::End => layout_size.width - actual_size.width,
+                        FlexAlign::Center => (layout_size.width - actual_size.width) / 2
                     },
                     current_pos
                 )
@@ -77,38 +80,58 @@ impl<B: Backend> Renderable<B> for Flex<B> {
                     current_pos,
                     match child.align_vert {
                         FlexAlign::Start => 0,
-                        FlexAlign::End => layout_height - child.element.size.height,
-                        FlexAlign::Center => (layout_height - child.element.size.height) / 2
+                        FlexAlign::End => layout_size.height - actual_size.height,
+                        FlexAlign::Center => (layout_size.height - actual_size.height) / 2
                     },
                 )
             };
 
-            child.element.widget.render(
+            child.renderable.render(
                 Rect::new(
                     x,
                     y,
-                    min(layout_width, child.element.size.width),
-                    min(layout_height, child.element.size.height)
+                    actual_size.width,
+                    actual_size.height
                 ),
                 frame
             );
         }
     }
+
+    pub fn measure(&self) -> Size {
+        let mut width: u16 = 0;
+        let mut height: u16 = 0;
+
+        for child in &self.children {
+            let child_size = child.renderable.measure();
+
+            // TODO what about grow-elements?
+            if self.direction == FlexDir::Column {
+                width = max(width, child_size.width);
+                height += child_size.height;
+            } else {
+                width += child_size.width;
+                height = max(height, child_size.height);
+            }
+        }
+
+        (width, height).into()
+    }
 }
 
-pub struct FlexElement<B: Backend> {
-    pub element: Measured<B>,
+pub struct FlexElement {
+    pub renderable: Renderable,
     pub size_horiz: FlexSize,
     pub size_vert: FlexSize,
     pub align_horiz: FlexAlign,
     pub align_vert: FlexAlign
 }
-impl<B: Backend> FlexElement<B> {
-    fn from(element: Measured<B>) -> Self {
+impl FlexElement {
+    fn from(element: Renderable) -> Self {
         FlexElement {
-            element,
-            size_horiz: Wrap,
-            size_vert: Wrap,
+            renderable: element,
+            size_horiz: FlexSize::Wrap,
+            size_vert: FlexSize::Wrap,
             align_horiz: FlexAlign::Center,
             align_vert: FlexAlign::Center
         }
