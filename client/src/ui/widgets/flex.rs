@@ -67,7 +67,7 @@ impl Flex {
             );
         }
 
-        // TODO off-by-one errors?
+        // TODO off-by-one errors? fix by moving inside loop and multiply by index or something?
         let grow_size = free_space / max(1, num_grows);
         let padding = if num_grows == 0 {
             free_space / min(1, self.children.len() as u16)

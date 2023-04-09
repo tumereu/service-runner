@@ -36,7 +36,7 @@ pub enum Service {
 impl Service {
     pub fn name(&self) -> &String {
         match self {
-            Service::Compilable { name, dir: _, compile: _, run: _, reset: _ } => &name,
+            Service::Compilable { name, .. } => &name,
         }
     }
 }

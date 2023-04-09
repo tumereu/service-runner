@@ -29,7 +29,7 @@ pub fn render_profile_select<B>(
                         align_horiz: FlexAlign::Center,
                         ..FlexElement::from(
                             List::new().items(
-                                state.config.services.iter().map(|serv| serv.name().clone()).collect()
+                                state.config.profiles.iter().map(|prof| prof.name.clone()).collect()
                             ).selection(*selected_idx)
                         )
                     }
