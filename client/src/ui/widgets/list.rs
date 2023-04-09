@@ -10,8 +10,8 @@ use tui::widgets::{List as TuiList, ListItem as TuiListItem};
 use crate::ui::widgets::{Renderable, Size};
 
 pub struct List {
-    pub items: Vec<String>,
-    pub selection: usize,
+    items: Vec<String>,
+    selection: usize,
 }
 impl List {
     pub fn new() -> List {
@@ -44,12 +44,9 @@ impl List {
                         .style(
                             if self.selection == index {
                                 Style::default()
-                                    .bg(Color::White)
-                                    .fg(Color::Black)
+                                    .bg(Color::Rgb(204, 153, 0))
                             } else {
                                 Style::default()
-                                    .bg(Color::Black)
-                                    .fg(Color::White)
                             }
                         )
                 }).collect::<Vec<TuiListItem>>()

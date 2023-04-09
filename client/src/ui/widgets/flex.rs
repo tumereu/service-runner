@@ -3,24 +3,28 @@ use std::cmp::{max, min};
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
+use tui::style::{Color, Style};
+use tui::widgets::Block;
 
 use crate::ui::widgets::{Renderable, Size};
 
 pub struct Flex {
-    pub children: Vec<FlexElement>,
-    pub direction: FlexDir
+    children: Vec<FlexElement>,
+    bg: Option<Color>,
+    direction: FlexDir
 }
 impl Flex {
-    pub fn new() -> Flex {
+    pub fn new(children: Vec<FlexElement>) -> Flex {
         Flex {
-            children: Vec::new(),
+            children,
+            bg: None,
             direction: FlexDir::Column
         }
     }
 
-    pub fn children(self, children: Vec<FlexElement>) -> Self {
+    pub fn bg(self, bg: Color) -> Self {
         Flex {
-            children,
+            bg: Some(bg),
             ..self
         }
     }
@@ -75,6 +79,14 @@ impl Flex {
         };
         let mut current_pos = 0;
 
+        // Render background color
+        if let Some(color) = self.bg {
+            frame.render_widget(
+                Block::default().style(Style::default().bg(color)),
+                rect
+            );
+        }
+
         for child in self.children {
             let measured_size = child.renderable.measure();
             let size_in_layout: Size = (
@@ -99,7 +111,26 @@ impl Flex {
                 }
             );
 
-            let actual_size = measured_size.intersect(size_in_layout);
+            let actual_size: Size = (
+                match child.size_horiz {
+                    FlexSize::Wrap => measured_size.width,
+                    FlexSize::Fixed(size) => size,
+                    FlexSize::Grow => match self.direction {
+                        FlexDir::Column => rect.width,
+                        FlexDir::Row => grow_size
+                    },
+                },
+                match child.size_vert {
+                    FlexSize::Wrap => measured_size.height,
+                    FlexSize::Fixed(size) => size,
+                    FlexSize::Grow => match self.direction {
+                        FlexDir::Column => grow_size,
+                        FlexDir::Row => rect.height
+                    },
+                },
+            ).into();
+            // Clamp the actual size to a maximum of the size in layout
+            let actual_size = actual_size.intersect(size_in_layout);
 
             let (x, y) = if self.direction == FlexDir::Column {
                 (
@@ -138,8 +169,8 @@ impl Flex {
 
             child.renderable.render(
                 Rect::new(
-                    x,
-                    y,
+                    rect.x + x,
+                    rect.y + y,
                     actual_size.width,
                     actual_size.height
                 ),
@@ -170,23 +201,13 @@ impl Flex {
 }
 
 pub struct FlexElement {
-    pub renderable: Renderable,
-    pub size_horiz: FlexSize,
-    pub size_vert: FlexSize,
-    pub align_horiz: FlexAlign,
-    pub align_vert: FlexAlign
+    renderable: Renderable,
+    size_horiz: FlexSize,
+    size_vert: FlexSize,
+    align_horiz: FlexAlign,
+    align_vert: FlexAlign
 }
 impl FlexElement {
-    pub fn from<R>(element: R) -> Self where R: Into<Renderable> {
-        FlexElement {
-            renderable: element.into(),
-            size_horiz: FlexSize::Wrap,
-            size_vert: FlexSize::Wrap,
-            align_horiz: FlexAlign::Center,
-            align_vert: FlexAlign::Center
-        }
-    }
-
     pub fn size_horiz(self, size_horiz: FlexSize) -> Self {
         FlexElement {
             size_horiz,
@@ -212,6 +233,22 @@ impl FlexElement {
         FlexElement {
             align_vert,
             ..self
+        }
+    }
+}
+
+pub trait IntoFlexElement {
+    fn into_flex(self) -> FlexElement;
+}
+
+impl<R : Into<Renderable>> IntoFlexElement for R {
+    fn into_flex(self) -> FlexElement {
+        FlexElement {
+            renderable: self.into(),
+            size_horiz: FlexSize::Wrap,
+            size_vert: FlexSize::Wrap,
+            align_horiz: FlexAlign::Start,
+            align_vert: FlexAlign::Start
         }
     }
 }

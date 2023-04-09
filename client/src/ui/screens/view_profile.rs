@@ -1,9 +1,10 @@
 use tui::backend::Backend;
 use tui::Frame;
+use tui::style::Color;
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{Flex, FlexAlign, FlexElement, List, render_root};
+use crate::ui::widgets::{Flex, FlexAlign, FlexElement, FlexSize, List, render_root, Text, IntoFlexElement};
 
 pub fn render_view_profile<B>(
     frame: &mut Frame<B>,
@@ -14,19 +15,21 @@ pub fn render_view_profile<B>(
         any @ _ => panic!("Invalid UI state in render_profile_select: {any:?}")
     };
 
-    render_root(
-        Flex::new()
-            .children(
-                vec![
-                    FlexElement {
-                        align_vert: FlexAlign::Center,
-                        align_horiz: FlexAlign::Center,
-                        ..FlexElement::from(
-                            List::new().items(vec![String::from("WOW")])
-                        )
-                    }
-                ]
-            ),
-        frame
-    );
+    let profile = state.system_state.as_ref().map(|it| it.current_profile.as_ref()).flatten();
+
+    if let Some(profile) = profile {
+        render_root(
+            Flex::new(vec![
+                Flex::new(vec![
+                    Text::from(&profile.name)
+                        .into_flex()
+                ]).bg(Color::Green)
+                    .into_flex()
+                    .align_vert(FlexAlign::Start)
+                    .size_horiz(FlexSize::Grow)
+                    .size_vert(FlexSize::Fixed(1)),
+            ]),
+            frame
+        );
+    }
 }

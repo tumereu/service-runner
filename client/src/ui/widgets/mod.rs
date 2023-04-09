@@ -6,9 +6,11 @@ use tui::layout::Rect;
 
 pub use flex::*;
 pub use list::*;
+pub use text::*;
 
 mod flex;
 mod list;
+mod text;
 
 #[derive(Clone, Copy)]
 pub struct Size {
@@ -39,20 +41,23 @@ pub fn render_root<B, R>(root: R, frame: &mut Frame<B>) where B : Backend, R: In
 
 pub enum Renderable {
     Flex(Flex),
-    List(List)
+    List(List),
+    Text(Text),
 }
 impl Renderable {
     fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         match self {
             Renderable::Flex(flex) => flex.render(rect, frame),
-            Renderable::List(list)  => list.render(rect, frame)
+            Renderable::List(list) => list.render(rect, frame),
+            Renderable::Text(text) => text.render(rect, frame),
         }
     }
 
     fn measure(&self) -> Size {
         match self {
             Renderable::Flex(flex) => flex.measure(),
-            Renderable::List(list) => list.measure()
+            Renderable::List(list) => list.measure(),
+            Renderable::Text(text) => text.measure(),
         }
     }
 }
