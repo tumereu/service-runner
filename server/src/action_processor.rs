@@ -3,6 +3,7 @@ use std::thread;
 use std::time::Duration;
 
 use shared::message::{Action, Broadcast};
+use shared::message::models::ServiceStatus;
 use shared::system_state::Status;
 
 use crate::server_state::ServerState;
@@ -31,6 +32,10 @@ fn process_action(
             state.system_state.status = Status::Exiting;
         }
         Action::ActivateProfile(profile) => {
+            state.system_state.service_statuses = profile.services.iter()
+                .map(|service| {
+                    (service.name().clone(), ServiceStatus::from(&profile, service))
+                }).collect();
             state.system_state.current_profile = Some(profile);
             broadcast_state(state);
         }

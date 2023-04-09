@@ -23,7 +23,7 @@ pub fn render_view_profile<B>(
                 Flex::new(vec![
                     Text::from(&profile.name)
                         .into_flex()
-                ]).bg(Color::Green)
+                ]).styling().bg(Color::Green)
                     .into_flex()
                     .align_vert(FlexAlign::Start)
                     .size_horiz(FlexSize::Grow)

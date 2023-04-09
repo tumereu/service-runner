@@ -15,7 +15,7 @@ impl Text {
         }
     }
 
-    pub fn render<B>(&self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         frame.render_widget(
             Paragraph::new(TuiText::from(self.text.clone())),
             rect

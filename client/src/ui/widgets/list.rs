@@ -35,7 +35,7 @@ impl List {
         }
     }
 
-    pub fn render<B>(&self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         let list = TuiList::new(
             self.items.iter()
                 .enumerate()

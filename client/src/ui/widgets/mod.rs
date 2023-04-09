@@ -48,7 +48,7 @@ pub enum Renderable {
     Styled(Styled),
 }
 impl Renderable {
-    fn render<B>(&self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+    fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         match self {
             Renderable::Flex(flex) => flex.render(rect, frame),
             Renderable::List(list) => list.render(rect, frame),

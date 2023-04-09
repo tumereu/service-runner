@@ -92,3 +92,19 @@ impl Profile {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ServiceStatus {
+    pub should_run: bool,
+    pub is_compiling: bool,
+    pub is_running: bool
+}
+impl ServiceStatus {
+    pub fn from(profile: &Profile, service: &Service) -> ServiceStatus {
+        ServiceStatus {
+            should_run: true,
+            is_compiling: false,
+            is_running: false
+        }
+    }
+}

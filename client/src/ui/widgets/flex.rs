@@ -27,7 +27,7 @@ impl Flex {
         }
     }
 
-    pub fn render<B>(&self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         let mut free_space = if self.direction == FlexDir::Column {
             rect.height
         } else {
@@ -70,7 +70,7 @@ impl Flex {
         };
         let mut current_pos = 0;
 
-        for child in &self.children {
+        for child in self.children {
             let measured_size = child.renderable.measure();
             let size_in_layout: Size = (
                 match child.size_horiz {
