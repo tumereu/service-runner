@@ -10,22 +10,13 @@ use crate::ui::widgets::{Renderable, Size};
 
 pub struct Flex {
     children: Vec<FlexElement>,
-    bg: Option<Color>,
     direction: FlexDir
 }
 impl Flex {
     pub fn new(children: Vec<FlexElement>) -> Flex {
         Flex {
             children,
-            bg: None,
             direction: FlexDir::Column
-        }
-    }
-
-    pub fn bg(self, bg: Color) -> Self {
-        Flex {
-            bg: Some(bg),
-            ..self
         }
     }
 
@@ -36,7 +27,7 @@ impl Flex {
         }
     }
 
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+    pub fn render<B>(&self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         let mut free_space = if self.direction == FlexDir::Column {
             rect.height
         } else {
@@ -79,15 +70,7 @@ impl Flex {
         };
         let mut current_pos = 0;
 
-        // Render background color
-        if let Some(color) = self.bg {
-            frame.render_widget(
-                Block::default().style(Style::default().bg(color)),
-                rect
-            );
-        }
-
-        for child in self.children {
+        for child in &self.children {
             let measured_size = child.renderable.measure();
             let size_in_layout: Size = (
                 match child.size_horiz {

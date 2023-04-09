@@ -4,7 +4,7 @@ use tui::style::Color;
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{Flex, FlexAlign, FlexElement, FlexSize, List, render_root, Text, IntoFlexElement};
+use crate::ui::widgets::{Flex, FlexAlign, FlexElement, FlexSize, List, render_root, Text, IntoFlexElement, Styleable};
 
 pub fn render_view_profile<B>(
     frame: &mut Frame<B>,
