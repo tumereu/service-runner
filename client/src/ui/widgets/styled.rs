@@ -11,6 +11,7 @@ pub struct Styled {
     padding_right: u16,
     padding_top: u16,
     padding_bottom: u16,
+    align: Align,
     child: Box<Renderable>
 }
 impl Styled {
@@ -22,11 +23,38 @@ impl Styled {
             );
         }
 
+        let size = self.measure();
+
+        // TODO padding is not correct in all use cases
+        let x = match self.align {
+            Align::TopLeft | Align::CenterLeft | Align::BottomLeft => {
+                rect.x + self.padding_left
+            },
+            Align::TopCenter | Align::Center | Align::BottomCenter => {
+                rect.x + (rect.width - size.width) / 2
+            },
+            Align::TopRight | Align::CenterRight | Align::BottomRight => {
+                rect.x + rect.width - size.width - self.padding_right
+            }
+        };
+
+        let y = match self.align {
+            Align::TopLeft | Align::TopCenter | Align::TopRight => {
+                rect.y + self.padding_top
+            },
+            Align::CenterLeft | Align::Center | Align::CenterRight => {
+                rect.y + (rect.height - size.height) / 2
+            },
+            Align::BottomLeft | Align::BottomCenter | Align::BottomRight => {
+                rect.y + rect.height - size.height - self.padding_bottom
+            }
+        };
+
         let child_rect = Rect {
-            x: rect.x + self.padding_left,
-            y: rect.y + self.padding_top,
-            width: rect.width - self.padding_left - self.padding_right,
-            height: rect.height - self.padding_top - self.padding_top
+            x,
+            y,
+            width: size.width - self.padding_left - self.padding_right,
+            height: size.height - self.padding_top - self.padding_bottom
         };
 
         self.child.render(child_rect, frame);
@@ -48,7 +76,8 @@ impl Styled {
             padding_left: 0,
             padding_right: 0,
             padding_top: 0,
-            padding_bottom: 0
+            padding_bottom: 0,
+            align: Align::TopLeft
         }
     }
 
@@ -86,6 +115,19 @@ impl Styled {
             ..self
         }
     }
+
+    pub fn align(self, align: Align) -> Styled {
+        Styled {
+            align,
+            ..self
+        }
+    }
+}
+
+pub enum Align {
+    TopLeft, TopCenter, TopRight,
+    CenterLeft, Center, CenterRight,
+    BottomLeft, BottomCenter, BottomRight
 }
 
 pub trait Styleable {

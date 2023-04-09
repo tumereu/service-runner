@@ -4,7 +4,7 @@ use tui::style::Color;
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{Flex, FlexAlign, FlexElement, IntoFlexElement, List, render_root};
+use crate::ui::widgets::{Align, Flex, FlexElement, FlexSize, IntoFlexElement, List, render_root, Styleable};
 
 pub fn render_profile_select<B>(
     frame: &mut Frame<B>,
@@ -20,9 +20,10 @@ pub fn render_profile_select<B>(
            List::new().simple_items(
                 state.config.profiles.iter().map(|prof| prof.name.clone()).collect()
            ).selection(*selected_idx)
+               .styling()
+               .align(Align::Center)
                .into_flex()
-               .align_vert(FlexAlign::Center)
-               .align_horiz(FlexAlign::Center),
+               .grow_both()
         ]),
         frame
     );

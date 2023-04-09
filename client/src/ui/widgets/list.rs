@@ -6,7 +6,7 @@ use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::widgets::{List as TuiList, ListItem as TuiListItem};
 
-use crate::ui::widgets::{Flex, FlexDir, IntoFlexElement, Renderable, Size, Styleable, Text};
+use crate::ui::widgets::{Flex, FlexDir, FlexElement, FlexSize, IntoFlexElement, Renderable, Size, Styleable, Text};
 
 pub struct List {
     items: Vec<Renderable>,
@@ -44,17 +44,19 @@ impl List {
     }
 
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
-        Flex::new(
-            self.items.into_iter()
-                .enumerate()
-                .map(|(index, item)| {
-                    if self.selection == index {
-                        item.styling().bg(Color::Rgb(204, 153, 0)).into_flex()
-                    } else {
-                        item.into_flex()
-                    }
-                }).collect()
-        ).direction(FlexDir::Column).render(rect, frame);
+        let mut items: Vec<FlexElement> = self.items.into_iter()
+            .enumerate()
+            .map(|(index, item)| {
+                if self.selection == index {
+                    item.styling().bg(Color::Blue).into()
+                } else {
+                    item
+                }.into_flex().grow_horiz()
+            }).collect();
+
+        Flex::new(items)
+            .direction(FlexDir::UpDown)
+            .render(rect, frame);
     }
 
     pub fn measure(&self) -> Size {
