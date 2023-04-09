@@ -6,6 +6,7 @@ use crossterm::event::{Event, KeyCode, poll as poll_events, read as read_event};
 
 use shared::config::{Service};
 use shared::message::Action;
+use shared::message::models::Profile;
 
 use crate::{ClientState, ClientStatus};
 use crate::ui::UIState;
@@ -62,17 +63,13 @@ fn process_select(state: Arc<Mutex<ClientState>>) {
         UIState::ProfileSelect { selected_idx } => {
             let selection = state.config.profiles.get(selected_idx);
 
-            if let Some(profile) = selection {
-                let profile = profile.clone();
-                let services: Vec<Service> = state.config.services.iter()
-                    .filter(|service| profile.includes(service))
-                    .map(|service| service.clone())
-                    .collect();
 
-                state.actions_out.push(Action::ActivateProfile {
+            if let Some(profile) = selection {
+                let action = Action::ActivateProfile(Profile::new(
                     profile,
-                    services
-                });
+                    &state.config.services
+                ));
+                state.actions_out.push(action);
             }
         }
         UIState::ViewProfile { .. } => {

@@ -1,48 +1,9 @@
-use std::error::Error;
-use std::io::{Read, Write};
 use std::mem::size_of;
 use std::net::TcpStream;
 use std::time::Duration;
-
-use serde::{Deserialize, Serialize};
-use crate::config_parsing::{Profile, Service};
-
-use crate::system_state::SystemState;
-
-#[derive(Serialize, Deserialize)]
-pub enum Action {
-    Shutdown,
-    ActivateProfile { profile: Profile, services: Vec<Service> }
-}
-impl AsRef<Action> for Action {
-    fn as_ref(&self) -> &Action {
-        self
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum Broadcast {
-    State(SystemState)
-}
-impl AsRef<Broadcast> for Broadcast {
-    fn as_ref(&self) -> &Broadcast {
-        self
-    }
-}
-
-pub trait Message {
-    fn encode(&self) -> Vec<u8>;
-    fn decode(bytes: &Vec<u8>) -> Self;
-}
-impl<M> Message for M where M : Serialize + for<'de> Deserialize<'de> {
-    fn encode(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
-    }
-
-    fn decode(bytes: &Vec<u8>) -> Self {
-        bincode::deserialize(bytes).unwrap()
-    }
-}
+use std::io::{Read, Write};
+use crate::message::Message;
+use std::error::Error;
 
 pub trait MessageTransmitter<E : Error> {
     fn send<M, R>(&mut self, msg: R) -> Result<(), E> where M : Message, R: AsRef<M>;

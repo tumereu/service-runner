@@ -1,17 +1,16 @@
+use std::collections::HashMap;
 use std::error::Error;
+use std::fs::read_to_string;
+use std::path::Path;
 use Vec;
 
+use serde::Deserialize;
 use walkdir::WalkDir;
+use crate::config::models::{Config, Profile, ServerConfig, Service};
 
-use crate::config_parsing::{read_main_config, read_profile, read_service};
-pub use crate::config_parsing::{ServerConfig, Profile, Service};
-
-#[derive(Debug, Clone)]
-pub struct Config {
-    pub server: ServerConfig,
-    pub conf_dir: String,
-    pub services: Vec<Service>,
-    pub profiles: Vec<Profile>,
+#[derive(Deserialize, Debug)]
+pub struct MainConfig {
+    pub server: ServerConfig
 }
 
 pub fn read_config(dir: &str) -> Result<Config, Box<dyn Error>> {
@@ -38,6 +37,15 @@ pub fn read_config(dir: &str) -> Result<Config, Box<dyn Error>> {
     })
 }
 
-fn default_server_executable() -> String {
-    return String::from("./server")
+
+pub fn read_main_config(path: &str) -> Result<MainConfig, Box<dyn Error>> {
+    Ok(toml::from_str(&read_to_string(path)?)?)
+}
+
+pub fn read_service(path: &Path) -> Result<Service, Box<dyn Error>> {
+    Ok(toml::from_str(&read_to_string(path)?)?)
+}
+
+pub fn read_profile(path: &Path) -> Result<Profile, Box<dyn Error>> {
+    Ok(toml::from_str(&read_to_string(path)?)?)
 }

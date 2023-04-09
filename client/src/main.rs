@@ -1,4 +1,5 @@
 use std::{env, error::Error, io::stdout, thread, time::Duration};
+use std::fmt::format;
 
 
 use std::sync::{Arc, Mutex};
@@ -46,7 +47,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let error_msg: Option<String> = None;
 
     render(&mut terminal, state.clone())?;
     let broadcast_thread = start_broadcast_processor(state.clone());
@@ -75,10 +75,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     stream_thread.join().expect("Could not join the stream-handler")?;
     broadcast_thread.join().expect("Could not join the broadcast handler");
-
-    if let Some(error) = error_msg {
-        eprintln!("{error}")
-    }
 
     Ok(())
 }

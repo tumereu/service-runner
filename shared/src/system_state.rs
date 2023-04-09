@@ -1,11 +1,11 @@
 
 use serde::{Deserialize, Serialize};
-use crate::config_parsing::{Profile, Service};
+use crate::message::models::{Profile};
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct SystemState {
     pub status: Status,
-    pub current_profile: Option<(Profile, Vec<Service>)>,
+    pub current_profile: Option<Profile>,
 
 }
 impl SystemState {

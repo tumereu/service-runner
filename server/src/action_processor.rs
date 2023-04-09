@@ -30,8 +30,8 @@ fn process_action(
         Action::Shutdown => {
             state.system_state.status = Status::Exiting;
         }
-        Action::ActivateProfile { profile, services } => {
-            state.system_state.current_profile = Some((profile, services));
+        Action::ActivateProfile(profile) => {
+            state.system_state.current_profile = Some(profile);
             broadcast_state(state);
         }
     }
