@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::ops::Deref;
 
 use tui::backend::Backend;
 use tui::Frame;
@@ -11,6 +12,27 @@ pub struct Flex {
     pub direction: FlexDir
 }
 impl Flex {
+    pub fn new() -> Flex {
+        Flex {
+            children: Vec::new(),
+            direction: FlexDir::Column
+        }
+    }
+
+    pub fn children(self, children: Vec<FlexElement>) -> Self {
+        Flex {
+            children,
+            ..self
+        }
+    }
+
+    pub fn direction(self, direction: FlexDir) -> Self {
+        Flex {
+            direction,
+            ..self
+        }
+    }
+
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         let mut free_space = if self.direction == FlexDir::Column {
             rect.height
@@ -46,12 +68,12 @@ impl Flex {
         }
 
         // TODO off-by-one errors?
-        let grow_size = free_space / num_grows;
+        let grow_size = free_space / max(1, num_grows);
         let mut current_pos = 0;
 
         for child in self.children {
             let measured_size = child.renderable.measure();
-            let layout_size: Size = (
+            let size_in_layout: Size = (
                 match child.size_horiz {
                     _ if self.direction == FlexDir::Column => rect.width,
                     FlexSize::Wrap => measured_size.width,
@@ -65,14 +87,18 @@ impl Flex {
                     FlexSize::Grow => grow_size,
                 }
             ).into();
-            let actual_size = measured_size.intersect(&layout_size);
+
+            // Clamp the size to the smallest of: measured size, size in layout, entire layout size
+            let actual_size = Size::from((rect.width, rect.height)).intersect(
+                &measured_size.intersect(&size_in_layout)
+            );
 
             let (x, y) = if self.direction == FlexDir::Column {
                 (
                     match child.align_horiz {
                         FlexAlign::Start => 0,
-                        FlexAlign::End => layout_size.width - actual_size.width,
-                        FlexAlign::Center => (layout_size.width - actual_size.width) / 2
+                        FlexAlign::End => rect.width - actual_size.width,
+                        FlexAlign::Center => (rect.width - actual_size.width) / 2
                     },
                     current_pos
                 )
@@ -81,8 +107,8 @@ impl Flex {
                     current_pos,
                     match child.align_vert {
                         FlexAlign::Start => 0,
-                        FlexAlign::End => layout_size.height - actual_size.height,
-                        FlexAlign::Center => (layout_size.height - actual_size.height) / 2
+                        FlexAlign::End => rect.height - actual_size.height,
+                        FlexAlign::Center => (rect.height - actual_size.height) / 2
                     },
                 )
             };
@@ -128,13 +154,41 @@ pub struct FlexElement {
     pub align_vert: FlexAlign
 }
 impl FlexElement {
-    fn from(element: Renderable) -> Self {
+    pub fn from<R>(element: R) -> Self where R: Into<Renderable> {
         FlexElement {
-            renderable: element,
+            renderable: element.into(),
             size_horiz: FlexSize::Wrap,
             size_vert: FlexSize::Wrap,
             align_horiz: FlexAlign::Center,
             align_vert: FlexAlign::Center
+        }
+    }
+
+    pub fn size_horiz(self, size_horiz: FlexSize) -> Self {
+        FlexElement {
+            size_horiz,
+            ..self
+        }
+    }
+
+    pub fn size_vert(self, size_vert: FlexSize) -> Self {
+        FlexElement {
+            size_vert,
+            ..self
+        }
+    }
+
+    pub fn align_horiz(self, align_horiz: FlexAlign) -> Self {
+        FlexElement {
+            align_horiz,
+            ..self
+        }
+    }
+
+    pub fn align_vert(self, align_vert: FlexAlign) -> Self {
+        FlexElement {
+            align_vert,
+            ..self
         }
     }
 }
@@ -157,4 +211,10 @@ pub enum FlexAlign {
 pub enum FlexDir {
     Row,
     Column
+}
+
+impl From<Flex> for Renderable {
+    fn from(value: Flex) -> Self {
+        Renderable::Flex(value)
+    }
 }

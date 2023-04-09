@@ -25,7 +25,7 @@ pub fn render<B>(
     term.draw(|f| {
         {
             let state = state.lock().unwrap();
-            match state.ui {
+            match &state.ui {
                 UIState::Initializing => render_init(f, &state),
                 UIState::ProfileSelect { .. } => render_profile_select(f, &state)
             }
