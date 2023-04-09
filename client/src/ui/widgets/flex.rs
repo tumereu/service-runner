@@ -69,6 +69,11 @@ impl Flex {
 
         // TODO off-by-one errors?
         let grow_size = free_space / max(1, num_grows);
+        let padding = if num_grows == 0 {
+            free_space / min(1, self.children.len() as u16)
+        } else {
+            0
+        };
         let mut current_pos = 0;
 
         for child in self.children {
@@ -76,22 +81,26 @@ impl Flex {
             let size_in_layout: Size = (
                 match child.size_horiz {
                     _ if self.direction == FlexDir::Column => rect.width,
-                    FlexSize::Wrap => measured_size.width,
-                    FlexSize::Fixed(size) => size,
+                    FlexSize::Wrap => measured_size.width + padding,
+                    FlexSize::Fixed(size) => size + padding,
                     FlexSize::Grow => grow_size,
                 },
                 match child.size_vert {
                     _ if self.direction == FlexDir::Row => rect.height,
-                    FlexSize::Wrap => measured_size.height,
-                    FlexSize::Fixed(size) => size,
+                    FlexSize::Wrap => measured_size.height + padding,
+                    FlexSize::Fixed(size) => size + padding,
                     FlexSize::Grow => grow_size,
                 }
             ).into();
-
-            // Clamp the size to the smallest of: measured size, size in layout, entire layout size
-            let actual_size = Size::from((rect.width, rect.height)).intersect(
-                &measured_size.intersect(&size_in_layout)
+            // Clamp the size-in-layout to be a maximum of the remaining size
+            let size_in_layout = size_in_layout.intersect(
+                match self.direction {
+                    FlexDir::Column => (rect.width, rect.height - current_pos).into(),
+                    FlexDir::Row => (rect.width - current_pos, rect.height).into()
+                }
             );
+
+            let actual_size = measured_size.intersect(size_in_layout);
 
             let (x, y) = if self.direction == FlexDir::Column {
                 (
@@ -100,17 +109,32 @@ impl Flex {
                         FlexAlign::End => rect.width - actual_size.width,
                         FlexAlign::Center => (rect.width - actual_size.width) / 2
                     },
-                    current_pos
+                    current_pos + match child.align_vert {
+                        FlexAlign::Start => 0,
+                        FlexAlign::End => size_in_layout.height - actual_size.height,
+                        FlexAlign::Center => (size_in_layout.height - actual_size.height) / 2
+                    }
                 )
             } else {
                 (
-                    current_pos,
+                    current_pos + match child.align_horiz {
+                        FlexAlign::Start => 0,
+                        FlexAlign::End => size_in_layout.width - actual_size.width,
+                        FlexAlign::Center => (size_in_layout.width - actual_size.width) / 2
+                    },
                     match child.align_vert {
                         FlexAlign::Start => 0,
                         FlexAlign::End => rect.height - actual_size.height,
                         FlexAlign::Center => (rect.height - actual_size.height) / 2
                     },
                 )
+            };
+
+            // Increase current position for subseqent elements
+            current_pos += if self.direction == FlexDir::Column {
+                size_in_layout.height
+            } else {
+                size_in_layout.width
             };
 
             child.renderable.render(
