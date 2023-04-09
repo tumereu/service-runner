@@ -2,8 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use shared::message::{Broadcast};
-
+use shared::message::Broadcast;
 
 use crate::client_state::{ClientState, ClientStatus};
 use crate::ui::UIState;

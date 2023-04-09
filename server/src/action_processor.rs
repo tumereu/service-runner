@@ -3,7 +3,7 @@ use std::thread;
 use std::time::Duration;
 
 use shared::message::{Action, Broadcast};
-use shared::system_state::{Status};
+use shared::system_state::Status;
 
 use crate::server_state::ServerState;
 

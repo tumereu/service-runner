@@ -1,6 +1,5 @@
 use std::cmp::{max, min};
 
-
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;

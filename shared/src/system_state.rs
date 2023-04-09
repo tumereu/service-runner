@@ -1,6 +1,6 @@
-
 use serde::{Deserialize, Serialize};
-use crate::message::models::{Profile};
+
+use crate::message::models::Profile;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct SystemState {

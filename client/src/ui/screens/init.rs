@@ -1,8 +1,6 @@
-
-
-use tui::{Frame};
+use tui::Frame;
 use tui::backend::Backend;
-use tui::text::{Spans};
+use tui::text::Spans;
 use tui::widgets::Paragraph;
 
 use crate::client_state::ClientState;

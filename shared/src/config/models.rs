@@ -1,10 +1,8 @@
 use std::collections::HashMap;
-
 use Vec;
+
 use serde::Deserialize;
 use serde_aux::field_attributes::bool_true;
-
-
 
 #[derive(Debug, Clone)]
 pub struct Config {

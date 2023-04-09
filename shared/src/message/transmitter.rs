@@ -1,9 +1,10 @@
+use std::error::Error;
+use std::io::{Read, Write};
 use std::mem::size_of;
 use std::net::TcpStream;
 use std::time::Duration;
-use std::io::{Read, Write};
+
 use crate::message::Message;
-use std::error::Error;
 
 pub trait MessageTransmitter<E : Error> {
     fn send<M, R>(&mut self, msg: R) -> Result<(), E> where M : Message, R: AsRef<M>;

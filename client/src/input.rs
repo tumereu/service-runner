@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use crossterm::event::{Event, KeyCode, poll as poll_events, read as read_event};
 
-
 use shared::message::Action;
 use shared::message::models::Profile;
 

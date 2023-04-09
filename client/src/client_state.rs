@@ -1,7 +1,3 @@
-
-
-
-
 use shared::config::Config;
 use shared::message::{Action, Broadcast};
 use shared::system_state::SystemState;

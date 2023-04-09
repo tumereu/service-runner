@@ -1,24 +1,19 @@
 use std::sync::{Arc, Mutex};
 
 use tui::backend::Backend;
-
-
 use tui::Terminal;
 
-
-
+use screens::*;
 pub use state::UIState;
 
 use crate::ClientState;
 use crate::ui::init::render_init;
 use crate::ui::profile_select::render_profile_select;
+use crate::ui::screens::view_profile::render_view_profile;
 
 mod state;
 mod widgets;
 mod screens;
-
-use screens::*;
-use crate::ui::screens::view_profile::render_view_profile;
 
 pub fn render<B>(
     term: &mut Terminal<B>,

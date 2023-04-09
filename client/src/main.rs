@@ -1,9 +1,5 @@
 use std::{env, error::Error, io::stdout, thread, time::Duration};
-
-
-
 use std::sync::{Arc, Mutex};
-
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -15,8 +11,7 @@ use tui::{
     Terminal
 };
 
-use shared::config::{read_config};
-
+use shared::config::read_config;
 
 use crate::client_state::{ClientState, ClientStatus};
 use crate::connection::{connect_to_server, start_broadcast_processor};

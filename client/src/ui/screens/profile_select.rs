@@ -1,11 +1,5 @@
-
-
-
-use tui::{Frame};
+use tui::Frame;
 use tui::backend::Backend;
-
-
-
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;

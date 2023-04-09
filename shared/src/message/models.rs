@@ -1,11 +1,12 @@
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
+
+use serde::{Deserialize, Serialize};
 
 use crate::config::{
-    Profile as ConfigProfile,
-    Service as ConfigService,
+    ArtifactEntry as ConfigArtifactEntry,
     ExecutableEntry as ConfigExecutableEntry,
-    ArtifactEntry as ConfigArtifactEntry
+    Profile as ConfigProfile,
+    Service as ConfigService
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

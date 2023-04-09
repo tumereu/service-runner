@@ -1,10 +1,12 @@
 use std::cmp::max;
+
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Text;
 use tui::widgets::{List as TuiList, ListItem as TuiListItem};
+
 use crate::ui::widgets::{Renderable, Size};
 
 pub struct List {
