@@ -3,8 +3,8 @@ use Vec;
 
 use walkdir::WalkDir;
 
-use crate::config_parsing::{Profile, read_main_config, read_profile, read_service, Service};
-pub use crate::config_parsing::ServerConfig;
+use crate::config_parsing::{read_main_config, read_profile, read_service};
+pub use crate::config_parsing::{ServerConfig, Profile, Service};
 
 #[derive(Debug, Clone)]
 pub struct Config {

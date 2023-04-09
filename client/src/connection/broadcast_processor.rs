@@ -29,16 +29,28 @@ fn process_broadcast(
 ) {
     match broadcast {
         Broadcast::State(system_state) => {
-            state.system_state = Some(system_state);
 
             match state.ui {
                 UIState::Initializing => {
-                    state.ui = UIState::ProfileSelect {
-                        selected_idx: 0
+                    if system_state.current_profile.is_none() {
+                        state.ui = UIState::profile_select();
+                    } else {
+                        state.ui = UIState::view_profile();
                     }
                 }
-                UIState::ProfileSelect { .. } => {}
+                UIState::ProfileSelect { .. } => {
+                    if system_state.current_profile.is_some() {
+                        state.ui = UIState::view_profile();
+                    }
+                }
+                UIState::ViewProfile { .. } => {
+                    if system_state.current_profile.is_none() {
+                        state.ui = UIState::profile_select();
+                    }
+                }
             }
+
+            state.system_state = Some(system_state);
         }
     }
 }

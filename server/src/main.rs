@@ -20,32 +20,15 @@ mod connection;
 mod action_processor;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let config_dir: String = env::args().collect::<Vec<String>>()
+    let port: u16 = env::args().collect::<Vec<String>>()
         .get(1)
-        .ok_or("Specify the configuration directory in order to run the app")?
-        .clone();
+        .unwrap()
+        .parse()?;
 
-    let config = Arc::new(read_config(&config_dir)?);
-    let port = config.server.port;
     let state = Arc::new(Mutex::new(ServerState::new()));
 
     start_action_processor(state.clone());
     run_server(port, state.clone());
-
-    Ok(())
-}
-
-fn process_action(
-    state: Arc<Mutex<SystemState>>,
-    stream: &mut TcpStream,
-    action: Action
-) -> std::io::Result<()> {
-    match action {
-        Action::Shutdown => {
-            state.lock().unwrap().status = Status::Exiting;
-            stream.shutdown(Shutdown::Both)?;
-        }
-    }
 
     Ok(())
 }

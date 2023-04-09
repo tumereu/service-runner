@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use shared::message::Action;
+use shared::message::{Action, Broadcast};
 use shared::system_state::{Status, SystemState};
 
 use crate::server_state::ServerState;
@@ -30,5 +30,15 @@ fn process_action(
         Action::Shutdown => {
             state.system_state.status = Status::Exiting;
         }
+        Action::ActivateProfile { profile, services } => {
+            state.system_state.current_profile = Some((profile, services));
+            broadcast_state(state);
+        }
     }
+}
+
+fn broadcast_state(state: &mut ServerState) {
+    state.broadcasts_out.iter_mut().for_each(|(key, mut value)| {
+        value.push(Broadcast::State(state.system_state.clone()));
+    });
 }

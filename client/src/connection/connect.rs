@@ -28,7 +28,7 @@ pub fn connect_to_server(state: Arc<Mutex<ClientState>>) -> Result<JoinHandle<st
 
         if stream.is_none() {
             Command::new(&state.config.server.executable)
-                .arg(&state.config.conf_dir)
+                .arg(&state.config.server.port.to_string())
                 .current_dir(env::current_dir().map_err(|err| {
                     let msg = err.to_string();
                     format!("Failed to read current workdir: {msg}")

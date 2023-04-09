@@ -5,12 +5,14 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use crate::config_parsing::{Profile, Service};
 
 use crate::system_state::SystemState;
 
 #[derive(Serialize, Deserialize)]
 pub enum Action {
-    Shutdown
+    Shutdown,
+    ActivateProfile { profile: Profile, services: Vec<Service> }
 }
 impl AsRef<Action> for Action {
     fn as_ref(&self) -> &Action {
