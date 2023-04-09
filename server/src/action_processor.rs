@@ -3,7 +3,7 @@ use std::thread;
 use std::time::Duration;
 
 use shared::message::{Action, Broadcast};
-use shared::system_state::{Status, SystemState};
+use shared::system_state::{Status};
 
 use crate::server_state::ServerState;
 
@@ -38,7 +38,7 @@ fn process_action(
 }
 
 fn broadcast_state(state: &mut ServerState) {
-    state.broadcasts_out.iter_mut().for_each(|(key, mut value)| {
+    state.broadcasts_out.iter_mut().for_each(|(_key, value)| {
         value.push(Broadcast::State(state.system_state.clone()));
     });
 }

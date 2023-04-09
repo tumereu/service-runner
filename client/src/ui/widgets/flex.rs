@@ -1,5 +1,5 @@
 use std::cmp::{max, min};
-use std::ops::Deref;
+
 
 use tui::backend::Backend;
 use tui::Frame;

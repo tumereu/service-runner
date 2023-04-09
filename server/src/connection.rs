@@ -26,7 +26,7 @@ pub fn run_server(port: u16, state: Arc<Mutex<ServerState>>) {
                 {
                     let mut state = state.lock().unwrap();
                     let system_state = state.system_state.clone();
-                    state.broadcasts_out.iter_mut().for_each(|(key, mut value)| {
+                    state.broadcasts_out.iter_mut().for_each(|(_key, value)| {
                         value.push(Broadcast::State(system_state.clone()));
                     });
                 }

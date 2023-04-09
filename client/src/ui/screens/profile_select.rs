@@ -1,15 +1,15 @@
-use std::os::unix::raw::off_t;
-use std::sync::{Arc, Mutex};
 
-use tui::{Frame, Terminal};
+
+
+use tui::{Frame};
 use tui::backend::Backend;
-use tui::layout::{Direction, Layout, Rect};
-use tui::style::Style;
-use tui::text::Text;
+
+
+
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{Flex, FlexAlign, FlexElement, List, render_root, Renderable};
+use crate::ui::widgets::{Flex, FlexAlign, FlexElement, List, render_root};
 
 pub fn render_profile_select<B>(
     frame: &mut Frame<B>,

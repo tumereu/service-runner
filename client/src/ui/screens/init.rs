@@ -1,15 +1,15 @@
-use std::sync::{Arc, Mutex};
 
-use tui::{Frame, Terminal};
+
+use tui::{Frame};
 use tui::backend::Backend;
-use tui::text::{Span, Spans};
+use tui::text::{Spans};
 use tui::widgets::Paragraph;
 
 use crate::client_state::ClientState;
 
 pub fn render_init<B>(
     frame: &mut Frame<B>,
-    state: &ClientState,
+    _state: &ClientState,
 ) where B : Backend {
     let size = frame.size();
     frame.render_widget(

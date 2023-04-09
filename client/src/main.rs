@@ -1,8 +1,8 @@
 use std::{env, error::Error, io::stdout, thread, time::Duration};
-use std::net::{Shutdown, SocketAddr, TcpStream};
-use std::process::{Command, Stdio};
+
+
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -14,8 +14,8 @@ use tui::{
     Terminal
 };
 
-use shared::config::{Config, read_config};
-use shared::message::{Action, MessageTransmitter};
+use shared::config::{read_config};
+
 
 use crate::client_state::{ClientState, ClientStatus};
 use crate::connection::{connect_to_server, start_broadcast_processor};
@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let mut error_msg: Option<String> = None;
+    let error_msg: Option<String> = None;
 
     render(&mut terminal, state.clone())?;
     let broadcast_thread = start_broadcast_processor(state.clone());
