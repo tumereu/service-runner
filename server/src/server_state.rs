@@ -8,7 +8,7 @@ pub struct ServerState {
     pub actions_in: Vec<Action>,
     pub broadcasts_out: HashMap<u32, Vec<Broadcast>>,
     pub system_state: SystemState,
-    pub compilations: Vec<Process>,
+    pub active_compile_count: usize,
 }
 impl ServerState {
     pub fn new() -> ServerState {
@@ -16,7 +16,7 @@ impl ServerState {
             actions_in: Vec::new(),
             broadcasts_out: HashMap::new(),
             system_state: SystemState::new(),
-            compilations: Vec::new(),
+            active_compile_count: 0
         }
     }
 }

@@ -2,6 +2,7 @@ use std::cmp::{max, min};
 use tui::backend::Backend;
 use tui::Frame;
 use tui::style::Color;
+use shared::message::models::CompileStatus;
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
@@ -49,7 +50,12 @@ pub fn render_view_profile<B>(
                                     let should_run = status.map(|it| it.should_run).unwrap_or(false);
                                     let auto_recompile = status.map(|it| it.auto_recompile).unwrap_or(false);
                                     let is_running = status.map(|it| it.is_running).unwrap_or(false);
-                                    let is_compiling = status.map(|it| it.is_compiling).unwrap_or(false);
+                                    let is_compiling = status.map(|it| {
+                                        match it.compile_status {
+                                            CompileStatus::Compiling(_) => true,
+                                            _ => false
+                                        }
+                                    }).unwrap_or(false);
 
                                     Flex::new(vec![
                                         Container::from(
@@ -87,7 +93,7 @@ pub fn render_view_profile<B>(
                                         Text::from("]").into_flex(),
                                         // TODO: make active when work is actively performed for service
                                         Container::from(
-                                            Spinner::new().active(false)
+                                            Spinner::new().active(is_compiling)
                                         ).pad_left(1).into_flex()
                                     ]).direction(FlexDir::LeftRight)
                                         .bg(

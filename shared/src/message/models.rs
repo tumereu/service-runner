@@ -97,8 +97,8 @@ impl Profile {
 pub struct ServiceStatus {
     pub should_run: bool,
     pub auto_recompile: bool,
-    pub needs_compiling: bool,
-    pub is_compiling: bool,
+    pub needs_compile: bool,
+    pub compile_status: CompileStatus,
     pub is_running: bool,
     pub show_output: bool,
 }
@@ -107,10 +107,17 @@ impl ServiceStatus {
         ServiceStatus {
             should_run: true,
             auto_recompile: true,
-            needs_compiling: true,
-            is_compiling: false,
+            needs_compile: true,
+            compile_status: CompileStatus::None,
             is_running: false,
             show_output: true,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum CompileStatus {
+    None,
+    Compiling(usize),
+    Compiled(usize)
 }
