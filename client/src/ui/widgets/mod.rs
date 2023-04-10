@@ -7,12 +7,12 @@ use tui::layout::Rect;
 pub use flex::*;
 pub use list::*;
 pub use text::*;
-pub use styled::*;
+pub use container::*;
 
 mod flex;
 mod list;
 mod text;
-mod styled;
+mod container;
 
 #[derive(Clone, Copy)]
 pub struct Size {
@@ -52,7 +52,7 @@ pub enum Renderable {
     Flex(Flex),
     List(List),
     Text(Text),
-    Styled(Styled),
+    Styled(Container),
 }
 impl Renderable {
     fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {

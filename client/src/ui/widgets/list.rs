@@ -6,7 +6,7 @@ use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::widgets::{List as TuiList, ListItem as TuiListItem};
 
-use crate::ui::widgets::{Flex, FlexDir, FlexElement, FlexSize, IntoFlexElement, Renderable, Size, Styleable, Text};
+use crate::ui::widgets::{Container, Flex, FlexDir, FlexElement, FlexSize, IntoFlexElement, Renderable, Size, Text};
 
 pub struct List {
     items: Vec<Renderable>,
@@ -48,7 +48,7 @@ impl List {
             .enumerate()
             .map(|(index, item)| {
                 if self.selection == index {
-                    item.styling().bg(Color::Blue).into()
+                    Container::from(item).bg(Color::Blue).into()
                 } else {
                     item
                 }.into_flex().grow_horiz()

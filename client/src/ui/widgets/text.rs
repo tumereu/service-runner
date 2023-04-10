@@ -21,24 +21,6 @@ impl Text {
         }
     }
 
-    pub fn ljust<U : Into<usize>>(self, length: U) -> Self {
-        if length <= self.text.len() {
-            self
-        } else {
-            let mut text = String::new();
-            while text.len() < length.into() - self.text.len() {
-
-            }
-            text.push()
-            String::from(" ").c
-        }
-
-        Text {
-            text: format!("{: ^width$}", self.text, width = length.into().saturating_sub(self.text.len())),
-            ..self
-        }
-    }
-
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         frame.render_widget(
             Paragraph::new(TuiText::from(self.text.clone())),

@@ -9,6 +9,7 @@ use tui::widgets::Block;
 use crate::ui::widgets::{Renderable, Size};
 
 pub struct Flex {
+    bg: Option<Color>,
     children: Vec<FlexElement>,
     direction: FlexDir,
 }
@@ -16,22 +17,37 @@ impl Flex {
     pub fn new(children: Vec<FlexElement>) -> Flex {
         Flex {
             children,
+            bg: None,
             direction: FlexDir::UpDown,
         }
     }
 
-    pub fn direction(self, direction: FlexDir) -> Self {
+    pub fn direction(self, direction: FlexDir) -> Flex {
         Flex {
             direction,
             ..self
         }
     }
 
+    pub fn bg(self, bg: Option<Color>) -> Flex {
+        Flex {
+            bg,
+            ..self
+        }
+    }
+
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+        if let Some(bg) = self.bg {
+            frame.render_widget(
+                Block::default().style(Style::default().bg(bg)),
+                rect
+            );
+        }
+
         let mut free_space = if self.direction == FlexDir::UpDown {
             rect.height
         } else {
-            rect.height
+            rect.width
         };
         let mut num_grows = 0;
 
