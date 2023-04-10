@@ -8,11 +8,13 @@ pub use flex::*;
 pub use list::*;
 pub use text::*;
 pub use container::*;
+pub use spinner::*;
 
 mod flex;
 mod list;
 mod text;
 mod container;
+mod spinner;
 
 #[derive(Clone, Copy)]
 pub struct Size {
@@ -52,7 +54,8 @@ pub enum Renderable {
     Flex(Flex),
     List(List),
     Text(Text),
-    Styled(Container),
+    Spinner(Spinner),
+    Container(Container),
 }
 impl Renderable {
     fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
@@ -60,7 +63,8 @@ impl Renderable {
             Renderable::Flex(flex) => flex.render(rect, frame),
             Renderable::List(list) => list.render(rect, frame),
             Renderable::Text(text) => text.render(rect, frame),
-            Renderable::Styled(styled) => styled.render(rect, frame),
+            Renderable::Container(container) => container.render(rect, frame),
+            Renderable::Spinner(spinner) => spinner.render(rect, frame),
         }
     }
 
@@ -69,7 +73,8 @@ impl Renderable {
             Renderable::Flex(flex) => flex.measure(),
             Renderable::List(list) => list.measure(),
             Renderable::Text(text) => text.measure(),
-            Renderable::Styled(styled) => styled.measure(),
+            Renderable::Container(container) => container.measure(),
+            Renderable::Spinner(spinner) => spinner.measure(),
         }
     }
 }

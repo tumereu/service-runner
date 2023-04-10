@@ -158,6 +158,6 @@ pub enum Align {
 
 impl From<Container> for Renderable {
     fn from(value: Container) -> Self {
-        Renderable::Styled(value)
+        Renderable::Container(value)
     }
 }

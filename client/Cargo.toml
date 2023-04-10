@@ -10,3 +10,4 @@ shared = { path = "../shared" }
 
 tui = "0.19"
 crossterm = "0.26.1"
+once_cell = "1.17.1"
