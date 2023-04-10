@@ -8,7 +8,6 @@ pub struct SystemState {
     pub status: Status,
     pub current_profile: Option<Profile>,
     pub service_statuses: HashMap<String, ServiceStatus>,
-
 }
 impl SystemState {
     pub fn new() -> SystemState {
