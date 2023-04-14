@@ -47,7 +47,6 @@ pub struct ExecutableEntry {
     pub executable: String,
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
-    pub artifacts: Vec<ArtifactEntry>,
 }
 impl From<ConfigExecutableEntry> for ExecutableEntry {
     fn from(value: ConfigExecutableEntry) -> Self {
@@ -55,21 +54,6 @@ impl From<ConfigExecutableEntry> for ExecutableEntry {
             executable: value.executable,
             args: value.args,
             env: value.env,
-            artifacts: value.artifacts.into_iter().map(|artifact| artifact.into()).collect()
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ArtifactEntry {
-    pub path: String,
-    pub name: String,
-}
-impl From<ConfigArtifactEntry> for ArtifactEntry {
-    fn from(value: ConfigArtifactEntry) -> Self {
-        ArtifactEntry {
-            path: value.path,
-            name: value.name
         }
     }
 }
