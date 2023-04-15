@@ -9,12 +9,12 @@ use tui::widgets::Block;
 use crate::ui::widgets::{Cell, Renderable, Size};
 
 #[derive(Default, Debug)]
-pub struct CellLayout {
+pub struct Flow {
     pub bg: Option<Color>,
     pub cells: Vec<Cell>,
     pub direction: Dir,
 }
-impl CellLayout {
+impl Flow {
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         if let Some(bg) = self.bg {
             frame.render_widget(
@@ -129,8 +129,8 @@ pub enum Dir {
     UpDown
 }
 
-impl From<CellLayout> for Renderable {
-    fn from(value: CellLayout) -> Self {
-        Renderable::CellLayout(value)
+impl From<Flow> for Renderable {
+    fn from(value: Flow) -> Self {
+        Renderable::Flow(value)
     }
 }

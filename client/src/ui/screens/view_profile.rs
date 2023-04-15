@@ -7,7 +7,7 @@ use shared::message::models::{CompileStatus, Profile, ServiceStatus};
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{CellLayout, Cell, Align, List, render_root, Text, Dir, Spinner, IntoCell};
+use crate::ui::widgets::{Flow, Cell, Align, List, render_root, Text, Dir, Spinner, IntoCell};
 use crate::ui::widgets::Dir::UpDown;
 
 pub fn render_view_profile<B>(
@@ -25,7 +25,7 @@ pub fn render_view_profile<B>(
     if let (Some(profile), Some(service_statuses)) = (profile, service_statuses) {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
 
-        render_root(CellLayout {
+        render_root(Flow {
             direction: UpDown,
             cells: vec![
                 // Title
@@ -47,7 +47,7 @@ pub fn render_view_profile<B>(
                     fill: true,
                     align_vert: Align::Stretch,
                     align_horiz: Align::Stretch,
-                    element: CellLayout {
+                    element: Flow {
                         direction: Dir::LeftRight,
                         cells: vec![
                             // List of services in the current profile
@@ -98,7 +98,7 @@ fn service_list(profile: &Profile, service_statuses: &HashMap<String, ServiceSta
 
                 Cell {
                     align_horiz: Align::Stretch,
-                    element: CellLayout {
+                    element: Flow {
                         direction: Dir::LeftRight,
                         cells: vec![
                             // Service name

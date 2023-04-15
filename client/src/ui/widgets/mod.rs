@@ -4,13 +4,13 @@ use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 
-pub use cell_layout::*;
+pub use flow::*;
 pub use list::*;
 pub use text::*;
 pub use spinner::*;
 pub use cell::*;
 
-mod cell_layout;
+mod flow;
 mod list;
 mod text;
 mod spinner;
@@ -52,7 +52,7 @@ pub fn render_root<B, R>(root: R, frame: &mut Frame<B>) where B : Backend, R: In
 
 #[derive(Debug)]
 pub enum Renderable {
-    CellLayout(CellLayout),
+    Flow(Flow),
     Cell(Cell),
     List(List),
     Text(Text),
@@ -61,7 +61,7 @@ pub enum Renderable {
 impl Renderable {
     fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         match self {
-            Renderable::CellLayout(layout) => layout.render(rect, frame),
+            Renderable::Flow(flow) => flow.render(rect, frame),
             Renderable::Cell(cell) => cell.render(rect, frame),
             Renderable::List(list) => list.render(rect, frame),
             Renderable::Text(text) => text.render(rect, frame),
@@ -71,7 +71,7 @@ impl Renderable {
 
     fn measure(&self) -> Size {
         match self {
-            Renderable::CellLayout(layout) => layout.measure(),
+            Renderable::Flow(flow) => flow.measure(),
             Renderable::Cell(cell) => cell.measure(),
             Renderable::List(list) => list.measure(),
             Renderable::Text(text) => text.measure(),

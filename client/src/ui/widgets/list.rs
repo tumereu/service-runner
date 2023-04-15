@@ -6,7 +6,7 @@ use tui::layout::Rect;
 use tui::style::{Color};
 
 
-use crate::ui::widgets::{CellLayout, Dir, Cell, Renderable, Size, Text, IntoCell};
+use crate::ui::widgets::{Flow, Dir, Cell, Renderable, Size, Text, IntoCell};
 
 #[derive(Debug, Default)]
 pub struct List {
@@ -42,7 +42,7 @@ impl List {
                 }
             }).collect();
 
-        CellLayout {
+        Flow {
             cells: items,
             direction: Dir::UpDown,
             ..Default::default()
