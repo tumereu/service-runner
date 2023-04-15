@@ -78,3 +78,21 @@ pub enum Align {
     Center,
     Stretch
 }
+
+impl From<Cell> for Renderable {
+    fn from(value: Cell) -> Self {
+        Renderable::Cell(value)
+    }
+}
+
+/// A helper trait that can be used to convert elements into the correct type required by [Cell] when passing them as
+/// a value for the element-field.
+pub trait IntoCell {
+    fn into_el(self) -> Option<Box<Renderable>>;
+}
+
+impl<R> IntoCell for R where R : Into<Renderable> {
+    fn into_el(self) -> Option<Box<Renderable>> {
+        Some(Box::new(self.into()))
+    }
+}

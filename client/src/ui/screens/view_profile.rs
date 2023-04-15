@@ -6,7 +6,8 @@ use shared::message::models::CompileStatus;
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{CellLayout, Cell, Align, List, render_root, Text, IntoFlexElement, Dir, Container, Spinner};
+use crate::ui::widgets::{CellLayout, Cell, Align, List, render_root, Text, IntoFlexElement, Dir, Container, Spinner, IntoCell};
+use crate::ui::widgets::Align::Stretch;
 use crate::ui::widgets::Dir::UpDown;
 
 pub fn render_view_profile<B>(
@@ -35,36 +36,42 @@ pub fn render_view_profile<B>(
                         element: Text {
                             text: profile.name.to_owned(),
                             ..Default::default()
-                        }.into(),
+                        }.into_el(),
                         ..Default::default()
-                    }.into(),
+                    }.into_el(),
                     align_vert: Align::Stretch,
                     bg: Some(Color::Green),
                     ..Default::default()
                 },
                 // Split the panel for side panel/service selection and output window
-                CellLayout {
-                    direction: Dir::LeftRight,
-                    cells: vec![
-                        // List of services in the current profile
-                        Cell {
-                            padding_left: 1,
-                            padding_top: 1,
-                            padding_bottom: 1,
-                            padding_right: 1,
-                            min_width: side_panel_width,
-                            fill: true,
-                            element: service_list().into(),
-                            ..Default::default()
-                        },
-                        // Output window. TODO
-                        Cell {
-                            fill: true,
-                            ..Default::default()
-                        },
-                    ],
+                Cell {
+                    fill: true,
+                    align_vert: Stretch,
+                    align_horiz: Stretch,
+                    element: CellLayout {
+                        direction: Dir::LeftRight,
+                        cells: vec![
+                            // List of services in the current profile
+                            Cell {
+                                padding_left: 1,
+                                padding_top: 1,
+                                padding_bottom: 1,
+                                padding_right: 1,
+                                min_width: side_panel_width,
+                                fill: true,
+                                element: service_list().into_el(),
+                                ..Default::default()
+                            },
+                            // Output window. TODO
+                            Cell {
+                                fill: true,
+                                ..Default::default()
+                            },
+                        ],
+                        ..Default::default()
+                    }.into_el(),
                     ..Default::default()
-                }.into(),
+                }
             ],
             ..Default::default()
         }, frame);
@@ -104,7 +111,7 @@ fn service_list() -> CellLayout {
                                 element: Text {
                                     text: service.name(),
                                     ..Default::default()
-                                }.into(),
+                                }.into_el(),
                                 ..Default::default()
                             },
                             // Status prefix
@@ -112,7 +119,7 @@ fn service_list() -> CellLayout {
                                 element: Text {
                                     text: " [".into(),
                                     ..Default::default()
-                                }.into(),
+                                }.into_el(),
                                 ..Default::default()
                             },
                             // Run status
@@ -127,7 +134,7 @@ fn service_list() -> CellLayout {
                                         Color::Yellow
                                     }.into(),
                                     ..Default::default()
-                                }.into(),
+                                }.into_el(),
                                 ..Default::default()
                             },
                             // Compilation status
@@ -142,7 +149,7 @@ fn service_list() -> CellLayout {
                                         Color::Green
                                     }.into(),
                                     ..Default::default()
-                                }.into(),
+                                }.into_el(),
                                 ..Default::default()
                             },
                             // Output status
@@ -155,7 +162,7 @@ fn service_list() -> CellLayout {
                                         Color::Gray
                                     }.into(),
                                     ..Default::default()
-                                }.into(),
+                                }.into_el(),
                                 ..Default::default()
                             },
                             // Status suffix
@@ -163,7 +170,7 @@ fn service_list() -> CellLayout {
                                 element: Text {
                                     text: "]".into(),
                                     ..Default::default()
-                                }.into(),
+                                }.into_el(),
                                 ..Default::default()
                             },
                             Cell {
@@ -171,12 +178,12 @@ fn service_list() -> CellLayout {
                                 element: Spinner {
                                     active: is_compiling,
                                     ..Default::default()
-                                }.into(),
+                                }.into_el(),
                                 ..Default::default()
                             },
                         ],
                         ..Default::default()
-                    }.into(),
+                    }.into_el(),
                     ..Default::default()
                 }
             }).collect(),
