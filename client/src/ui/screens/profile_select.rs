@@ -16,21 +16,15 @@ pub fn render_profile_select<B>(
     };
 
     render_root(
-        CellLayout {
-            cells: vec![
-                Cell {
-                    fill: true,
-                    align_vert: Align::Center,
-                    align_horiz: Align::Center,
-                    element: List {
-                        items: List::simple_items(
-                            state.config.profiles.iter().map(|prof| prof.name.clone()).collect()
-                        ),
-                        selection: *selected_idx
-                    }.into_el(),
-                    ..Default::default()
-                }
-            ],
+        Cell {
+            align_vert: Align::Center,
+            align_horiz: Align::Center,
+            element: List {
+                items: List::simple_items(
+                    state.config.profiles.iter().map(|prof| prof.name.clone()).collect()
+                ),
+                selection: *selected_idx
+            }.into_el(),
             ..Default::default()
         },
         frame

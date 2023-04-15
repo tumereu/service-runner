@@ -31,18 +31,13 @@ impl CellLayout {
         let mut num_fills = 0;
 
         for cell in &self.cells {
-            let align = if self.direction == Dir::UpDown {
-                &cell.align_vert
-            } else {
-                &cell.align_horiz
-            };
-            let measured_size = cell.measure();
-
             free_space = free_space.saturating_sub(
                 if cell.fill {
                     num_fills += 1;
                     0
                 } else {
+                    let measured_size = cell.measure();
+
                     if self.direction == Dir::UpDown {
                         measured_size.height
                     } else {
@@ -57,55 +52,53 @@ impl CellLayout {
         let mut current_pos = 0;
 
         for cell in self.cells {
-            if let Some(element) = cell.element {
-                let measured_size = element.measure();
-                let size_in_layout: Size = (
-                    if self.direction == Dir::UpDown {
-                        rect.width
-                    } else if cell.fill {
-                        fill_size
-                    } else {
-                        measured_size.width
-                    },
-                    if self.direction == Dir::LeftRight {
-                        rect.height
-                    } else if cell.fill {
-                        fill_size
-                    } else {
-                        measured_size.height
-                    },
-                ).into();
-                // Clamp the size-in-layout to be a maximum of the remaining size
-                let size_in_layout = size_in_layout.intersect(
-                    match self.direction {
-                        Dir::UpDown => (rect.width, rect.height - current_pos).into(),
-                        Dir::LeftRight => (rect.width - current_pos, rect.height).into()
-                    }
-                );
-
-                let (x, y) = if self.direction == Dir::UpDown {
-                    (0, current_pos)
+            let measured_size = cell.measure();
+            let size_in_layout: Size = (
+                if self.direction == Dir::UpDown {
+                    rect.width
+                } else if cell.fill {
+                    fill_size
                 } else {
-                    (current_pos, 0)
-                };
+                    measured_size.width
+                },
+                if self.direction == Dir::LeftRight {
+                    rect.height
+                } else if cell.fill {
+                    fill_size
+                } else {
+                    measured_size.height
+                },
+            ).into();
+            // Clamp the size-in-layout to be a maximum of the remaining size
+            let size_in_layout = size_in_layout.intersect(
+                match self.direction {
+                    Dir::UpDown => (rect.width, rect.height - current_pos).into(),
+                    Dir::LeftRight => (rect.width - current_pos, rect.height).into()
+                }
+            );
 
-                // Increase current position for subseqent elements
-                current_pos += if self.direction == Dir::UpDown {
+            let (x, y) = if self.direction == Dir::UpDown {
+                (0, current_pos)
+            } else {
+                (current_pos, 0)
+            };
+
+            // Increase current position for subseqent elements
+            current_pos += if self.direction == Dir::UpDown {
+                size_in_layout.height
+            } else {
+                size_in_layout.width
+            };
+
+            cell.render(
+                Rect::new(
+                    rect.x + x,
+                    rect.y + y,
+                    size_in_layout.width,
                     size_in_layout.height
-                } else {
-                    size_in_layout.width
-                };
-
-                element.render(
-                    Rect::new(
-                        rect.x + x,
-                        rect.y + y,
-                        size_in_layout.width,
-                        size_in_layout.height
-                    ),
-                    frame
-                );
-            }
+                ),
+                frame
+            );
         }
     }
 

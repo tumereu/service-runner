@@ -31,25 +31,26 @@ impl Cell {
 
         let el_size = self.measure();
         if let Some(element) = self.element {
-            let x = match self.align_horiz {
-                Align::Start | Align::Stretch => rect.x,
-                Align::End => rect.x + rect.width - el_size.width,
-                Align::Center => rect.x + (rect.width - el_size.width) / 2,
-            };
-            let y = match self.align_vert {
-                Align::Start | Align::Stretch => rect.y,
-                Align::End => rect.y + rect.height - el_size.height,
-                Align::Center => rect.y + (rect.height - el_size.height) / 2,
-            };
             let width = if self.align_horiz == Align::Stretch {
                 rect.width
             } else {
-                el_size.width
+                el_size.width - self.padding_left - self.padding_right
             };
             let height = if self.align_vert == Align::Stretch {
                 rect.height
             } else {
-                el_size.height
+                el_size.height - self.padding_top - self.padding_bottom
+            };
+
+            let x = match self.align_horiz {
+                Align::Start | Align::Stretch => rect.x + self.padding_left,
+                Align::End => rect.x + rect.width - el_size.width - self.padding_right,
+                Align::Center => rect.x + (rect.width - width) / 2 + self.padding_left,
+            };
+            let y = match self.align_vert {
+                Align::Start | Align::Stretch => rect.y + self.padding_top,
+                Align::End => rect.y + rect.height - el_size.height - self.padding_bottom,
+                Align::Center => rect.y + (rect.height - height) / 2 + self.padding_top,
             };
 
             element.render(Rect::new(x, y, width, height), frame);

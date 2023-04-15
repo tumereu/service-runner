@@ -8,7 +8,6 @@ use shared::message::models::{CompileStatus, Profile, ServiceStatus};
 use crate::client_state::ClientState;
 use crate::ui::UIState;
 use crate::ui::widgets::{CellLayout, Cell, Align, List, render_root, Text, Dir, Spinner, IntoCell};
-use crate::ui::widgets::Align::Stretch;
 use crate::ui::widgets::Dir::UpDown;
 
 pub fn render_view_profile<B>(
@@ -29,6 +28,7 @@ pub fn render_view_profile<B>(
         render_root(CellLayout {
             direction: UpDown,
             cells: vec![
+                // Title
                 Cell {
                     element: Cell {
                         padding_left: 2,
@@ -45,8 +45,8 @@ pub fn render_view_profile<B>(
                 // Split the panel for side panel/service selection and output window
                 Cell {
                     fill: true,
-                    align_vert: Stretch,
-                    align_horiz: Stretch,
+                    align_vert: Align::Stretch,
+                    align_horiz: Align::Stretch,
                     element: CellLayout {
                         direction: Dir::LeftRight,
                         cells: vec![
@@ -77,11 +77,11 @@ pub fn render_view_profile<B>(
     }
 }
 
-fn service_list(profile: &Profile, service_statuses: &HashMap<String, ServiceStatus>) -> CellLayout {
+fn service_list(profile: &Profile, service_statuses: &HashMap<String, ServiceStatus>) -> List {
     let service_selection = 0;
 
-    CellLayout {
-        cells: profile.services.iter()
+    List {
+        items: profile.services.iter()
             .enumerate()
             .map(|(index, service)| {
                 let status = service_statuses.get(service.name());
@@ -97,12 +97,7 @@ fn service_list(profile: &Profile, service_statuses: &HashMap<String, ServiceSta
                 }).unwrap_or(false);
 
                 Cell {
-                    fill: true,
-                    bg: if service_selection == index {
-                        Some(Color::Blue)
-                    } else {
-                        None
-                    },
+                    align_horiz: Align::Stretch,
                     element: CellLayout {
                         direction: Dir::LeftRight,
                         cells: vec![
@@ -188,6 +183,7 @@ fn service_list(profile: &Profile, service_statuses: &HashMap<String, ServiceSta
                     ..Default::default()
                 }
             }).collect(),
+        selection: service_selection,
         ..Default::default()
     }
 }
