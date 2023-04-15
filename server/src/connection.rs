@@ -55,7 +55,6 @@ pub fn handle_connection(
                 state.lock().unwrap().actions_in.push(incoming);
             }
             while let Some(outgoing) = state.lock().unwrap().broadcasts_out.get_mut(&index).unwrap().pop() {
-                println!("Sending a broadcast");
                 stream.send(outgoing)?;
             }
 

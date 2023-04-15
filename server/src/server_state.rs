@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::process::Child;
 
 use shared::message::{Action, Broadcast};
 use shared::message::models::OutputStore;
@@ -30,7 +29,7 @@ impl ServerState {
     }
 
     pub fn broadcast_one(&mut self, client: u32, broadcast: Broadcast) {
-        let mut queue = self.broadcasts_out.get_mut(&client);
+        let queue = self.broadcasts_out.get_mut(&client);
         if let Some(queue) = queue {
             queue.push(broadcast);
         }

@@ -1,16 +1,12 @@
-use std::arch::x86_64::_mm256_rcp_ps;
 use std::io::{BufReader, BufRead};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use shared::message::Broadcast;
-use shared::message::models::{CompileStatus, ExecutableEntry, OutputKey, OutputKind, OutputLine, Service};
-use shared::system_state::{Status, SystemState};
-use once_cell::sync::Lazy;
+use shared::message::models::{CompileStatus, ExecutableEntry, OutputKey, OutputKind, Service};
+use shared::system_state::{Status};
 use crate::server_state::{ServerState};
-
-static REFERENCE_INSTANT: Lazy<Instant> = Lazy::new(|| Instant::now());
 
 pub fn start_service_worker(state: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
@@ -178,14 +174,9 @@ fn process_output_line(
 ) {
     let mut server = state.lock().unwrap();
 
-    let output_line = OutputLine {
-        value: output,
-        timestamp: Instant::now().duration_since(*REFERENCE_INSTANT).as_millis()
-    };
+    // Store the line locally so that it can be sent to clients that connect later
+    let line = server.output_store.add_output(&key, output).clone();
 
-    // Broadcast the line to all clients
-    server.broadcast_all(Broadcast::OutputLine(key.clone(), output_line.clone()));
-
-    // Then store the line locally so that it can be sent to clients that connect later
-    server.output_store.add_output(&key, output_line);
+    // But also broadcast the line to all clients
+    server.broadcast_all(Broadcast::OutputLine(key.clone(), line));
 }

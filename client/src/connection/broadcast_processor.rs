@@ -54,7 +54,7 @@ fn process_broadcast(
             state.output_store = store;
         },
         Broadcast::OutputLine(key, line) => {
-            state.output_store.add_output(&key, line);
+            state.output_store.add_output(&key, line.value);
         }
     }
 }
