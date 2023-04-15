@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::cmp::{max};
 
 use tui::backend::Backend;
 use tui::Frame;
@@ -6,7 +6,7 @@ use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::widgets::Block;
 
-use crate::ui::widgets::{Align, Cell, Renderable, Size};
+use crate::ui::widgets::{Cell, Renderable, Size};
 
 #[derive(Default, Debug)]
 pub struct CellLayout {

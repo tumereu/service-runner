@@ -1,4 +1,4 @@
-use std::string::ToString;
+
 use std::time::Instant;
 use tui::backend::Backend;
 use tui::Frame;

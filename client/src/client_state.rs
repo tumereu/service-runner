@@ -1,5 +1,6 @@
 use shared::config::Config;
 use shared::message::{Action, Broadcast};
+use shared::message::models::OutputStore;
 use shared::system_state::SystemState;
 
 use crate::ui::UIState;
@@ -9,6 +10,7 @@ pub struct ClientState {
     pub system_state: Option<SystemState>,
     pub actions_out: Vec<Action>,
     pub broadcasts_in: Vec<Broadcast>,
+    pub output_store: OutputStore,
     pub ui: UIState,
     pub config: Config,
 }
@@ -21,6 +23,7 @@ impl ClientState {
             actions_out: Vec::new(),
             broadcasts_in: Vec::new(),
             ui: UIState::Initializing,
+            output_store: OutputStore::new(),
             config,
         }
     }

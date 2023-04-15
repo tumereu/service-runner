@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::message::models::Profile;
+use crate::message::models::{OutputKey, OutputLine, OutputStore, Profile};
 use crate::system_state::SystemState;
 
 #[derive(Serialize, Deserialize)]
@@ -16,7 +16,9 @@ impl AsRef<Action> for Action {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Broadcast {
-    State(SystemState)
+    State(SystemState),
+    OutputLine(OutputKey, OutputLine),
+    OutputSync(OutputStore),
 }
 impl AsRef<Broadcast> for Broadcast {
     fn as_ref(&self) -> &Broadcast {

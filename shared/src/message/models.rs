@@ -1,10 +1,9 @@
 use std::collections::{HashMap, VecDeque};
-use std::time::Instant;
+
 
 use serde::{Deserialize, Serialize};
 
 use crate::config::{
-    ArtifactEntry as ConfigArtifactEntry,
     ExecutableEntry as ConfigExecutableEntry,
     Profile as ConfigProfile,
     Service as ConfigService
@@ -88,7 +87,7 @@ pub struct ServiceStatus {
     pub show_output: bool,
 }
 impl ServiceStatus {
-    pub fn from(profile: &Profile, service: &Service) -> ServiceStatus {
+    pub fn from(_profile: &Profile, _service: &Service) -> ServiceStatus {
         ServiceStatus {
             should_run: true,
             auto_recompile: true,
@@ -122,7 +121,7 @@ impl OutputStore {
         if !self.outputs.contains_key(key) {
             self.outputs.insert(key.clone(), VecDeque::new());
         }
-        let mut deque = self.outputs.get_mut(key).unwrap();
+        let deque = self.outputs.get_mut(key).unwrap();
         deque.push_back(line);
         // TODO move to a config field
         if deque.len() > 8096 {
@@ -136,6 +135,15 @@ pub struct OutputKey {
     pub name: String,
     pub service_ref: String,
     pub kind: OutputKind
+}
+impl OutputKey {
+    pub fn new(name: String, service_ref: String, kind: OutputKind) -> Self {
+        OutputKey {
+            name,
+            service_ref,
+            kind
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]

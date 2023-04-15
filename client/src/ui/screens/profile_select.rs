@@ -1,10 +1,10 @@
 use tui::Frame;
 use tui::backend::Backend;
-use tui::style::Color;
+
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{CellLayout, Cell, List, render_root, Align, IntoCell};
+use crate::ui::widgets::{Cell, List, render_root, Align, IntoCell};
 
 pub fn render_profile_select<B>(
     frame: &mut Frame<B>,

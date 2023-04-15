@@ -8,13 +8,13 @@ use shared::system_state::Status;
 
 use crate::server_state::ServerState;
 
-pub fn start_action_processor(state: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
+pub fn start_action_processor(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        while state.lock().unwrap().system_state.status != Status::Exiting {
+        while server.lock().unwrap().system_state.status != Status::Exiting {
             {
-                let mut state = state.lock().unwrap();
-                while let Some(action) = state.actions_in.pop() {
-                    process_action(&mut state, action);
+                let mut server = server.lock().unwrap();
+                while let Some(action) = server.actions_in.pop() {
+                    process_action(&mut server, action);
                 }
             }
 
@@ -24,20 +24,21 @@ pub fn start_action_processor(state: Arc<Mutex<ServerState>>) -> thread::JoinHan
 }
 
 fn process_action(
-    state: &mut ServerState,
+    server: &mut ServerState,
     action: Action
 ) {
     match action {
         Action::Shutdown => {
-            state.system_state.status = Status::Exiting;
+            server.system_state.status = Status::Exiting;
         }
         Action::ActivateProfile(profile) => {
-            state.system_state.service_statuses = profile.services.iter()
+            server.system_state.service_statuses = profile.services.iter()
                 .map(|service| {
                     (service.name().clone(), ServiceStatus::from(&profile, service))
                 }).collect();
-            state.system_state.current_profile = Some(profile);
-            state.broadcast_all(Broadcast::State(state.system_state.clone()));
+            server.system_state.current_profile = Some(profile);
+            let broadcast = Broadcast::State(server.system_state.clone());
+            server.broadcast_all(broadcast);
         }
     }
 }

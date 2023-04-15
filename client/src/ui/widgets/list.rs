@@ -3,10 +3,10 @@ use std::cmp::max;
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
-use tui::style::{Color, Style};
-use tui::widgets::{List as TuiList, ListItem as TuiListItem};
+use tui::style::{Color};
 
-use crate::ui::widgets::{CellLayout, Dir, Cell, Align, Renderable, Size, Text, IntoCell};
+
+use crate::ui::widgets::{CellLayout, Dir, Cell, Renderable, Size, Text, IntoCell};
 
 #[derive(Debug, Default)]
 pub struct List {
@@ -29,7 +29,7 @@ impl List {
     }
 
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
-        let mut items: Vec<Cell> = self.items.into_iter()
+        let items: Vec<Cell> = self.items.into_iter()
             .enumerate()
             .map(|(index, item)| {
                 if self.selection == index {

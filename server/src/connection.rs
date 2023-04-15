@@ -25,7 +25,11 @@ pub fn run_server(port: u16, state: Arc<Mutex<ServerState>>) {
                 // Whenever a client connects, send the updated system state to all clients
                 {
                     let mut state = state.lock().unwrap();
+                    // Send the current system state to the connected client
                     let broadcast = Broadcast::State(state.system_state.clone());
+                    state.broadcast_one(client_count, broadcast);
+                    // Send all so-far accumulated outputs to the client
+                    let broadcast = Broadcast::OutputSync(state.output_store.clone());
                     state.broadcast_one(client_count, broadcast);
                 }
             },

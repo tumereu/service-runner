@@ -28,7 +28,6 @@ fn process_broadcast(
 ) {
     match broadcast {
         Broadcast::State(system_state) => {
-
             match state.ui {
                 UIState::Initializing => {
                     if system_state.current_profile.is_none() {
@@ -50,6 +49,12 @@ fn process_broadcast(
             }
 
             state.system_state = Some(system_state);
+        },
+        Broadcast::OutputSync(store) => {
+            state.output_store = store;
+        },
+        Broadcast::OutputLine(key, line) => {
+            state.output_store.add_output(&key, line);
         }
     }
 }

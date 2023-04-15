@@ -3,11 +3,14 @@ use std::io::{BufReader, BufRead};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use shared::message::Broadcast;
-use shared::message::models::{CompileStatus, ExecutableEntry, Service};
+use shared::message::models::{CompileStatus, ExecutableEntry, OutputKey, OutputKind, OutputLine, Service};
 use shared::system_state::{Status, SystemState};
+use once_cell::sync::Lazy;
 use crate::server_state::{ServerState};
+
+static REFERENCE_INSTANT: Lazy<Instant> = Lazy::new(|| Instant::now());
 
 pub fn start_service_worker(state: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
@@ -18,22 +21,22 @@ pub fn start_service_worker(state: Arc<Mutex<ServerState>>) -> thread::JoinHandl
     })
 }
 
-fn work_services(state_arc: Arc<Mutex<ServerState>>) -> Option<()> {
-    let mut state = state_arc.lock().unwrap();
+fn work_services(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
+    let mut server = server_arc.lock().unwrap();
 
     // Do not spawn new compilations if any are currently active.
     // TODO support parallel compilation?
-    if state.active_compile_count > 0 {
+    if server.active_compile_count > 0 {
         return None
     }
 
     let (service_name, mut command, index) = {
-        let profile = state.system_state.current_profile.as_ref()?;
+        let profile = server.system_state.current_profile.as_ref()?;
         let compilable = profile.services.iter()
             .find(|service| {
                 match service {
                     Service::Compilable { compile, .. } => {
-                        let status = state.system_state.service_statuses.get(service.name()).unwrap();
+                        let status = server.system_state.service_statuses.get(service.name()).unwrap();
                         match status.compile_status {
                             // Services with no compile steps executed should be compiled
                             CompileStatus::None => true,
@@ -48,7 +51,7 @@ fn work_services(state_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
         match compilable {
             Service::Compilable { name, dir, compile, .. } => {
-                let status = state.system_state.service_statuses.get(name).unwrap();
+                let status = server.system_state.service_statuses.get(name).unwrap();
                 let index = match status.compile_status {
                     CompileStatus::None => 0,
                     CompileStatus::Compiled(index) => index + 1,
@@ -66,17 +69,19 @@ fn work_services(state_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     };
 
     // TODO handle erroneous commands?
-    state.active_compile_count += 1;
-    state.system_state.service_statuses.get_mut(&service_name).unwrap().compile_status = CompileStatus::Compiling(index);
-    state.broadcast_all(Broadcast::State(state.system_state.clone()));
+    server.active_compile_count += 1;
+    server.system_state.service_statuses.get_mut(&service_name).unwrap().compile_status = CompileStatus::Compiling(index);
+    let broadcast = Broadcast::State(server.system_state.clone());
+    server.broadcast_all(broadcast);
 
     let handle = command.spawn().expect("Something went wrong");
 
-    spawn_handler(state_arc.clone(), handle, move |(state, success)| {
+    spawn_handler(server_arc.clone(), handle, service_name.clone(), OutputKind::Compile, move |(state, success)| {
         let mut state = state.lock().unwrap();
         state.active_compile_count -= 1;
         state.system_state.service_statuses.get_mut(&service_name).unwrap().compile_status = CompileStatus::Compiled(index);
-        state.broadcast_all(Broadcast::State(state.system_state.clone()));
+        let broadcast = Broadcast::State(state.system_state.clone());
+        state.broadcast_all(broadcast);
     });
 
     Some(())
@@ -97,8 +102,10 @@ fn create_cmd(
 }
 
 fn spawn_handler<F>(
-    state: Arc<Mutex<ServerState>>,
+    server: Arc<Mutex<ServerState>>,
     handle: Child,
+    service_name: String,
+    process_kind: OutputKind,
     on_finish: F
 ) where F: FnOnce((Arc<Mutex<ServerState>>, bool)) + Send + 'static {
     let handle = Arc::new(Mutex::new(handle));
@@ -106,9 +113,10 @@ fn spawn_handler<F>(
     // Kill the process when the server exits and invoke the callback after the process finishes
     {
         let handle = handle.clone();
+        let server = server.clone();
         thread::spawn(move || {
             // Wait as long as the server and the process are both running
-            while state.lock().unwrap().system_state.status != Status::Exiting
+            while server.lock().unwrap().system_state.status != Status::Exiting
                 && handle.lock().unwrap().try_wait().unwrap_or(None).is_none() {
                 thread::sleep(Duration::from_millis(1));
             }
@@ -118,21 +126,26 @@ fn spawn_handler<F>(
             handle.kill().unwrap_or(());
             // Obtain exit status and invoke callback
             let success = handle.wait().map_or(false, |status| status.success());
-            on_finish((state, success));
+            on_finish((server, success));
         });
     }
 
     // Read stdout
     {
         let handle = handle.clone();
+        let server = server.clone();
+        let service_name = service_name.clone();
         thread::spawn(move || {
             let stream = {
                 let mut handle = handle.lock().unwrap();
                 handle.stdout.take().unwrap()
             };
+            let key = OutputKey::new("std".into(), service_name, process_kind.clone());
 
             for line in BufReader::new(stream).lines() {
-                println!("STDOUT: {line:?}")
+                if let Ok(line) = line {
+                    process_output_line(server.clone(), &key, line);
+                }
             }
         });
     }
@@ -140,15 +153,39 @@ fn spawn_handler<F>(
     // Read stderr
     {
         let handle = handle.clone();
+        let server = server.clone();
+        let service_name = service_name.clone();
         thread::spawn(move || {
             let stream = {
                 let mut handle = handle.lock().unwrap();
                 handle.stderr.take().unwrap()
             };
+            let key = OutputKey::new("std".into(), service_name, process_kind.clone());
 
             for line in BufReader::new(stream).lines() {
-                println!("STDERR: {line:?}")
+                if let Ok(line) = line {
+                    process_output_line(server.clone(), &key, line);
+                }
             }
         });
     }
+}
+
+fn process_output_line(
+    state: Arc<Mutex<ServerState>>,
+    key: &OutputKey,
+    output: String
+) {
+    let mut server = state.lock().unwrap();
+
+    let output_line = OutputLine {
+        value: output,
+        timestamp: Instant::now().duration_since(*REFERENCE_INSTANT).as_millis()
+    };
+
+    // Broadcast the line to all clients
+    server.broadcast_all(Broadcast::OutputLine(key.clone(), output_line.clone()));
+
+    // Then store the line locally so that it can be sent to clients that connect later
+    server.output_store.add_output(&key, output_line);
 }
