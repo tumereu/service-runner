@@ -7,33 +7,12 @@ use tui::text::{Span, Spans, Text as TuiText};
 use tui::widgets::{Paragraph};
 use crate::ui::widgets::{Renderable, Size};
 
+#[derive(Debug, Default)]
 pub struct Text {
-    text: String,
-    fg: Option<Color>,
+    pub text: String,
+    pub fg: Option<Color>,
 }
 impl Text {
-    pub fn new(text: String) -> Text {
-        Text {
-            text,
-            fg: None
-        }
-    }
-
-    pub fn from(text: &str) -> Text {
-        Text {
-            text: text.to_string(),
-            fg: None
-        }
-    }
-
-    pub fn fg(self, color: Option<Color>) -> Text {
-        Text {
-            fg: color,
-            ..self
-        }
-    }
-
-
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         let mut style = Style::default();
         if let Some(fg) = self.fg {

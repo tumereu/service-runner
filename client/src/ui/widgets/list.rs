@@ -6,56 +6,36 @@ use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::widgets::{List as TuiList, ListItem as TuiListItem};
 
-use crate::ui::widgets::{Container, Flex, FlexDir, FlexElement, FlexSize, IntoFlexElement, Renderable, Size, Text};
+use crate::ui::widgets::{Container, CellLayout, Dir, Cell, Align, IntoFlexElement, Renderable, Size, Text};
 
+#[derive(Debug, Default)]
 pub struct List {
-    items: Vec<Renderable>,
-    selection: usize,
+    pub items: Vec<Cell>,
+    pub selection: usize,
 }
 impl List {
-    pub fn new() -> List {
-        List {
-            items: Vec::new(),
-            selection: 0,
-        }
-    }
-
-    pub fn simple_items(self, items: Vec<String>) -> Self {
-        List {
-            items: items.into_iter()
-                .map(|item| Text::new(item).into())
-                .collect(),
-            ..self
-        }
-    }
-
-    pub fn items(self, items: Vec<Renderable>) -> Self {
-        List {
-            items,
-            ..self
-        }
-    }
-
-    pub fn selection(self, selection: usize) -> Self {
-        List {
-            selection,
-            ..self
-        }
+    pub fn simple_items(items: Vec<String>) -> Vec<Renderable> {
+        items.into_iter()
+            .map(|item| Text::new(item).into())
+            .collect()
     }
 
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
-        let mut items: Vec<FlexElement> = self.items.into_iter()
+        let mut items: Vec<Cell> = self.items.into_iter()
             .enumerate()
             .map(|(index, item)| {
                 if self.selection == index {
-                    Container::from(item).bg(Color::Blue).into()
+                    Cell {
+                        bg: Some(Color::Blue),
+                        ..item
+                    }
                 } else {
                     item
                 }.into_flex().grow_horiz()
             }).collect();
 
-        Flex::new(items)
-            .direction(FlexDir::UpDown)
+        CellLayout::new(items)
+            .direction(Dir::UpDown)
             .render(rect, frame);
     }
 

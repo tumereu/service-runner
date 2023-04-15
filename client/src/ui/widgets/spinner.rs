@@ -12,32 +12,12 @@ use crate::ui::widgets::{Renderable, Size};
 static REFERENCE_INSTANT: Lazy<Instant> = Lazy::new(|| Instant::now());
 const SPINNER_CHARS:&'static [&'static str] = &["⠋", "⠙", "⠸", "⠴", "⠦", "⠇"];
 
+#[derive(Default, Debug)]
 pub struct Spinner {
-    active: bool,
-    fg: Option<Color>,
+    pub active: bool,
+    pub fg: Option<Color>,
 }
 impl Spinner {
-    pub fn new() -> Spinner {
-        Spinner {
-            active: true,
-            fg: None,
-        }
-    }
-
-    pub fn fg(self, color: Option<Color>) -> Spinner {
-        Spinner {
-            fg: color,
-            ..self
-        }
-    }
-
-    pub fn active(self, active: bool) -> Spinner {
-        Spinner {
-            active,
-            ..self
-        }
-    }
-
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         let mut style = Style::default();
         if let Some(fg) = self.fg {

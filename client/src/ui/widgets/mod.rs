@@ -4,17 +4,19 @@ use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 
-pub use flex::*;
+pub use cell_layout::*;
 pub use list::*;
 pub use text::*;
 pub use container::*;
 pub use spinner::*;
+pub use cell::*;
 
-mod flex;
+mod cell_layout;
 mod list;
 mod text;
 mod container;
 mod spinner;
+mod cell;
 
 #[derive(Clone, Copy)]
 pub struct Size {
@@ -51,29 +53,29 @@ pub fn render_root<B, R>(root: R, frame: &mut Frame<B>) where B : Backend, R: In
 }
 
 pub enum Renderable {
-    Flex(Flex),
+    CellLayout(CellLayout),
+    Cell(Cell),
     List(List),
     Text(Text),
     Spinner(Spinner),
-    Container(Container),
 }
 impl Renderable {
     fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
         match self {
-            Renderable::Flex(flex) => flex.render(rect, frame),
+            Renderable::CellLayout(layout) => layout.render(rect, frame),
+            Renderable::Cell(cell) => cell.render(rect, frame),
             Renderable::List(list) => list.render(rect, frame),
             Renderable::Text(text) => text.render(rect, frame),
-            Renderable::Container(container) => container.render(rect, frame),
             Renderable::Spinner(spinner) => spinner.render(rect, frame),
         }
     }
 
     fn measure(&self) -> Size {
         match self {
-            Renderable::Flex(flex) => flex.measure(),
+            Renderable::CellLayout(layout) => layout.measure(),
+            Renderable::Cell(cell) => cell.measure(),
             Renderable::List(list) => list.measure(),
             Renderable::Text(text) => text.measure(),
-            Renderable::Container(container) => container.measure(),
             Renderable::Spinner(spinner) => spinner.measure(),
         }
     }
