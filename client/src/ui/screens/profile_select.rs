@@ -4,7 +4,7 @@ use tui::style::Color;
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{Align, Container, CellLayout, Cell, Align, IntoFlexElement, List, render_root};
+use crate::ui::widgets::{CellLayout, Cell, List, render_root, Align, IntoCell};
 
 pub fn render_profile_select<B>(
     frame: &mut Frame<B>,
@@ -16,14 +16,23 @@ pub fn render_profile_select<B>(
     };
 
     render_root(
-        CellLayout::new(vec![
-            Container::from(
-                List::new().simple_items(
-                    state.config.profiles.iter().map(|prof| prof.name.clone()).collect()
-                ).selection(*selected_idx)
-            ).align(Align::Center)
-                .into_flex().grow_both()
-        ]),
+        CellLayout {
+            cells: vec![
+                Cell {
+                    fill: true,
+                    align_vert: Align::Center,
+                    align_horiz: Align::Center,
+                    element: List {
+                        items: List::simple_items(
+                            state.config.profiles.iter().map(|prof| prof.name.clone()).collect()
+                        ),
+                        selection: *selected_idx
+                    }.into_el(),
+                    ..Default::default()
+                }
+            ],
+            ..Default::default()
+        },
         frame
     );
 }

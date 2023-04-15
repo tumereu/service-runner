@@ -1,12 +1,13 @@
 use std::cmp::{max, min};
+use std::collections::HashMap;
 use tui::backend::Backend;
 use tui::Frame;
 use tui::style::Color;
-use shared::message::models::CompileStatus;
+use shared::message::models::{CompileStatus, Profile, ServiceStatus};
 
 use crate::client_state::ClientState;
 use crate::ui::UIState;
-use crate::ui::widgets::{CellLayout, Cell, Align, List, render_root, Text, IntoFlexElement, Dir, Container, Spinner, IntoCell};
+use crate::ui::widgets::{CellLayout, Cell, Align, List, render_root, Text, Dir, Spinner, IntoCell};
 use crate::ui::widgets::Align::Stretch;
 use crate::ui::widgets::Dir::UpDown;
 
@@ -24,8 +25,6 @@ pub fn render_view_profile<B>(
 
     if let (Some(profile), Some(service_statuses)) = (profile, service_statuses) {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
-
-        let service_selection = 0;
 
         render_root(CellLayout {
             direction: UpDown,
@@ -59,7 +58,7 @@ pub fn render_view_profile<B>(
                                 padding_right: 1,
                                 min_width: side_panel_width,
                                 fill: true,
-                                element: service_list().into_el(),
+                                element: service_list(profile, service_statuses).into_el(),
                                 ..Default::default()
                             },
                             // Output window. TODO
@@ -78,7 +77,9 @@ pub fn render_view_profile<B>(
     }
 }
 
-fn service_list() -> CellLayout {
+fn service_list(profile: &Profile, service_statuses: &HashMap<String, ServiceStatus>) -> CellLayout {
+    let service_selection = 0;
+
     CellLayout {
         cells: profile.services.iter()
             .enumerate()
@@ -109,7 +110,7 @@ fn service_list() -> CellLayout {
                             Cell {
                                 fill: true,
                                 element: Text {
-                                    text: service.name(),
+                                    text: service.name().to_string(),
                                     ..Default::default()
                                 }.into_el(),
                                 ..Default::default()

@@ -7,14 +7,12 @@ use tui::layout::Rect;
 pub use cell_layout::*;
 pub use list::*;
 pub use text::*;
-pub use container::*;
 pub use spinner::*;
 pub use cell::*;
 
 mod cell_layout;
 mod list;
 mod text;
-mod container;
 mod spinner;
 mod cell;
 
@@ -52,6 +50,7 @@ pub fn render_root<B, R>(root: R, frame: &mut Frame<B>) where B : Backend, R: In
     root.into().render(frame.size(), frame);
 }
 
+#[derive(Debug)]
 pub enum Renderable {
     CellLayout(CellLayout),
     Cell(Cell),

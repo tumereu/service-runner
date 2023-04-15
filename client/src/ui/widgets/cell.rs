@@ -29,9 +29,8 @@ impl Cell {
             );
         }
 
+        let el_size = self.measure();
         if let Some(element) = self.element {
-            let el_size = self.measure();
-
             let x = match self.align_horiz {
                 Align::Start | Align::Stretch => rect.x,
                 Align::End => rect.x + rect.width - el_size.width,
@@ -58,7 +57,7 @@ impl Cell {
     }
 
     pub fn measure(&self) -> Size {
-        let el_size = self.element.map(|el| el.measure()).unwrap_or((0, 0).into());
+        let el_size = self.element.as_ref().map(|el| el.measure()).unwrap_or((0 as u16, 0 as u16).into());
 
         let mut width = el_size.width + self.padding_left + self.padding_right;
         width = max(width, self.min_width);

@@ -6,7 +6,7 @@ use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::widgets::{List as TuiList, ListItem as TuiListItem};
 
-use crate::ui::widgets::{Container, CellLayout, Dir, Cell, Align, IntoFlexElement, Renderable, Size, Text};
+use crate::ui::widgets::{CellLayout, Dir, Cell, Align, Renderable, Size, Text, IntoCell};
 
 #[derive(Debug, Default)]
 pub struct List {
@@ -14,9 +14,17 @@ pub struct List {
     pub selection: usize,
 }
 impl List {
-    pub fn simple_items(items: Vec<String>) -> Vec<Renderable> {
+    pub fn simple_items(items: Vec<String>) -> Vec<Cell> {
         items.into_iter()
-            .map(|item| Text::new(item).into())
+            .map(|item| {
+                Cell {
+                    element: Text {
+                        text: item,
+                        ..Default::default()
+                    }.into_el(),
+                    ..Default::default()
+                }
+            })
             .collect()
     }
 
@@ -31,12 +39,14 @@ impl List {
                     }
                 } else {
                     item
-                }.into_flex().grow_horiz()
+                }
             }).collect();
 
-        CellLayout::new(items)
-            .direction(Dir::UpDown)
-            .render(rect, frame);
+        CellLayout {
+            cells: items,
+            direction: Dir::UpDown,
+            ..Default::default()
+        }.render(rect, frame);
     }
 
     pub fn measure(&self) -> Size {

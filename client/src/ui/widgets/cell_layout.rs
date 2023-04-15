@@ -36,7 +36,7 @@ impl CellLayout {
             } else {
                 &cell.align_horiz
             };
-            let measured_size = cell.element.measure();
+            let measured_size = cell.measure();
 
             free_space = free_space.saturating_sub(
                 if cell.fill {
@@ -57,68 +57,55 @@ impl CellLayout {
         let mut current_pos = 0;
 
         for cell in self.cells {
-            let measured_size = cell.element.measure();
-            let size_in_layout: Size = (
-                match cell.aloi {
-                    _ if self.direction == Dir::UpDown => rect.width,
-                    Align::Wrap => measured_size.width,
-                    Align::Grow => fill_size,
-                },
-                match cell.size_vert {
-                    _ if self.direction == Dir::LeftRight => rect.height,
-                    Align::Wrap => measured_size.height,
-                    Align::Grow => fill_size,
-                }
-            ).into();
-            // Clamp the size-in-layout to be a maximum of the remaining size
-            let size_in_layout = size_in_layout.intersect(
-                match self.direction {
-                    Dir::UpDown => (rect.width, rect.height - current_pos).into(),
-                    Dir::LeftRight => (rect.width - current_pos, rect.height).into()
-                }
-            );
-
-            let actual_size: Size = (
-                match cell.size_horiz {
-                    Align::Wrap => measured_size.width,
-                    Align::Grow => match self.direction {
-                        Dir::UpDown => rect.width,
-                        Dir::LeftRight => fill_size
+            if let Some(element) = cell.element {
+                let measured_size = element.measure();
+                let size_in_layout: Size = (
+                    if self.direction == Dir::UpDown {
+                        rect.width
+                    } else if cell.fill {
+                        fill_size
+                    } else {
+                        measured_size.width
                     },
-                },
-                match cell.size_vert {
-                    Align::Wrap => measured_size.height,
-                    Align::Grow => match self.direction {
-                        Dir::UpDown => fill_size,
-                        Dir::LeftRight => rect.height
+                    if self.direction == Dir::LeftRight {
+                        rect.height
+                    } else if cell.fill {
+                        fill_size
+                    } else {
+                        measured_size.height
                     },
-                },
-            ).into();
-            // Clamp the actual size to a maximum of the size in layout
-            let actual_size = actual_size.intersect(size_in_layout);
+                ).into();
+                // Clamp the size-in-layout to be a maximum of the remaining size
+                let size_in_layout = size_in_layout.intersect(
+                    match self.direction {
+                        Dir::UpDown => (rect.width, rect.height - current_pos).into(),
+                        Dir::LeftRight => (rect.width - current_pos, rect.height).into()
+                    }
+                );
 
-            let (x, y) = if self.direction == Dir::UpDown {
-                (0, current_pos)
-            } else {
-                (current_pos, 0)
-            };
+                let (x, y) = if self.direction == Dir::UpDown {
+                    (0, current_pos)
+                } else {
+                    (current_pos, 0)
+                };
 
-            // Increase current position for subseqent elements
-            current_pos += if self.direction == Dir::UpDown {
-                size_in_layout.height
-            } else {
-                size_in_layout.width
-            };
+                // Increase current position for subseqent elements
+                current_pos += if self.direction == Dir::UpDown {
+                    size_in_layout.height
+                } else {
+                    size_in_layout.width
+                };
 
-            cell.element.render(
-                Rect::new(
-                    rect.x + x,
-                    rect.y + y,
-                    actual_size.width,
-                    actual_size.height
-                ),
-                frame
-            );
+                element.render(
+                    Rect::new(
+                        rect.x + x,
+                        rect.y + y,
+                        size_in_layout.width,
+                        size_in_layout.height
+                    ),
+                    frame
+                );
+            }
         }
     }
 
