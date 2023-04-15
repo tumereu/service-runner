@@ -21,6 +21,7 @@ pub fn render_view_profile<B>(
 
     let profile = state.system_state.as_ref().map(|it| it.current_profile.as_ref()).flatten();
     let service_statuses = state.system_state.as_ref().map(|it| &it.service_statuses);
+    let border_color = Color::Rgb(100, 100, 0);
 
     if let (Some(profile), Some(service_statuses)) = (profile, service_statuses) {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
@@ -31,7 +32,6 @@ pub fn render_view_profile<B>(
                 // Title
                 Cell {
                     element: Cell {
-                        padding_left: 2,
                         element: Text {
                             text: profile.name.to_owned(),
                             ..Default::default()
@@ -39,7 +39,7 @@ pub fn render_view_profile<B>(
                         ..Default::default()
                     }.into_el(),
                     align_vert: Align::Stretch,
-                    bg: Some(Color::Green),
+                    bg: border_color.clone().into(),
                     ..Default::default()
                 },
                 // Split the panel for side panel/service selection and output window
@@ -57,13 +57,39 @@ pub fn render_view_profile<B>(
                                 padding_bottom: 1,
                                 padding_right: 1,
                                 min_width: side_panel_width,
-                                fill: true,
                                 element: service_list(profile, service_statuses).into_el(),
                                 ..Default::default()
                             },
-                            // Output window. TODO
+                            // Border between output and service list
+                            Cell {
+                                min_width: 1,
+                                bg: border_color.clone().into(),
+                                ..Default::default()
+                            },
+                            // Output pane
                             Cell {
                                 fill: true,
+                                padding_left: 1,
+                                align_vert: Align::Stretch,
+                                align_horiz: Align::Stretch,
+                                element: Flow {
+                                    direction: UpDown,
+                                    cells: state.output_store.query_lines(
+                                        frame.size().height.saturating_sub(1).into(),
+                                        None
+                                    ).into_iter()
+                                        .map(|(key, line)| {
+                                            Cell {
+                                                align_horiz: Align::Start,
+                                                element: Text {
+                                                    text: line.to_string(),
+                                                    ..Default::default()
+                                                }.into_el(),
+                                                ..Default::default()
+                                            }
+                                        }).collect(),
+                                    ..Default::default()
+                                }.into_el(),
                                 ..Default::default()
                             },
                         ],

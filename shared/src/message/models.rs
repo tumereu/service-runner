@@ -140,10 +140,13 @@ impl OutputStore {
         let mut result: Vec<(&OutputKey, &str)> = Vec::with_capacity(num_lines);
         let mut bucket_indices: HashMap<OutputKey, Option<usize>> = self.outputs.iter()
             .map(|(key, lines)| {
-                if lines.iter().last().map(|OutputLine { index, ..}| index <= &max_idx).unwrap_or(false) {
+                if lines.len() == 0 {
+                    // If the bucket has 0 lines, then there's nothing we could ever return
+                    (key.clone(), None)
+                } else if lines.iter().last().map(|OutputLine { index, ..}| index <= &max_idx).unwrap_or(false) {
                     // If all lines have an index lower than the given max index, then the starting index is the length
                     // of the bucket
-                    (key.clone(), lines.len().into())
+                    (key.clone(), (lines.len() - 1).into())
                 } else {
                     // Otherwise find the partition point for elements at most the given index, and select the last
                     // index of the first partition
@@ -178,7 +181,7 @@ impl OutputStore {
             }
         }
 
-        result
+        result.into_iter().rev().collect()
     }
 }
 
