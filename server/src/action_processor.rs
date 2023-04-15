@@ -37,13 +37,7 @@ fn process_action(
                     (service.name().clone(), ServiceStatus::from(&profile, service))
                 }).collect();
             state.system_state.current_profile = Some(profile);
-            broadcast_state(state);
+            state.broadcast_all(Broadcast::State(state.system_state.clone()));
         }
     }
-}
-
-fn broadcast_state(state: &mut ServerState) {
-    state.broadcasts_out.iter_mut().for_each(|(_key, value)| {
-        value.push(Broadcast::State(state.system_state.clone()));
-    });
 }

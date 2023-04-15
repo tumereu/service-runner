@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
@@ -104,4 +105,47 @@ pub enum CompileStatus {
     None,
     Compiling(usize),
     Compiled(usize)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct OutputStore {
+    pub outputs: HashMap<OutputKey, VecDeque<OutputLine>>
+}
+impl OutputStore {
+    pub fn new() -> Self {
+        OutputStore {
+            outputs: HashMap::new()
+        }
+    }
+
+    pub fn add_output(&mut self, key: &OutputKey, line: OutputLine) {
+        if !self.outputs.contains_key(key) {
+            self.outputs.insert(key.clone(), VecDeque::new());
+        }
+        let mut deque = self.outputs.get_mut(key).unwrap();
+        deque.push_back(line);
+        // TODO move to a config field
+        if deque.len() > 8096 {
+            deque.pop_front();
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+pub struct OutputKey {
+    pub name: String,
+    pub service_ref: String,
+    pub kind: OutputKind
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum OutputKind {
+    Compile,
+    Run
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct OutputLine {
+    pub value: String,
+    pub timestamp: u128
 }

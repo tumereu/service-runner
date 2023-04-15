@@ -25,8 +25,8 @@ pub fn run_server(port: u16, state: Arc<Mutex<ServerState>>) {
                 // Whenever a client connects, send the updated system state to all clients
                 {
                     let mut state = state.lock().unwrap();
-                    // TODO only broadcast to the connected client
-                    broadcast_state(&mut state);
+                    let broadcast = Broadcast::State(state.system_state.clone());
+                    state.broadcast_one(client_count, broadcast);
                 }
             },
             Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
@@ -35,13 +35,6 @@ pub fn run_server(port: u16, state: Arc<Mutex<ServerState>>) {
             Err(e) => panic!("Encountered an unexpected IO error {e}")
         }
     }
-}
-
-pub fn broadcast_state(state: &mut ServerState) {
-    let system_state = state.system_state.clone();
-    state.broadcasts_out.iter_mut().for_each(|(_key, value)| {
-        value.push(Broadcast::State(system_state.clone()));
-    });
 }
 
 pub fn handle_connection(

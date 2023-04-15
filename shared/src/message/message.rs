@@ -14,7 +14,7 @@ impl AsRef<Action> for Action {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Broadcast {
     State(SystemState)
 }

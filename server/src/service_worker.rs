@@ -4,10 +4,10 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use shared::message::Broadcast;
 use shared::message::models::{CompileStatus, ExecutableEntry, Service};
 use shared::system_state::{Status, SystemState};
-use crate::connection::broadcast_state;
-use crate::server_state::{Process, ServerState};
+use crate::server_state::{ServerState};
 
 pub fn start_service_worker(state: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
@@ -68,7 +68,7 @@ fn work_services(state_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     // TODO handle erroneous commands?
     state.active_compile_count += 1;
     state.system_state.service_statuses.get_mut(&service_name).unwrap().compile_status = CompileStatus::Compiling(index);
-    broadcast_state(&mut state);
+    state.broadcast_all(Broadcast::State(state.system_state.clone()));
 
     let handle = command.spawn().expect("Something went wrong");
 
@@ -76,7 +76,7 @@ fn work_services(state_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         let mut state = state.lock().unwrap();
         state.active_compile_count -= 1;
         state.system_state.service_statuses.get_mut(&service_name).unwrap().compile_status = CompileStatus::Compiled(index);
-        broadcast_state(&mut state);
+        state.broadcast_all(Broadcast::State(state.system_state.clone()));
     });
 
     Some(())

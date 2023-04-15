@@ -13,6 +13,7 @@ mod server_state;
 mod connection;
 mod action_processor;
 mod service_worker;
+mod output_handler;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let port: u16 = env::args().collect::<Vec<String>>()
