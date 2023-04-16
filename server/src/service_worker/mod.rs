@@ -1,5 +1,6 @@
 mod utils;
 mod compilation;
+mod run;
 
 use shared::system_state::Status;
 use std::sync::{Arc, Mutex};
@@ -18,6 +19,7 @@ pub fn start_service_worker(state: Arc<Mutex<ServerState>>) -> thread::JoinHandl
 
 fn work_services(server: Arc<Mutex<ServerState>>) -> Option<()> {
     compilation::handle_compilation(server.clone());
+    run::handle_running(server.clone());
 
     Some(())
 }
