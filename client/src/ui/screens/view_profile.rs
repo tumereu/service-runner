@@ -124,7 +124,7 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                             // Status prefix
                             Cell {
                                 element: Text {
-                                    text: " [".into(),
+                                    text: " ".into(),
                                     ..Default::default()
                                 }.into_el(),
                                 ..Default::default()
@@ -162,20 +162,12 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                             // Output status
                             Cell {
                                 element: Text {
-                                    text: "C".into(),
+                                    text: "O".into(),
                                     fg: if show_output {
                                         Color::Green
                                     } else {
                                         Color::Gray
                                     }.into(),
-                                    ..Default::default()
-                                }.into_el(),
-                                ..Default::default()
-                            },
-                            // Status suffix
-                            Cell {
-                                element: Text {
-                                    text: "]".into(),
                                     ..Default::default()
                                 }.into_el(),
                                 ..Default::default()
