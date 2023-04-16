@@ -95,7 +95,7 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
         items: profile.services.iter()
             .enumerate()
             .map(|(_index, service)| {
-                let status = service_statuses.get(service.name());
+                let status = service_statuses.get(&service.name);
                 let show_output = status.map(|it| it.show_output).unwrap_or(false);
                 let should_run = status.map(|it| it.should_run).unwrap_or(false);
                 let auto_recompile = status.map(|it| it.auto_recompile).unwrap_or(false);
@@ -116,7 +116,7 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                             Cell {
                                 fill: true,
                                 element: Text {
-                                    text: service.name().to_string(),
+                                    text: service.name.to_string(),
                                     ..Default::default()
                                 }.into_el(),
                                 ..Default::default()

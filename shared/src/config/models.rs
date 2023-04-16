@@ -15,30 +15,56 @@ pub struct Config {
 #[derive(Deserialize, Debug, Clone)]
 pub struct ServerConfig {
     pub port: u16,
-    #[serde(default="bool_true")]
+    #[serde(default = "bool_true")]
     pub daemon: bool,
-    #[serde(default="default_server_executable")]
-    pub executable: String
+    #[serde(default = "default_server_executable")]
+    pub executable: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Service {
-    #[serde(rename = "compilable")]
-    Compilable {
+    #[serde(rename = "scripted")]
+    Scripted {
         name: String,
         dir: String,
         compile: Vec<ExecutableEntry>,
-        run: Vec<ExecutableEntry>,
+        run: Option<ScriptedRunConfig>,
         reset: Vec<ExecutableEntry>,
     }
 }
+
 impl Service {
     pub fn name(&self) -> &String {
         match self {
-            Service::Compilable { name, .. } => &name,
+            Service::Scripted { name, .. } => &name,
         }
     }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct ScriptedRunConfig {
+    pub command: ExecutableEntry,
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+    #[serde(default)]
+    pub health_check: Vec<HealthCheck>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(tag = "type")]
+pub enum HealthCheck {
+    #[serde(rename = "http")]
+    Http {
+        url: String,
+        method: String,
+        timeout_millis: u64,
+        status: u16,
+    },
+    #[serde(rename = "port")]
+    Port {
+        port: u16
+    },
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -67,8 +93,9 @@ pub enum ServiceType {
 pub struct Profile {
     pub name: String,
     #[serde(default, rename = "service")]
-    pub services: Vec<ServiceRef>
+    pub services: Vec<ServiceRef>,
 }
+
 impl Profile {
     pub fn includes(&self, service: &Service) -> bool {
         self.services.iter().any(|reference| reference.references(service))
@@ -77,8 +104,9 @@ impl Profile {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ServiceRef {
-    pub name: String
+    pub name: String,
 }
+
 impl ServiceRef {
     pub fn references(&self, service: &Service) -> bool {
         service.name() == &self.name
@@ -86,5 +114,5 @@ impl ServiceRef {
 }
 
 fn default_server_executable() -> String {
-    return String::from("./server")
+    return String::from("./server");
 }

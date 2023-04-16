@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::path::Path;
 use Vec;
@@ -13,8 +14,30 @@ pub struct MainConfig {
     pub server: ServerConfig
 }
 
-pub fn read_config(dir: &str) -> Result<Config, Box<dyn Error>> {
-    let main_config = read_main_config(&format!("{dir}/config.toml"))?;
+#[derive(Debug)]
+pub struct ConfigParsingError {
+    inner: Box<dyn Error>,
+    filename: String
+}
+impl ConfigParsingError {
+    pub fn new(inner: Box<dyn Error>, filename: &str) -> ConfigParsingError {
+        ConfigParsingError {
+            inner,
+            filename: filename.to_string()
+        }
+    }
+}
+impl Display for ConfigParsingError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let filename = &self.filename;
+        write!(f, "failed to parse {filename}")
+    }
+}
+impl Error for ConfigParsingError {}
+
+pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
+    let main_file = format!("{dir}/config.toml");
+    let main_config = read_main_config(&main_file).map_err(|err| ConfigParsingError::new(err, &main_file))?;
     let mut services: Vec<Service> = Vec::new();
     let mut profiles: Vec<Profile> = Vec::new();
 
@@ -23,9 +46,9 @@ pub fn read_config(dir: &str) -> Result<Config, Box<dyn Error>> {
         let filename = entry.file_name().to_str().unwrap_or("");
 
         if filename.ends_with(".service.toml") {
-            services.push(read_service(&path)?)
+            services.push(read_service(&path).map_err(|err| ConfigParsingError::new(err, filename))?)
         } else if filename.ends_with(".profile.toml") {
-            profiles.push(read_profile(&path)?)
+            profiles.push(read_profile(&path).map_err(|err| ConfigParsingError::new(err, filename))?)
         }
     }
 
@@ -36,7 +59,6 @@ pub fn read_config(dir: &str) -> Result<Config, Box<dyn Error>> {
         profiles
     })
 }
-
 
 pub fn read_main_config(path: &str) -> Result<MainConfig, Box<dyn Error>> {
     Ok(toml::from_str(&read_to_string(path)?)?)

@@ -29,39 +29,32 @@ fn work_services(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let (service_name, mut command, index) = {
         let profile = server.system_state.current_profile.as_ref()?;
         let compilable = profile.services.iter()
+            .filter(|service| service.compile.len() > 0)
             .find(|service| {
-                match service {
-                    Service::Compilable { compile, .. } => {
-                        let status = server.system_state.service_statuses.get(service.name()).unwrap();
-                        match status.compile_status {
-                            // Services with no compile steps executed should be compiled
-                            CompileStatus::None => true,
-                            // Services with some but not all compile-steps should be compiled
-                            CompileStatus::Compiled(index) => index < compile.len() - 1,
-                            // Services currently compiling should not be compiled
-                            CompileStatus::Compiling(_) => false
-                        }
-                    }
+                let status = server.system_state.service_statuses.get(&service.name).unwrap();
+                match status.compile_status {
+                    // Services with no compile steps executed should be compiled
+                    CompileStatus::None => true,
+                    // Services with some but not all compile-steps should be compiled
+                    CompileStatus::Compiled(index) => index < service.compile.len() - 1,
+                    // Services currently compiling should not be compiled
+                    CompileStatus::Compiling(_) => false
                 }
             })?;
 
-        match compilable {
-            Service::Compilable { name, dir, compile, .. } => {
-                let status = server.system_state.service_statuses.get(name).unwrap();
-                let index = match status.compile_status {
-                    CompileStatus::None => 0,
-                    CompileStatus::Compiled(index) => index + 1,
-                    CompileStatus::Compiling(_) => panic!("Should not exec this code with a compiling-status")
-                };
-                let mut command = create_cmd(compile.get(index).unwrap(), dir);
+        let status = server.system_state.service_statuses.get(&compilable.name).unwrap();
+        let index = match status.compile_status {
+            CompileStatus::None => 0,
+            CompileStatus::Compiled(index) => index + 1,
+            CompileStatus::Compiling(_) => panic!("Should not exec this code with a compiling-status")
+        };
+        let mut command = create_cmd(compilable.compile.get(index).unwrap(), compilable.dir.as_ref());
 
-                command.stdin(Stdio::null());
-                command.stdout(Stdio::piped());
-                command.stderr(Stdio::piped());
+        command.stdin(Stdio::null());
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
 
-                (name.clone(), command, index)
-            }
-        }
+        (compilable.name.clone(), command, index)
     };
 
     // TODO handle erroneous commands?
@@ -83,13 +76,15 @@ fn work_services(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     Some(())
 }
 
-fn create_cmd(
+fn create_cmd<S>(
     entry: &ExecutableEntry,
-    dir: &str
-) -> Command {
+    dir: Option<S>
+) -> Command where S: AsRef<str> {
     let mut cmd = Command::new(entry.executable.clone());
     cmd.args(entry.args.clone());
-    cmd.current_dir(dir);
+    if let Some(dir) = dir {
+        cmd.current_dir(dir.as_ref());
+    }
     entry.env.iter().for_each(|(key, value)| {
         cmd.env(key.clone(), value.clone());
     });

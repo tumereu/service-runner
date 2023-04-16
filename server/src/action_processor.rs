@@ -34,7 +34,7 @@ fn process_action(
         Action::ActivateProfile(profile) => {
             server.system_state.service_statuses = profile.services.iter()
                 .map(|service| {
-                    (service.name().clone(), ServiceStatus::from(&profile, service))
+                    (service.name.clone(), ServiceStatus::from(&profile, service))
                 }).collect();
             server.system_state.current_profile = Some(profile);
             let broadcast = Broadcast::State(server.system_state.clone());

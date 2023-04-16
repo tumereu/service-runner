@@ -1,41 +1,79 @@
 use std::collections::{HashMap, VecDeque};
 use serde::{Deserialize, Serialize};
+use toml::value::Index;
 
 use crate::config::{
     ExecutableEntry as ConfigExecutableEntry,
     Profile as ConfigProfile,
-    Service as ConfigService
+    Service as ConfigService,
+    ScriptedRunConfig as ConfigScriptedRunConfig,
+    HealthCheck as ConfigHealthCheck
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Service {
-    Compilable {
-        name: String,
-        dir: String,
-        compile: Vec<ExecutableEntry>,
-        run: Vec<ExecutableEntry>,
-        reset: Vec<ExecutableEntry>,
-    }
+pub struct Service {
+    pub name: String,
+    pub dir: Option<String>,
+    pub compile: Vec<ExecutableEntry>,
+    pub run: Option<RunConfig>,
+    pub reset: Vec<ExecutableEntry>,
 }
-impl Service {
-    pub fn name(&self) -> &String {
-        match self {
-            Service::Compilable { name, .. } => &name,
-        }
-    }
-}
+
 impl From<ConfigService> for Service {
     fn from(value: ConfigService) -> Self {
         match value {
-            ConfigService::Compilable { name, dir, compile, run, reset } => {
-                Service::Compilable {
+            ConfigService::Scripted { name, dir, compile, run, reset } => {
+                Service {
                     name,
-                    dir,
+                    dir: dir.into(),
                     compile: compile.into_iter().map(|ex| ex.into()).collect(),
-                    run: run.into_iter().map(|ex| ex.into()).collect(),
+                    run: run.map(|it| it.into()),
                     reset: reset.into_iter().map(|ex| ex.into()).collect(),
                 }
             }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RunConfig {
+    pub command: ExecutableEntry,
+    pub dependencies: Vec<String>,
+    pub health_check: Vec<HealthCheck>
+}
+impl From<ConfigScriptedRunConfig> for RunConfig {
+    fn from(value: ConfigScriptedRunConfig) -> Self {
+        RunConfig {
+            command: value.command.into(),
+            dependencies: value.dependencies,
+            health_check: value.health_check.into_iter().map(|it| it.into()).collect(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum HealthCheck {
+    /// A health check in the form of a HTTP response, made to the given URL with the given HTTP method. The check is
+    /// considered OK if something responds to the call within [timeout_millis] milliseconds with a status of [status]
+    Http {
+        url: String,
+        method: String,
+        timeout_millis: u64,
+        status: u16
+    },
+    /// A health check in the form of an open port. The check is considered OK if the given [port] is is listening in
+    /// the OS.
+    Port {
+        port: u16
+    }
+}
+impl From<ConfigHealthCheck> for HealthCheck {
+    fn from(value: ConfigHealthCheck) -> Self {
+        match value {
+            ConfigHealthCheck::Http { url, method, timeout_millis, status } => HealthCheck::Http {
+                url, method, timeout_millis, status
+            },
+            ConfigHealthCheck::Port { port } => HealthCheck::Port { port },
         }
     }
 }
