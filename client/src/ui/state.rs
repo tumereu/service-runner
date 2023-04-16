@@ -1,3 +1,5 @@
+use crate::ui::state::ViewProfilePane::ServiceList;
+
 #[derive(Eq, PartialEq, Debug)]
 pub enum UIState {
     Initializing,
@@ -5,7 +7,8 @@ pub enum UIState {
         selected_idx: usize
     },
     ViewProfile {
-
+        active_pane: ViewProfilePane,
+        service_selection: usize
     }
 }
 impl UIState {
@@ -16,6 +19,15 @@ impl UIState {
     }
 
     pub fn view_profile() -> UIState {
-        UIState::ViewProfile {}
+        UIState::ViewProfile {
+            active_pane: ServiceList,
+            service_selection: 0
+        }
     }
+}
+
+#[derive(Eq, PartialEq, Debug, Clone)]
+pub enum ViewProfilePane {
+    ServiceList,
+    OutputPane
 }

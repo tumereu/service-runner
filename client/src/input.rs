@@ -8,7 +8,7 @@ use shared::message::Action;
 use shared::message::models::Profile;
 
 use crate::{ClientState, ClientStatus};
-use crate::ui::UIState;
+use crate::ui::{UIState, ViewProfilePane};
 
 pub fn process_inputs(state: Arc<Mutex<ClientState>>) -> Result<(), String> {
     let config = state.lock().unwrap().config.clone();
@@ -41,15 +41,37 @@ pub fn process_inputs(state: Arc<Mutex<ClientState>>) -> Result<(), String> {
 
 fn process_navigation(state: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
     let mut state = state.lock().unwrap();
-    match state.ui {
+    match &state.ui {
         UIState::Initializing => {},
         UIState::ProfileSelect { selected_idx } => {
             state.ui = UIState::ProfileSelect {
-                selected_idx: update_vert_index(selected_idx, state.config.profiles.len(), dir)
+                selected_idx: update_vert_index(*selected_idx, state.config.profiles.len(), dir)
             }
         }
-        UIState::ViewProfile { .. } => {
-            // TODO
+        UIState::ViewProfile { active_pane, service_selection } => {
+            let num_profiles = state.system_state.as_ref().unwrap().current_profile.as_ref().unwrap().services.len();
+
+            match active_pane {
+                ViewProfilePane::ServiceList if dir.0 > 0 => {
+                    state.ui = UIState::ViewProfile {
+                        active_pane: ViewProfilePane::OutputPane,
+                        service_selection: *service_selection
+                    }
+                },
+                ViewProfilePane::ServiceList if dir.1 != 0 => {
+                    state.ui = UIState::ViewProfile {
+                        active_pane: ViewProfilePane::ServiceList,
+                        service_selection: update_vert_index(*service_selection, num_profiles, dir)
+                    }
+                }
+                ViewProfilePane::OutputPane if dir.0 < 0 => {
+                    state.ui = UIState::ViewProfile {
+                        service_selection: *service_selection,
+                        active_pane: ViewProfilePane::ServiceList
+                    }
+                },
+                _ => {}
+            }
         }
     }
 }

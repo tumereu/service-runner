@@ -4,7 +4,7 @@ use tui::backend::Backend;
 use tui::Terminal;
 
 use screens::*;
-pub use state::UIState;
+pub use state::{UIState, ViewProfilePane};
 
 use crate::ClientState;
 use crate::ui::init::render_init;

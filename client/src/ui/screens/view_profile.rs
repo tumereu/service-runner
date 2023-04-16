@@ -6,6 +6,7 @@ use tui::style::Color;
 use shared::message::models::{CompileStatus, Profile, ServiceStatus};
 
 use crate::client_state::ClientState;
+use crate::ui::state::ViewProfilePane;
 use crate::ui::UIState;
 use crate::ui::widgets::{Flow, Cell, Align, List, render_root, Text, Dir, Spinner, IntoCell};
 use crate::ui::widgets::Dir::{LeftRight, UpDown};
@@ -14,14 +15,20 @@ pub fn render_view_profile<B>(
     frame: &mut Frame<B>,
     state: &ClientState,
 ) where B: Backend {
-    match &state.ui {
-        UIState::ViewProfile { .. } => {}
+    let (pane, selection) = match &state.ui {
+        UIState::ViewProfile { active_pane, service_selection } => (active_pane, service_selection),
         any @ _ => panic!("Invalid UI state in render_view_profile: {any:?}")
     };
 
     let profile = state.system_state.as_ref().map(|it| it.current_profile.as_ref()).flatten();
     let service_statuses = state.system_state.as_ref().map(|it| &it.service_statuses);
+    let active_border_color = Color::Rgb(180, 180, 0);
     let border_color = Color::Rgb(100, 100, 0);
+
+    let service_selection: Option<usize> = match pane {
+        ViewProfilePane::ServiceList => Some(*selection),
+        _ => None
+    };
 
     if let (Some(profile), Some(service_statuses)) = (profile, service_statuses) {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
@@ -31,14 +38,26 @@ pub fn render_view_profile<B>(
             cells: vec![
                 // List of services in the current profile
                 Cell {
-                    border: (border_color.clone(), profile.name.clone()).into(),
+                    border: (
+                        match pane {
+                            ViewProfilePane::ServiceList => active_border_color.clone(),
+                            _ => border_color.clone()
+                        },
+                        profile.name.clone()
+                    ).into(),
                     min_width: side_panel_width,
-                    element: service_list(profile, service_statuses).into_el(),
+                    element: service_list(profile, service_selection, service_statuses).into_el(),
                     ..Default::default()
                 },
                 // Output pane
                 Cell {
-                    border: (border_color.clone(), String::from("Output")).into(),
+                    border: (
+                        match pane {
+                            ViewProfilePane::OutputPane => active_border_color.clone(),
+                            _ => border_color.clone()
+                        },
+                        String::from("Output")
+                    ).into(),
                     fill: true,
                     align_vert: Align::Stretch,
                     align_horiz: Align::Stretch,
@@ -68,10 +87,11 @@ pub fn render_view_profile<B>(
     }
 }
 
-fn service_list(profile: &Profile, service_statuses: &HashMap<String, ServiceStatus>) -> List {
+fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &HashMap<String, ServiceStatus>) -> List {
     let service_selection = 0;
 
     List {
+        selection: selection.unwrap_or(usize::MAX),
         items: profile.services.iter()
             .enumerate()
             .map(|(_index, service)| {
@@ -174,7 +194,6 @@ fn service_list(profile: &Profile, service_statuses: &HashMap<String, ServiceSta
                     ..Default::default()
                 }
             }).collect(),
-        selection: service_selection,
         ..Default::default()
     }
 }
