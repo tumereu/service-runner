@@ -1,5 +1,5 @@
 use shared::message::Broadcast;
-use crate::service_worker::utils::{spawn_handler, create_cmd};
+use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
 use shared::message::models::{CompileStatus, OutputKind};
 use shared::system_state::Status;
@@ -49,13 +49,20 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
     let handle = command.spawn().expect("Something went wrong");
 
-    spawn_handler(server_arc.clone(), handle, service_name.clone(), OutputKind::Compile, move |(state, success)| {
-        let mut state = state.lock().unwrap();
-        state.active_compile_count -= 1;
-        state.system_state.service_statuses.get_mut(&service_name).unwrap().compile_status = CompileStatus::Compiled(index);
-        let broadcast = Broadcast::State(state.system_state.clone());
-        state.broadcast_all(broadcast);
-    });
+    ProcessHandler {
+        server: server_arc.clone(),
+        handle,
+        service_name: service_name.clone(),
+        output: OutputKind::Compile,
+        exit_early: |_| false,
+        on_finish: move |(state, service_name, success)| {
+            let mut state = state.lock().unwrap();
+            state.active_compile_count -= 1;
+            state.system_state.service_statuses.get_mut(service_name).unwrap().compile_status = CompileStatus::Compiled(index);
+            let broadcast = Broadcast::State(state.system_state.clone());
+            state.broadcast_all(broadcast);
+        }
+    }.launch(&mut server);
 
     Some(())
 }

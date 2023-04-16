@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::thread::JoinHandle;
 
 use shared::message::{Action, Broadcast};
 use shared::message::models::OutputStore;
@@ -9,7 +10,8 @@ pub struct ServerState {
     pub broadcasts_out: HashMap<u32, Vec<Broadcast>>,
     pub system_state: SystemState,
     pub active_compile_count: usize,
-    pub output_store: OutputStore
+    pub output_store: OutputStore,
+    pub active_threads: Vec<JoinHandle<()>>
 }
 impl ServerState {
     pub fn new() -> ServerState {
@@ -19,6 +21,7 @@ impl ServerState {
             system_state: SystemState::new(),
             active_compile_count: 0,
             output_store: OutputStore::new(),
+            active_threads: Vec::new(),
         }
     }
 

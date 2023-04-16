@@ -9,6 +9,7 @@ use crate::config::{
     ScriptedRunConfig as ConfigScriptedRunConfig,
     HealthCheck as ConfigHealthCheck
 };
+use crate::message::models::ServiceAction::{Recompile, Restart};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {
@@ -115,24 +116,31 @@ impl Profile {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServiceStatus {
+    pub action: ServiceAction,
     pub should_run: bool,
-    pub auto_recompile: bool,
-    pub needs_compile: bool,
     pub compile_status: CompileStatus,
     pub is_running: bool,
     pub show_output: bool,
+    pub auto_recompile: bool,
 }
 impl ServiceStatus {
     pub fn from(_profile: &Profile, _service: &Service) -> ServiceStatus {
         ServiceStatus {
             should_run: true,
+            action: Recompile,
             auto_recompile: true,
-            needs_compile: true,
             compile_status: CompileStatus::None,
             is_running: false,
             show_output: true,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub enum ServiceAction {
+    None,
+    Recompile,
+    Restart
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,7 +1,7 @@
 use shared::message::Broadcast;
-use crate::service_worker::utils::{spawn_handler, create_cmd};
+use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
-use shared::message::models::{CompileStatus, OutputKind};
+use shared::message::models::{CompileStatus, OutputKind, ServiceAction};
 use shared::system_state::Status;
 use std::sync::{Mutex, Arc};
 
@@ -27,7 +27,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
         let run_config = runnable.run.as_ref().unwrap();
 
-        let mut command = create_cmd(&run_config.command, runnable.dir.as_ref());
+        let command = create_cmd(&run_config.command, runnable.dir.as_ref());
 
         (runnable.name.clone(), command)
     };
@@ -38,14 +38,27 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
     let handle = command.spawn().expect("Something went wrong");
 
-    // TODO stop services at will?
-    spawn_handler(server_arc.clone(), handle, service_name.clone(), OutputKind::Compile, move |(server, success)| {
-        let mut server = server.lock().unwrap();
-        // Mark the service as no longer running when it exits
-        server.system_state.service_statuses.get_mut(&service_name).unwrap().is_running = false;
-        let broadcast = Broadcast::State(server.system_state.clone());
-        server.broadcast_all(broadcast);
-    });
+    ProcessHandler {
+        server: server_arc.clone(),
+        handle,
+        service_name: service_name.clone(),
+        output: OutputKind::Run,
+        on_finish: move |(server, service_name, success)| {
+            let mut server = server.lock().unwrap();
+            // Mark the service as no longer running when it exits
+            server.system_state.service_statuses.get_mut(service_name).unwrap().is_running = false;
+            let broadcast = Broadcast::State(server.system_state.clone());
+            server.broadcast_all(broadcast);
+        },
+        exit_early: move |(server, service_name)| {
+            let server = server.lock().unwrap();
+
+            // TODO simple test -- stop service when all services are running
+            let status = &server.system_state.service_statuses.get(service_name).unwrap();
+
+            !status.should_run || status.action == ServiceAction::Restart
+        }
+    }.launch(&mut server);
 
     Some(())
 }
