@@ -44,6 +44,13 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         (compilable.name.clone(), command, index)
     };
 
+    // TODO output command to be executed. ALso to run.rs
+    server.add_output(&OutputKey {
+        name: OutputKey::CTRL.into(),
+        service_ref: service_name.clone(),
+        kind: OutputKind::Compile,
+    }, format!("Executing compile step {index}"));
+
     match command.spawn() {
         Ok(handle) => {
             server.active_compile_count += 1;
@@ -68,6 +75,12 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     } else {
                         status.compile_status = CompileStatus::Failed;
                         status.action = ServiceAction::None;
+
+                        server.add_output(&OutputKey {
+                            name: OutputKey::CTRL.into(),
+                            service_ref: service_name.into(),
+                            kind: OutputKind::Compile,
+                        }, format!("Process exited with a non-zero status code"));
                     }
                     let broadcast = Broadcast::State(server.system_state.clone());
                     server.broadcast_all(broadcast);
@@ -82,7 +95,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 name: OutputKey::CTRL.into(),
                 service_ref: service_name,
                 kind: OutputKind::Compile,
-            }, format!("{error}"));
+            }, format!("Error in child process: {error}"));
             let broadcast = Broadcast::State(server.system_state.clone());
             server.broadcast_all(broadcast);
         }

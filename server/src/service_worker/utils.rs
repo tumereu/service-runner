@@ -71,8 +71,10 @@ impl<F, G> ProcessHandler<F, G> where F: FnOnce((Arc<Mutex<ServerState>>, &str, 
                     // TODO graceful terminate? Maybe use the kill-program on Unix systems?
                     handle.kill().unwrap_or(());
                     // Obtain exit status and invoke callback
-                    let success = handle.wait().map_or(false, |status| status.success());
-                    on_finish((server, &service_name ,success));
+                    let status = handle.wait();
+                    println!("{status:?}");
+                    let success = status.map_or(false, |status| status.success());
+                    on_finish((server, &service_name, success));
                 })
             },
             // Read stdout
