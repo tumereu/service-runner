@@ -3,13 +3,12 @@ use std::collections::HashMap;
 use tui::backend::Backend;
 use tui::Frame;
 use tui::style::Color;
-use shared::message::models::{CompileStatus, Profile, ServiceStatus};
+use shared::message::models::{CompileStatus, ServiceAction, RunStatus, Profile, ServiceStatus};
 
 use crate::client_state::ClientState;
 use crate::ui::state::ViewProfilePane;
 use crate::ui::UIState;
 use crate::ui::widgets::{Flow, Cell, Align, List, render_root, Text, Dir, Spinner, IntoCell};
-use crate::ui::widgets::Dir::{LeftRight, UpDown};
 
 pub fn render_view_profile<B>(
     frame: &mut Frame<B>,
@@ -22,6 +21,8 @@ pub fn render_view_profile<B>(
 
     let profile = state.system_state.as_ref().map(|it| it.current_profile.as_ref()).flatten();
     let service_statuses = state.system_state.as_ref().map(|it| &it.service_statuses);
+
+    // TODO move into a theme?
     let active_border_color = Color::Rgb(180, 180, 0);
     let border_color = Color::Rgb(100, 100, 0);
 
@@ -34,7 +35,7 @@ pub fn render_view_profile<B>(
         let side_panel_width = min(40, max(25, frame.size().width / 5));
 
         render_root(Flow {
-            direction: LeftRight,
+            direction: Dir::LeftRight,
             cells: vec![
                 // List of services in the current profile
                 Cell {
@@ -62,7 +63,7 @@ pub fn render_view_profile<B>(
                     align_vert: Align::Stretch,
                     align_horiz: Align::Stretch,
                     element: Flow {
-                        direction: UpDown,
+                        direction: Dir::UpDown,
                         cells: state.output_store.query_lines(
                             frame.size().height.saturating_sub(1).into(),
                             None
@@ -88,7 +89,11 @@ pub fn render_view_profile<B>(
 }
 
 fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &HashMap<String, ServiceStatus>) -> List {
-    let service_selection = 0;
+    // TODO Theme?
+    let active_color = Color::Rgb(0, 180, 20);
+    let processing_color = Color::Rgb(180, 180, 0);
+    let error_color = Color::Rgb(180, 0, 0);
+    let inactive_color = Color::Gray;
 
     List {
         selection: selection.unwrap_or(usize::MAX),
@@ -97,9 +102,7 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
             .map(|(_index, service)| {
                 let status = service_statuses.get(&service.name);
                 let show_output = status.map(|it| it.show_output).unwrap_or(false);
-                let should_run = status.map(|it| it.should_run).unwrap_or(false);
                 let auto_recompile = status.map(|it| it.auto_recompile).unwrap_or(false);
-                let is_running = status.map(|it| it.is_running).unwrap_or(false);
                 let is_compiling = status.map(|it| {
                     match it.compile_status {
                         CompileStatus::Compiling(_) => true,
@@ -133,12 +136,17 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                             Cell {
                                 element: Text {
                                     text: "R".into(),
-                                    fg: if !should_run {
-                                        Color::Gray
-                                    } else if is_running {
-                                        Color::Green
+                                    fg: if let Some(status) = status {
+                                        match status.run_status {
+                                            RunStatus::Running => active_color.clone(),
+                                            RunStatus::Failed => error_color.clone(),
+                                            RunStatus::Stopped => match status.action {
+                                                ServiceAction::Restart | ServiceAction::Recompile => processing_color.clone(),
+                                                _ => inactive_color.clone()
+                                            }
+                                        }
                                     } else {
-                                        Color::Yellow
+                                        inactive_color.clone()
                                     }.into(),
                                     ..Default::default()
                                 }.into_el(),
@@ -148,12 +156,16 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                             Cell {
                                 element: Text {
                                     text: "C".into(),
-                                    fg: if !auto_recompile {
-                                        Color::Gray
-                                    } else if is_compiling {
-                                        Color::Yellow
+                                    fg: if let Some(status) = status {
+                                        match status.compile_status {
+                                            // TODO handle colors better here. Indicate whether system _should_ compile?
+                                            CompileStatus::None => inactive_color.clone(),
+                                            CompileStatus::Compiled(_) => inactive_color.clone(),
+                                            CompileStatus::Compiling(_) => processing_color.clone(),
+                                            CompileStatus::Failed  => error_color.clone(),
+                                        }
                                     } else {
-                                        Color::Green
+                                        inactive_color.clone()
                                     }.into(),
                                     ..Default::default()
                                 }.into_el(),

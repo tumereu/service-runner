@@ -119,7 +119,7 @@ pub struct ServiceStatus {
     pub action: ServiceAction,
     pub should_run: bool,
     pub compile_status: CompileStatus,
-    pub is_running: bool,
+    pub run_status: RunStatus,
     pub show_output: bool,
     pub auto_recompile: bool,
 }
@@ -130,7 +130,7 @@ impl ServiceStatus {
             action: Recompile,
             auto_recompile: true,
             compile_status: CompileStatus::None,
-            is_running: false,
+            run_status: RunStatus::Stopped,
             show_output: true,
         }
     }
@@ -140,14 +140,23 @@ impl ServiceStatus {
 pub enum ServiceAction {
     None,
     Recompile,
-    Restart
+    Restart,
+    Stop
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum CompileStatus {
     None,
     Compiling(usize),
-    Compiled(usize)
+    Compiled(usize),
+    Failed
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum RunStatus {
+    Stopped,
+    Running,
+    Failed
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

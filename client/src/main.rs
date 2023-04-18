@@ -23,6 +23,10 @@ mod ui;
 mod input;
 mod connection;
 
+macro_rules! dbg_println {
+    ($($arg:tt)*) => (if ::std::cfg!(debug_assertions) { ::std::println!($($arg)*); })
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let config_dir: String = env::args().collect::<Vec<String>>()
         .get(1)
@@ -30,6 +34,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .clone();
 
     let state = Arc::new(Mutex::new(ClientState::new(read_config(&config_dir)?)));
+    let num_profiles = state.lock().unwrap().config.profiles.len();
+    let num_services = state.lock().unwrap().config.services.len();
+
+    dbg_println!("Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)");
 
     enable_raw_mode()?;
 
