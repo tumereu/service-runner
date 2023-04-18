@@ -60,7 +60,7 @@ impl<F, G> ProcessHandler<F, G> where F: FnOnce((Arc<Mutex<ServerState>>, &str, 
                         if handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
                             break;
                         }
-                        if server.lock().unwrap().system_state.status != Status::Exiting {
+                        if server.lock().unwrap().system_state.status == Status::Exiting {
                             break;
                         }
                         thread::sleep(Duration::from_millis(10));
