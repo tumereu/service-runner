@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::thread::JoinHandle;
 
 use shared::message::{Action, Broadcast};
-use shared::message::models::OutputStore;
+use shared::message::models::{OutputKey, OutputStore};
 use shared::system_state::SystemState;
 
 pub struct ServerState {
@@ -36,5 +36,10 @@ impl ServerState {
         if let Some(queue) = queue {
             queue.push(broadcast);
         }
+    }
+
+    pub fn add_output(&mut self, key: &OutputKey, line: String) {
+        let line = self.output_store.add_output(key, line).clone();
+        self.broadcast_all(Broadcast::OutputLine(key.clone(), line));
     }
 }

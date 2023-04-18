@@ -1,7 +1,7 @@
 use shared::message::Broadcast;
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
-use shared::message::models::{CompileStatus, ServiceAction, OutputKind};
+use shared::message::models::{CompileStatus, ServiceAction, OutputKind, OutputKey};
 use shared::system_state::Status;
 use std::sync::{Mutex, Arc};
 
@@ -44,41 +44,48 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         (compilable.name.clone(), command, index)
     };
 
-    if let Ok(handle) = command.spawn() {
-        server.active_compile_count += 1;
-        let mut status = server.system_state.service_statuses.get_mut(&service_name).unwrap();
-        status.compile_status = CompileStatus::Compiling(index);
-        let broadcast = Broadcast::State(server.system_state.clone());
-        server.broadcast_all(broadcast);
+    match command.spawn() {
+        Ok(handle) => {
+            server.active_compile_count += 1;
+            let mut status = server.system_state.service_statuses.get_mut(&service_name).unwrap();
+            status.compile_status = CompileStatus::Compiling(index);
+            let broadcast = Broadcast::State(server.system_state.clone());
+            server.broadcast_all(broadcast);
 
-        ProcessHandler {
-            server: server_arc.clone(),
-            handle,
-            service_name: service_name.clone(),
-            output: OutputKind::Compile,
-            exit_early: |_| false,
-            on_finish: move |(server, service_name, success)| {
-                let mut server = server.lock().unwrap();
-                server.active_compile_count -= 1;
-                let mut status = server.system_state.service_statuses.get_mut(service_name).unwrap();
-                if success {
-                    status.compile_status = CompileStatus::Compiled(index);
-                    status.action = ServiceAction::Restart;
-                } else {
-                    status.compile_status = CompileStatus::Failed;
-                    status.action = ServiceAction::None;
+            ProcessHandler {
+                server: server_arc.clone(),
+                handle,
+                service_name: service_name.clone(),
+                output: OutputKind::Compile,
+                exit_early: |_| false,
+                on_finish: move |(server, service_name, success)| {
+                    let mut server = server.lock().unwrap();
+                    server.active_compile_count -= 1;
+                    let mut status = server.system_state.service_statuses.get_mut(service_name).unwrap();
+                    if success {
+                        status.compile_status = CompileStatus::Compiled(index);
+                        status.action = ServiceAction::Restart;
+                    } else {
+                        status.compile_status = CompileStatus::Failed;
+                        status.action = ServiceAction::None;
+                    }
+                    let broadcast = Broadcast::State(server.system_state.clone());
+                    server.broadcast_all(broadcast);
                 }
-                let broadcast = Broadcast::State(server.system_state.clone());
-                server.broadcast_all(broadcast);
-            }
-        }.launch(&mut server);
-    } else {
-        // TODO error into output
-        let mut status = server.system_state.service_statuses.get_mut(&service_name).unwrap();
-        status.compile_status = CompileStatus::Failed;
-        status.action = ServiceAction::None;
-        let broadcast = Broadcast::State(server.system_state.clone());
-        server.broadcast_all(broadcast);
+            }.launch(&mut server);
+        },
+        Err(error) => {
+            let mut status = server.system_state.service_statuses.get_mut(&service_name).unwrap();
+            status.compile_status = CompileStatus::Failed;
+            status.action = ServiceAction::None;
+            server.add_output(&OutputKey {
+                name: OutputKey::CTRL.into(),
+                service_ref: service_name,
+                kind: OutputKind::Compile,
+            }, format!("{error}"));
+            let broadcast = Broadcast::State(server.system_state.clone());
+            server.broadcast_all(broadcast);
+        }
     }
 
     Some(())

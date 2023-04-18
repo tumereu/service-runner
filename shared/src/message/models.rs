@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use std::convert::Into;
 use serde::{Deserialize, Serialize};
 use toml::value::Index;
 
@@ -247,6 +248,9 @@ pub struct OutputKey {
     pub kind: OutputKind
 }
 impl OutputKey {
+    pub const STD: &'static str = "std";
+    pub const CTRL: &'static str = "ctrl";
+
     pub fn new(name: String, service_ref: String, kind: OutputKind) -> Self {
         OutputKey {
             name,

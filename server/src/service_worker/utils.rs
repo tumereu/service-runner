@@ -85,7 +85,7 @@ impl<F, G> ProcessHandler<F, G> where F: FnOnce((Arc<Mutex<ServerState>>, &str, 
                         let mut handle = handle.lock().unwrap();
                         handle.stdout.take().unwrap()
                     };
-                    let key = OutputKey::new("std".into(), service_name, output.clone());
+                    let key = OutputKey::new(OutputKey::STD.into(), service_name, output.clone());
 
                     for line in BufReader::new(stream).lines() {
                         if let Ok(line) = line {
@@ -104,7 +104,7 @@ impl<F, G> ProcessHandler<F, G> where F: FnOnce((Arc<Mutex<ServerState>>, &str, 
                         let mut handle = handle.lock().unwrap();
                         handle.stderr.take().unwrap()
                     };
-                    let key = OutputKey::new("std".into(), service_name, output.clone());
+                    let key = OutputKey::new(OutputKey::STD.into(), service_name, output.clone());
 
                     for line in BufReader::new(stream).lines() {
                         if let Ok(line) = line {
