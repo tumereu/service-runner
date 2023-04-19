@@ -4,6 +4,7 @@ use crate::ServerState;
 use shared::message::models::{CompileStatus, ServiceAction, OutputKind, OutputKey};
 use shared::system_state::Status;
 use std::sync::{Mutex, Arc};
+use shared::format_err;
 
 pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let mut server = server_arc.lock().unwrap();
@@ -95,7 +96,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 name: OutputKey::CTRL.into(),
                 service_ref: service_name,
                 kind: OutputKind::Compile,
-            }, format!("Error in child process: {error}"));
+            }, format_err!("Failed to spawn child process", error));
             let broadcast = Broadcast::State(server.system_state.clone());
             server.broadcast_all(broadcast);
         }

@@ -12,6 +12,7 @@ use tui::{
 };
 
 use shared::config::read_config;
+use shared::dbg_println;
 
 use crate::client_state::{ClientState, ClientStatus};
 use crate::connection::{connect_to_server, start_broadcast_processor};
@@ -22,10 +23,6 @@ mod client_state;
 mod ui;
 mod input;
 mod connection;
-
-macro_rules! dbg_println {
-    ($($arg:tt)*) => (if ::std::cfg!(debug_assertions) { ::std::println!($($arg)*); })
-}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let config_dir: String = env::args().collect::<Vec<String>>()
