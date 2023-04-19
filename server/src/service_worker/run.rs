@@ -23,7 +23,11 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     // TODO allow services with no compilation step at all?
                     (CompileStatus::None | CompileStatus::Failed | CompileStatus::Compiling(_), _) => false,
                     // Allow services that have been fully compiled
-                    (CompileStatus::Compiled(index), _) => *index == service.compile.len() - 1,
+                    (CompileStatus::Compiled(index), _) if *index < service.compile.len() - 1 => false,
+                    (CompileStatus::Compiled(_), _) => match status.action {
+                        ServiceAction::Restart => true,
+                        ServiceAction::None | ServiceAction::Stop | ServiceAction::Recompile => false,
+                    }
                 }
             })?;
 
@@ -35,9 +39,11 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     };
 
     // TODO update service action
+    // TODO ctrl output
     match command.spawn() {
         Ok(handle) => {
             server.system_state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Running;
+            server.system_state.service_statuses.get_mut(&service_name).unwrap().action = ServiceAction::None;
             let broadcast = Broadcast::State(server.system_state.clone());
             server.broadcast_all(broadcast);
 
@@ -70,6 +76,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         }
         Err(error) => {
             server.system_state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Failed;
+            server.system_state.service_statuses.get_mut(&service_name).unwrap().action = ServiceAction::None;
             let broadcast = Broadcast::State(server.system_state.clone());
             server.broadcast_all(broadcast);
 

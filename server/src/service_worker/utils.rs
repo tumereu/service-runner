@@ -72,7 +72,6 @@ impl<F, G> ProcessHandler<F, G> where F: FnOnce((Arc<Mutex<ServerState>>, &str, 
                     handle.kill().unwrap_or(());
                     // Obtain exit status and invoke callback
                     let status = handle.wait();
-                    println!("{status:?}");
                     let success = status.map_or(false, |status| status.success());
                     on_finish((server, &service_name, success));
                 })
