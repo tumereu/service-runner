@@ -11,12 +11,12 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let mut server = server_arc.lock().unwrap();
 
     let (service_name, mut command) = {
-        let profile = server.system_state.current_profile.as_ref()?;
+        let profile = server.get_state().current_profile.as_ref()?;
         let runnable = profile.services.iter()
             .filter(|service| service.run.is_some())
             .find(|service| {
                 // TODO dependencies?
-                let status = server.system_state.service_statuses.get(&service.name).unwrap();
+                let status = server.get_state().service_statuses.get(&service.name).unwrap();
                 // TODO service action
                 match (&status.compile_status, &status.run_status) {
                     (_, RunStatus::Running) => false,
@@ -42,10 +42,10 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     // TODO ctrl output
     match command.spawn() {
         Ok(handle) => {
-            server.system_state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Running;
-            server.system_state.service_statuses.get_mut(&service_name).unwrap().action = ServiceAction::None;
-            let broadcast = Broadcast::State(server.system_state.clone());
-            server.broadcast_all(broadcast);
+            server.update_state(|state| {
+                state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Running;
+                state.service_statuses.get_mut(&service_name).unwrap().action = ServiceAction::None;
+            });
 
             ProcessHandler {
                 server: server_arc.clone(),
@@ -56,29 +56,28 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     let mut server = server.lock().unwrap();
                     // Mark the service as no longer running when it exits
                     // TODO message
-                    if success {
-                        server.system_state.service_statuses.get_mut(service_name).unwrap().run_status = RunStatus::Stopped;
-                    } else {
-                        server.system_state.service_statuses.get_mut(service_name).unwrap().run_status = RunStatus::Failed;
-                    }
-                    let broadcast = Broadcast::State(server.system_state.clone());
-                    server.broadcast_all(broadcast);
+                    server.update_state(move |state| {
+                        if success {
+                            state.service_statuses.get_mut(service_name).unwrap().run_status = RunStatus::Stopped;
+                        } else {
+                            state.service_statuses.get_mut(service_name).unwrap().run_status = RunStatus::Failed;
+                        }
+                    });
                 },
                 exit_early: move |(server, service_name)| {
                     let server = server.lock().unwrap();
 
-                    // TODO simple test -- stop service when all services are running
-                    let status = &server.system_state.service_statuses.get(service_name).unwrap();
+                    let status = &server.get_state().service_statuses.get(service_name).unwrap();
 
                     status.action == ServiceAction::Restart || status.action == ServiceAction::Stop
                 }
             }.launch(&mut server);
         }
         Err(error) => {
-            server.system_state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Failed;
-            server.system_state.service_statuses.get_mut(&service_name).unwrap().action = ServiceAction::None;
-            let broadcast = Broadcast::State(server.system_state.clone());
-            server.broadcast_all(broadcast);
+            server.update_state(|state| {
+                state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Failed;
+                state.service_statuses.get_mut(&service_name).unwrap().action = ServiceAction::None;
+            });
 
             server.add_output(&OutputKey {
                 name: OutputKey::CTRL.into(),

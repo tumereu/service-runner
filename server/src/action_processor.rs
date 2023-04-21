@@ -10,7 +10,7 @@ use crate::server_state::ServerState;
 
 pub fn start_action_processor(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        while server.lock().unwrap().system_state.status != Status::Exiting {
+        while server.lock().unwrap().get_state().status != Status::Exiting {
             {
                 let mut server = server.lock().unwrap();
                 while let Some(action) = server.actions_in.pop() {
@@ -29,16 +29,18 @@ fn process_action(
 ) {
     match action {
         Action::Shutdown => {
-            server.system_state.status = Status::Exiting;
+            server.update_state(|state| {
+                state.status = Status::Exiting;
+            });
         }
         Action::ActivateProfile(profile) => {
-            server.system_state.service_statuses = profile.services.iter()
-                .map(|service| {
-                    (service.name.clone(), ServiceStatus::from(&profile, service))
-                }).collect();
-            server.system_state.current_profile = Some(profile);
-            let broadcast = Broadcast::State(server.system_state.clone());
-            server.broadcast_all(broadcast);
+            server.update_state(|state| {
+                state.service_statuses = profile.services.iter()
+                    .map(|service| {
+                        (service.name.clone(), ServiceStatus::from(&profile, service))
+                    }).collect();
+                state.current_profile = Some(profile);
+            });
         }
     }
 }

@@ -2,14 +2,13 @@ use std::collections::HashMap;
 use std::thread::JoinHandle;
 
 use shared::message::{Action, Broadcast};
-use shared::message::models::{OutputKey, OutputStore};
+use shared::message::models::{OutputKey, OutputStore, ServiceStatus};
 use shared::system_state::SystemState;
 
 pub struct ServerState {
     pub actions_in: Vec<Action>,
     pub broadcasts_out: HashMap<u32, Vec<Broadcast>>,
-    pub system_state: SystemState,
-    pub active_compile_count: usize,
+    system_state: SystemState,
     pub output_store: OutputStore,
     pub active_threads: Vec<JoinHandle<()>>
 }
@@ -19,10 +18,26 @@ impl ServerState {
             actions_in: Vec::new(),
             broadcasts_out: HashMap::new(),
             system_state: SystemState::new(),
-            active_compile_count: 0,
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
         }
+    }
+
+    pub fn get_state(&self) -> &SystemState {
+        &self.system_state
+    }
+
+    pub fn update_state<F>(&mut self, update: F) where F: FnOnce(&mut SystemState) {
+        update(&mut self.system_state);
+        let broadcast = Broadcast::State(self.system_state.clone());
+        self.broadcast_all(broadcast);
+    }
+
+    pub fn update_service_status<F>(&mut self, service: &str, update: F) where F: FnOnce(&mut ServiceStatus) {
+        self.update_state(move |state| {
+            let mut status = state.service_statuses.get_mut(service).unwrap();
+            update(status);
+        });
     }
 
     pub fn broadcast_all(&mut self, broadcast: Broadcast) {

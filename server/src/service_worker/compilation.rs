@@ -9,18 +9,17 @@ use shared::format_err;
 pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let mut server = server_arc.lock().unwrap();
 
-    // Do not spawn new compilations if any are currently active.
-    // TODO support parallel compilation?
-    if server.active_compile_count > 0 {
+    // Do not spawn new compilations if any are any currently active.
+    if server.get_state().service_statuses.values().any(|status| matches!(status.compile_status, CompileStatus::Compiling(_))) {
         return None
     }
 
     let (service_name, mut command, index) = {
-        let profile = server.system_state.current_profile.as_ref()?;
+        let profile = server.get_state().current_profile.as_ref()?;
         let compilable = profile.services.iter()
             .filter(|service| service.compile.len() > 0)
             .find(|service| {
-                let status = server.system_state.service_statuses.get(&service.name).unwrap();
+                let status = server.get_state().service_statuses.get(&service.name).unwrap();
                 match status.compile_status {
                     // Services with no compile steps executed should be compiled
                     CompileStatus::None | CompileStatus::Failed => match status.action {
@@ -34,7 +33,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 }
             })?;
 
-        let status = server.system_state.service_statuses.get(&compilable.name).unwrap();
+        let status = server.get_state().service_statuses.get(&compilable.name).unwrap();
         let index = match status.compile_status {
             CompileStatus::None | CompileStatus::Failed => 0,
             CompileStatus::Compiled(index) => index + 1,
@@ -54,11 +53,9 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
     match command.spawn() {
         Ok(handle) => {
-            server.active_compile_count += 1;
-            let mut status = server.system_state.service_statuses.get_mut(&service_name).unwrap();
-            status.compile_status = CompileStatus::Compiling(index);
-            let broadcast = Broadcast::State(server.system_state.clone());
-            server.broadcast_all(broadcast);
+            server.update_state(|state| {
+                state.service_statuses.get_mut(&service_name).unwrap().compile_status = CompileStatus::Compiling(index);
+            });
 
             ProcessHandler {
                 server: server_arc.clone(),
@@ -68,14 +65,16 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 exit_early: |_| false,
                 on_finish: move |(server, service_name, success)| {
                     let mut server = server.lock().unwrap();
-                    server.active_compile_count -= 1;
-                    let mut status = server.system_state.service_statuses.get_mut(service_name).unwrap();
                     if success {
-                        status.compile_status = CompileStatus::Compiled(index);
-                        status.action = ServiceAction::Restart;
+                        server.update_service_status(&service_name, |status| {
+                            status.compile_status = CompileStatus::Compiled(index);
+                            status.action = ServiceAction::Restart;
+                        });
                     } else {
-                        status.compile_status = CompileStatus::Failed;
-                        status.action = ServiceAction::None;
+                        server.update_service_status(&service_name, |status| {
+                            status.compile_status = CompileStatus::Failed;
+                            status.action = ServiceAction::None;
+                        });
 
                         server.add_output(&OutputKey {
                             name: OutputKey::CTRL.into(),
@@ -83,22 +82,19 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                             kind: OutputKind::Compile,
                         }, format!("Process exited with a non-zero status code"));
                     }
-                    let broadcast = Broadcast::State(server.system_state.clone());
-                    server.broadcast_all(broadcast);
                 }
             }.launch(&mut server);
         },
         Err(error) => {
-            let mut status = server.system_state.service_statuses.get_mut(&service_name).unwrap();
-            status.compile_status = CompileStatus::Failed;
-            status.action = ServiceAction::None;
+            server.update_service_status(&service_name, |status| {
+                status.compile_status = CompileStatus::Failed;
+                status.action = ServiceAction::None;
+            });
             server.add_output(&OutputKey {
                 name: OutputKey::CTRL.into(),
                 service_ref: service_name,
                 kind: OutputKind::Compile,
             }, format_err!("Failed to spawn child process", error));
-            let broadcast = Broadcast::State(server.system_state.clone());
-            server.broadcast_all(broadcast);
         }
     }
 

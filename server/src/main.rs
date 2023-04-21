@@ -3,7 +3,8 @@ extern crate core;
 use std::{env, thread};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use shared::dbg_println;
 use shared::system_state::Status;
 
 use crate::action_processor::start_action_processor;
@@ -22,22 +23,29 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap()
         .parse()?;
 
-    let state = Arc::new(Mutex::new(ServerState::new()));
+    let server = Arc::new(Mutex::new(ServerState::new()));
 
-    start_action_processor(state.clone());
-    start_service_worker(state.clone());
+    start_action_processor(server.clone());
+    start_service_worker(server.clone());
 
     let join_threads = {
-        let state = state.clone();
+        let server = server.clone();
         thread::spawn(move || {
+            let mut last_print = Instant::now();
+
             loop {
                 {
-                    let mut state = state.lock().unwrap();
-                    if state.system_state.status == Status::Exiting && state.active_threads.len() == 0 {
+                    let mut server = server.lock().unwrap();
+                    if server.get_state().status == Status::Exiting && server.active_threads.len() == 0 {
                         break;
                     }
 
-                    state.active_threads.retain(|thread| !thread.is_finished());
+                    server.active_threads.retain(|thread| !thread.is_finished());
+                    if Instant::now().duration_since(last_print).as_millis() >= 5000 {
+                        let thread_count = server.active_threads.len();
+                        dbg_println!("Current thread count: {thread_count}");
+                        last_print = Instant::now();
+                    }
                 }
 
                 thread::sleep(Duration::from_millis(10));
@@ -45,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
     };
 
-    run_server(port, state.clone());
+    run_server(port, server.clone());
     join_threads.join().unwrap();
 
     Ok(())
