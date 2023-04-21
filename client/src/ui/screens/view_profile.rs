@@ -91,7 +91,7 @@ pub fn render_view_profile<B>(
 fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &HashMap<String, ServiceStatus>) -> List {
     // TODO Theme?
     let active_color = Color::Rgb(0, 140, 0);
-    let processing_color = Color::Rgb(180, 180, 0);
+    let processing_color = Color::Rgb(230, 180, 0);
     let error_color = Color::Rgb(180, 0, 0);
     let inactive_color = Color::Gray;
 

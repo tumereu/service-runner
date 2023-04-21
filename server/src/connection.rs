@@ -48,24 +48,27 @@ pub fn handle_connection(
 ) {
     server.lock().unwrap().broadcasts_out.insert(index, Vec::new());
 
-    thread::spawn(move || {
-        while server.lock().unwrap().get_state().status != Status::Exiting {
-            while stream.has_incoming(Duration::from_millis(10))? {
-                let incoming: Action = stream.receive()?;
-                server.lock().unwrap().actions_in.push(incoming);
+    let handle = {
+        let server = server.clone();
+        thread::spawn(move || {
+            while server.lock().unwrap().get_state().status != Status::Exiting {
+                while stream.has_incoming(Duration::from_millis(10)).unwrap() {
+                    let incoming: Action = stream.receive().unwrap();
+                    server.lock().unwrap().actions_in.push(incoming);
+                }
+                while let Some(outgoing) = server.lock().unwrap().broadcasts_out.get_mut(&index).unwrap().pop() {
+                    stream.send(outgoing).unwrap();
+                }
+
+                thread::sleep(Duration::from_millis(1));
             }
-            while let Some(outgoing) = server.lock().unwrap().broadcasts_out.get_mut(&index).unwrap().pop() {
-                stream.send(outgoing)?;
-            }
 
-            thread::sleep(Duration::from_millis(1));
-        }
+            server.lock().unwrap().broadcasts_out.remove(&index);
 
-        server.lock().unwrap().broadcasts_out.remove(&index);
+            stream.shutdown(Shutdown::Both).unwrap();
+        })
+    };
 
-        stream.shutdown(Shutdown::Both)?;
-
-        Ok::<(), std::io::Error>(())
-    });
+    server.lock().unwrap().active_threads.push(handle);
 }
 
