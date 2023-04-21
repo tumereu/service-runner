@@ -3,10 +3,12 @@ use std::fmt::format;
 use shared::message::Broadcast;
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
-use shared::message::models::{CompileStatus, RunStatus, OutputKind, ServiceAction, OutputKey};
+use shared::message::models::{CompileStatus, RunStatus, OutputKind, ServiceAction, OutputKey, ServiceStatus};
 use shared::system_state::Status;
 use std::sync::{Mutex, Arc};
-use shared::format_err;
+use std::thread;
+use std::time::Duration;
+use shared::{dbg_println, format_err};
 
 pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let mut server = server_arc.lock().unwrap();
@@ -18,14 +20,13 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             .find(|service| {
                 // TODO dependencies?
                 let status = server.get_state().service_statuses.get(&service.name).unwrap();
-                // TODO service action
                 match (&status.compile_status, &status.run_status) {
-                    (_, RunStatus::Running) => false,
+                    (_, RunStatus::Running | RunStatus::Healthy) => false,
                     // TODO allow services with no compilation step at all?
                     (CompileStatus::None | CompileStatus::Failed | CompileStatus::Compiling(_), _) => false,
                     // Allow services that have been fully compiled
                     (CompileStatus::Compiled(index), _) if *index < service.compile.len() - 1 => false,
-                    (CompileStatus::Compiled(_), _) => match status.action {
+                    (CompileStatus::Compiled(_), RunStatus::Stopped | RunStatus::Failed) => match status.action {
                         ServiceAction::Restart => true,
                         ServiceAction::None | ServiceAction::Stop | ServiceAction::Recompile => false,
                     }
@@ -45,13 +46,58 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         kind: OutputKind::Compile,
     }, format!("Exec: {exec_display}"));
 
-    // TODO ctrl output
     match command.spawn() {
         Ok(handle) => {
             server.update_state(|state| {
                 state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Running;
                 state.service_statuses.get_mut(&service_name).unwrap().action = ServiceAction::None;
             });
+
+            let handle = Arc::new(Mutex::new(handle));
+
+            let health_check_thread = {
+                let handle = handle.clone();
+                let server = server_arc.clone();
+                let service_name = service_name.clone();
+
+                thread::spawn(move || {
+                    let health_checks = server.lock().unwrap().get_service(&service_name)
+                        .map(|service| service.run.as_ref())
+                        .flatten()
+                        .map(|run_conf| run_conf.health_check.clone())
+                        .unwrap_or(Vec::new());
+
+                    loop {
+                        // If the process handle has exited, then we should not perform any health checks
+                        if handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
+                            break;
+                        }
+
+                        for check in &health_checks {
+                            // TODO implement actual checks
+                            thread::sleep(Duration::from_millis(1000))
+                        }
+
+                        // If all checks successful, break out of the loop
+                        break;
+
+                        // Sleep for some time before reattempting, so we don't hog resource
+                        thread::sleep(Duration::from_millis(100));
+                    }
+
+                    // If the process handle has exited, then we should not update the process status even if the
+                    // checks passed
+                    if handle.lock().unwrap().try_wait().unwrap_or(None).is_none() {
+                        server.lock().unwrap().update_service_status(&service_name, |status| {
+                            // If the service is still running, update its status to healthy
+                            if matches!(status.run_status, RunStatus::Running) {
+                                status.run_status = RunStatus::Healthy;
+                            }
+                        });
+                    }
+                })
+            };
+            server.active_threads.push(health_check_thread);
 
             ProcessHandler {
                 server: server_arc.clone(),
@@ -75,8 +121,14 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
                     let status = &server.get_state().service_statuses.get(service_name).unwrap();
 
+                    for status in server.get_state().service_statuses.values() {
+                        if status.action != ServiceAction::None {
+                            dbg_println!("Haz status {stat:?} ", stat = status.action);
+                        }
+                    }
+
                     status.action == ServiceAction::Restart || status.action == ServiceAction::Stop
-                }
+                },
             }.launch(&mut server);
         }
         Err(error) => {

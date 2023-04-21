@@ -138,10 +138,12 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                                     text: "R".into(),
                                     fg: if let Some(status) = status {
                                         match status.run_status {
-                                            RunStatus::Running => active_color.clone(),
+                                            RunStatus::Healthy => active_color.clone(),
+                                            RunStatus::Running => processing_color.clone(),
                                             RunStatus::Failed => error_color.clone(),
                                             RunStatus::Stopped => match status.action {
                                                 ServiceAction::Restart | ServiceAction::Recompile => processing_color.clone(),
+                                                _ if status.should_run => processing_color.clone(),
                                                 _ => inactive_color.clone()
                                             }
                                         }

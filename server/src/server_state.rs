@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::thread::JoinHandle;
+use std::time::Instant;
 
 use shared::message::{Action, Broadcast};
-use shared::message::models::{OutputKey, OutputStore, ServiceStatus};
+use shared::message::models::{OutputKey, OutputStore, Service, ServiceStatus};
 use shared::system_state::SystemState;
 
 pub struct ServerState {
+    pub created: Instant,
     pub actions_in: Vec<Action>,
     pub broadcasts_out: HashMap<u32, Vec<Broadcast>>,
     system_state: SystemState,
@@ -15,6 +17,7 @@ pub struct ServerState {
 impl ServerState {
     pub fn new() -> ServerState {
         ServerState {
+            created: Instant::now(),
             actions_in: Vec::new(),
             broadcasts_out: HashMap::new(),
             system_state: SystemState::new(),
@@ -25,6 +28,16 @@ impl ServerState {
 
     pub fn get_state(&self) -> &SystemState {
         &self.system_state
+    }
+
+    pub fn get_service(&self, service_name: &str) -> Option<&Service> {
+        self.system_state.current_profile.as_ref()
+            .map(|profile| profile.services.iter().find(|service| service.name == service_name))
+            .flatten()
+    }
+
+    pub fn get_service_status(&self, service_name: &str) -> Option<&ServiceStatus> {
+        self.system_state.service_statuses.get(service_name)
     }
 
     pub fn update_state<F>(&mut self, update: F) where F: FnOnce(&mut SystemState) {

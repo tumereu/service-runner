@@ -57,7 +57,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
             ProcessHandler {
                 server: server_arc.clone(),
-                handle,
+                handle: Arc::new(Mutex::new(handle)),
                 service_name: service_name.clone(),
                 output: OutputKind::Compile,
                 exit_early: |_| false,

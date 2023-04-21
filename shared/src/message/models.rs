@@ -185,6 +185,7 @@ pub enum CompileStatus {
 pub enum RunStatus {
     Stopped,
     Running,
+    Healthy,
     Failed
 }
 

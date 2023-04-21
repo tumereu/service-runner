@@ -28,23 +28,24 @@ pub fn create_cmd<S>(
     cmd
 }
 
-pub struct ProcessHandler<F, G> where F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
-                                      G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
+pub struct ProcessHandler<F, G>
+    where F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
+          G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
 {
     pub server: Arc<Mutex<ServerState>>,
-    pub handle: Child,
+    pub handle: Arc<Mutex<Child>>,
     pub service_name: String,
     pub output: OutputKind,
     pub on_finish: F,
     pub exit_early: G,
 }
 
-impl<F, G> ProcessHandler<F, G> where F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
-                                      G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
+impl<F, G> ProcessHandler<F, G>
+    where F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
+          G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
 {
     pub fn launch(self, server_state: &mut ServerState) {
         let ProcessHandler { server, handle, service_name, output, on_finish, exit_early } = self;
-        let handle = Arc::new(Mutex::new(handle));
         let mut new_threads = vec![
             // Kill the process when the server exits and invoke the callback after the process finishes
             {
@@ -134,4 +135,3 @@ impl<F, G> ProcessHandler<F, G> where F: FnOnce((Arc<Mutex<ServerState>>, &str, 
         server.broadcast_all(Broadcast::OutputLine(key.clone(), line));
     }
 }
-
