@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::fmt::format;
 use shared::message::Broadcast;
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
@@ -10,7 +11,7 @@ use shared::format_err;
 pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let mut server = server_arc.lock().unwrap();
 
-    let (service_name, mut command) = {
+    let (service_name, mut command, exec_display) = {
         let profile = server.get_state().current_profile.as_ref()?;
         let runnable = profile.services.iter()
             .filter(|service| service.run.is_some())
@@ -32,13 +33,18 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             })?;
 
         let run_config = runnable.run.as_ref().unwrap();
+        let exec_entry = &run_config.command;
+        let command = create_cmd(exec_entry, runnable.dir.as_ref());
 
-        let command = create_cmd(&run_config.command, runnable.dir.as_ref());
-
-        (runnable.name.clone(), command)
+        (runnable.name.clone(), command, format!("{exec_entry}"))
     };
 
-    // TODO update service action
+    server.add_output(&OutputKey {
+        name: OutputKey::CTRL.into(),
+        service_ref: service_name.clone(),
+        kind: OutputKind::Compile,
+    }, format!("Exec: {exec_display}"));
+
     // TODO ctrl output
     match command.spawn() {
         Ok(handle) => {

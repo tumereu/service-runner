@@ -14,7 +14,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         return None
     }
 
-    let (service_name, mut command, index) = {
+    let (service_name, mut command, exec_display, index) = {
         let profile = server.get_state().current_profile.as_ref()?;
         let compilable = profile.services.iter()
             .filter(|service| service.compile.len() > 0)
@@ -39,17 +39,17 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             CompileStatus::Compiled(index) => index + 1,
             CompileStatus::Compiling(_) => panic!("Should not exec this code with a compiling-status")
         };
-        let mut command = create_cmd(compilable.compile.get(index).unwrap(), compilable.dir.as_ref());
+        let exec_entry = compilable.compile.get(index).unwrap();
+        let mut command = create_cmd(exec_entry, compilable.dir.as_ref());
 
-        (compilable.name.clone(), command, index)
+        (compilable.name.clone(), command, format!("{exec_entry}"), index)
     };
 
-    // TODO output command to be executed. ALso to run.rs
     server.add_output(&OutputKey {
         name: OutputKey::CTRL.into(),
         service_ref: service_name.clone(),
         kind: OutputKind::Compile,
-    }, format!("Executing compile step {index}"));
+    }, format!("Exec: {exec_display}"));
 
     match command.spawn() {
         Ok(handle) => {

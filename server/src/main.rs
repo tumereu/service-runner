@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     server.active_threads.retain(|thread| !thread.is_finished());
                     if Instant::now().duration_since(last_print).as_millis() >= 5000 {
                         let thread_count = server.active_threads.len();
-                        dbg_println!("Current thread count: {thread_count}");
+                        dbg_println!("Unjoined thread count: {thread_count}");
                         last_print = Instant::now();
                     }
                 }

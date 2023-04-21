@@ -21,3 +21,20 @@ macro_rules! format_err {
         }
     };
 }
+
+#[macro_export]
+macro_rules! write_escaped_str {
+    ($fmt: tt, $string:expr) => {
+        let mut escaped_str = $string.clone();
+        escaped_str.replace("=", "\\=");
+        escaped_str.replace("\"", "\\\"");
+
+        if $string.contains(char::is_whitespace) || escaped_str.len() != $string.len() {
+            $fmt.write_str("\"")?;
+            $fmt.write_str(&escaped_str)?;
+            $fmt.write_str("\"")?;
+        } else {
+            $fmt.write_str(&escaped_str)?;
+        }
+    }
+}

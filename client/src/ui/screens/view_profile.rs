@@ -90,7 +90,7 @@ pub fn render_view_profile<B>(
 
 fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &HashMap<String, ServiceStatus>) -> List {
     // TODO Theme?
-    let active_color = Color::Rgb(0, 180, 20);
+    let active_color = Color::Rgb(0, 140, 0);
     let processing_color = Color::Rgb(180, 180, 0);
     let error_color = Color::Rgb(180, 0, 0);
     let inactive_color = Color::Gray;
@@ -159,7 +159,11 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                                     fg: if let Some(status) = status {
                                         match status.compile_status {
                                             // TODO handle colors better here. Indicate whether system _should_ compile?
-                                            CompileStatus::None => inactive_color.clone(),
+                                            CompileStatus::None => if auto_recompile {
+                                                active_color.clone()
+                                            } else {
+                                                inactive_color.clone()
+                                            },
                                             CompileStatus::Compiled(_) => inactive_color.clone(),
                                             CompileStatus::Compiling(_) => processing_color.clone(),
                                             CompileStatus::Failed  => error_color.clone(),
@@ -176,9 +180,9 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                                 element: Text {
                                     text: "O".into(),
                                     fg: if show_output {
-                                        Color::Green
+                                        active_color.clone()
                                     } else {
-                                        Color::Gray
+                                        inactive_color.clone()
                                     }.into(),
                                     ..Default::default()
                                 }.into_el(),
