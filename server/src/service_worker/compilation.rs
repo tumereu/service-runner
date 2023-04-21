@@ -16,29 +16,26 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
     let (service_name, mut command, exec_display, index) = {
         let profile = server.get_state().current_profile.as_ref()?;
-        let compilable = profile.services.iter()
+        let (compilable, index) = profile.services.iter()
             .filter(|service| service.compile.len() > 0)
-            .find(|service| {
+            .flat_map(|service| {
                 let status = server.get_state().service_statuses.get(&service.name).unwrap();
                 match status.compile_status {
-                    // Services with no compile steps executed should be compiled
-                    CompileStatus::None | CompileStatus::Failed => match status.action {
-                        ServiceAction::Recompile =>  true,
-                        _ => false
-                    },
-                    // Services with some but not all compile-steps should be compiled
-                    CompileStatus::Compiled(index) => index < service.compile.len() - 1,
                     // Services currently compiling should not be compiled
-                    CompileStatus::Compiling(_) => false
+                    CompileStatus::Compiling(_) => None,
+                    // If we are not currently compiling, then a recompile requests means we should start again from
+                    // the first step
+                    _ if matches!(status.action, ServiceAction::Recompile) => Some((service, 0)),
+                    // Services with some but not all compile-steps should be compiled
+                    CompileStatus::Compiled(index) if index < service.compile.len() - 1 => {
+                        Some((service, index + 1))
+                    },
+                    // Fully compiled services do not need further complation.
+                    // Neither do failed or none-state services.
+                    CompileStatus::Compiled(_) | CompileStatus::None | CompileStatus::Failed => None,
                 }
-            })?;
+            }).next()?;
 
-        let status = server.get_state().service_statuses.get(&compilable.name).unwrap();
-        let index = match status.compile_status {
-            CompileStatus::None | CompileStatus::Failed => 0,
-            CompileStatus::Compiled(index) => index + 1,
-            CompileStatus::Compiling(_) => panic!("Should not exec this code with a compiling-status")
-        };
         let exec_entry = compilable.compile.get(index).unwrap();
         let mut command = create_cmd(exec_entry, compilable.dir.as_ref());
 
@@ -53,8 +50,9 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
     match command.spawn() {
         Ok(handle) => {
-            server.update_state(|state| {
-                state.service_statuses.get_mut(&service_name).unwrap().compile_status = CompileStatus::Compiling(index);
+            server.update_service_status(&service_name, |status| {
+                status.compile_status = CompileStatus::Compiling(index);
+                status.action = ServiceAction::None;
             });
 
             ProcessHandler {

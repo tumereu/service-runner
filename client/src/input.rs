@@ -5,13 +5,13 @@ use std::time::Duration;
 use crossterm::event::{Event, KeyCode, poll as poll_events, read as read_event};
 
 use shared::message::Action;
-use shared::message::models::Profile;
+use shared::message::models::{Profile, ServiceAction};
 
 use crate::{ClientState, ClientStatus};
 use crate::ui::{UIState, ViewProfilePane};
 
-pub fn process_inputs(state: Arc<Mutex<ClientState>>) -> Result<(), String> {
-    let config = state.lock().unwrap().config.clone();
+pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
+    let config = client.lock().unwrap().config.clone();
 
     if poll_events(Duration::from_millis(0)).unwrap() {
         let _port = config.server.port;
@@ -21,15 +21,18 @@ pub fn process_inputs(state: Arc<Mutex<ClientState>>) -> Result<(), String> {
             match key.code {
                 // Controls to exit
                 KeyCode::Esc => {
-                    state.lock().unwrap().status = ClientStatus::Exiting;
+                    client.lock().unwrap().status = ClientStatus::Exiting;
                 },
                 // Generic navigation controls
-                KeyCode::Left | KeyCode::Char('h') => process_navigation(state, (-1, 0)),
-                KeyCode::Right | KeyCode::Char('l') => process_navigation(state, (1, 0)),
-                KeyCode::Up | KeyCode::Char('k') => process_navigation(state, (0, -1)),
-                KeyCode::Down | KeyCode::Char('j') => process_navigation(state, (0, 1)),
+                KeyCode::Left | KeyCode::Char('h') => process_navigation(client, (-1, 0)),
+                KeyCode::Right | KeyCode::Char('l') => process_navigation(client, (1, 0)),
+                KeyCode::Up | KeyCode::Char('k') => process_navigation(client, (0, -1)),
+                KeyCode::Down | KeyCode::Char('j') => process_navigation(client, (0, 1)),
                 // Generic selection controls
-                KeyCode::Enter | KeyCode::Char(' ') => process_select(state),
+                KeyCode::Enter | KeyCode::Char(' ') => process_select(client),
+                // Service interaction specific controls
+                KeyCode::Char('r') => process_service_action(client, ServiceAction::Restart),
+                KeyCode::Char('c') => process_service_action(client, ServiceAction::Recompile),
                 // Disregard everything else
                 _ => {}
             }
@@ -39,33 +42,33 @@ pub fn process_inputs(state: Arc<Mutex<ClientState>>) -> Result<(), String> {
     Ok(())
 }
 
-fn process_navigation(state: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
-    let mut state = state.lock().unwrap();
-    match &state.ui {
+fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
+    let mut client = client.lock().unwrap();
+    match &client.ui {
         UIState::Initializing => {},
         UIState::ProfileSelect { selected_idx } => {
-            state.ui = UIState::ProfileSelect {
-                selected_idx: update_vert_index(*selected_idx, state.config.profiles.len(), dir)
+            client.ui = UIState::ProfileSelect {
+                selected_idx: update_vert_index(*selected_idx, client.config.profiles.len(), dir)
             }
         }
         UIState::ViewProfile { active_pane, service_selection } => {
-            let num_profiles = state.system_state.as_ref().unwrap().current_profile.as_ref().unwrap().services.len();
+            let num_profiles = client.system_state.as_ref().unwrap().current_profile.as_ref().unwrap().services.len();
 
             match active_pane {
                 ViewProfilePane::ServiceList if dir.0 > 0 => {
-                    state.ui = UIState::ViewProfile {
+                    client.ui = UIState::ViewProfile {
                         active_pane: ViewProfilePane::OutputPane,
                         service_selection: *service_selection
                     }
                 },
                 ViewProfilePane::ServiceList if dir.1 != 0 => {
-                    state.ui = UIState::ViewProfile {
+                    client.ui = UIState::ViewProfile {
                         active_pane: ViewProfilePane::ServiceList,
                         service_selection: update_vert_index(*service_selection, num_profiles, dir)
                     }
                 }
                 ViewProfilePane::OutputPane if dir.0 < 0 => {
-                    state.ui = UIState::ViewProfile {
+                    client.ui = UIState::ViewProfile {
                         service_selection: *service_selection,
                         active_pane: ViewProfilePane::ServiceList
                     }
@@ -76,25 +79,24 @@ fn process_navigation(state: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
     }
 }
 
-fn process_select(state: Arc<Mutex<ClientState>>) {
-    let mut state = state.lock().unwrap();
+fn process_select(client: Arc<Mutex<ClientState>>) {
+    let mut client = client.lock().unwrap();
 
-    match state.ui {
+    match client.ui {
         UIState::Initializing => {},
         UIState::ProfileSelect { selected_idx } => {
-            let selection = state.config.profiles.get(selected_idx);
-
+            let selection = client.config.profiles.get(selected_idx);
 
             if let Some(profile) = selection {
                 let action = Action::ActivateProfile(Profile::new(
                     profile,
-                    &state.config.services
+                    &client.config.services
                 ));
-                state.actions_out.push(action);
+                client.actions_out.push(action);
             }
         }
         UIState::ViewProfile { .. } => {
-            // TODO
+            // TODO change UI state so that we show a dialog or something with options?
         }
     }
 }
@@ -106,5 +108,20 @@ fn update_vert_index(current: usize, list_len: usize, dir: (i8, i8)) -> usize {
         min(list_len.saturating_sub(1), current.saturating_add(1))
     } else {
         current
+    }
+}
+
+fn process_service_action(client: Arc<Mutex<ClientState>>, action: ServiceAction) {
+    let mut client = client.lock().unwrap();
+
+    match &client.ui {
+        UIState::ViewProfile { service_selection, active_pane } if matches!(active_pane, ViewProfilePane::ServiceList) => {
+            let service_name = client.system_state.as_ref().unwrap()
+                .current_profile.as_ref().unwrap()
+                .services[*service_selection].name.clone();
+            let action = Action::UpdateServiceAction(service_name, action);
+            client.actions_out.push(action);
+        },
+        _ => {}
     }
 }

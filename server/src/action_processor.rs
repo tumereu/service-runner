@@ -41,6 +41,11 @@ fn process_action(
                     }).collect();
                 state.current_profile = Some(profile);
             });
+        },
+        Action::UpdateServiceAction(service_name, action) => {
+            server.update_service_status(&service_name, |status| {
+                status.action = action;
+            });
         }
     }
 }

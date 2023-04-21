@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::message::models::{OutputKey, OutputLine, OutputStore, Profile};
+use crate::message::models::{OutputKey, OutputLine, OutputStore, Profile, ServiceAction};
 use crate::system_state::SystemState;
 
 #[derive(Serialize, Deserialize)]
 pub enum Action {
     Shutdown,
     ActivateProfile(Profile),
+    UpdateServiceAction(String, ServiceAction)
 }
 impl AsRef<Action> for Action {
     fn as_ref(&self) -> &Action {

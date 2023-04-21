@@ -158,7 +158,9 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                                     text: "C".into(),
                                     fg: if let Some(status) = status {
                                         match status.compile_status {
-                                            // TODO handle colors better here. Indicate whether system _should_ compile?
+                                            _ if matches!(status.action, ServiceAction::Recompile) => {
+                                                processing_color.clone()
+                                            },
                                             CompileStatus::None => if auto_recompile {
                                                 active_color.clone()
                                             } else {
