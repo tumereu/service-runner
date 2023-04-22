@@ -103,9 +103,10 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                 let status = service_statuses.get(&service.name);
                 let show_output = status.map(|it| it.show_output).unwrap_or(false);
                 let auto_recompile = status.map(|it| it.auto_recompile).unwrap_or(false);
-                let is_compiling = status.map(|it| {
-                    match it.compile_status {
-                        CompileStatus::Compiling(_) => true,
+                let is_processing = status.map(|it| {
+                    match (&it.compile_status, &it.run_status) {
+                        (CompileStatus::Compiling(_), _) => true,
+                        (_, RunStatus::Running) => true,
                         _ => false
                     }
                 }).unwrap_or(false);
@@ -168,6 +169,13 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                                             } else {
                                                 inactive_color.clone()
                                             },
+                                            CompileStatus::Compiled(index) if index >= service.compile.len() - 1 => {
+                                                if auto_recompile {
+                                                    active_color.clone()
+                                                } else {
+                                                    inactive_color.clone()
+                                                }
+                                            },
                                             CompileStatus::Compiled(_) => inactive_color.clone(),
                                             CompileStatus::Compiling(_) => processing_color.clone(),
                                             CompileStatus::Failed  => error_color.clone(),
@@ -195,7 +203,7 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                             Cell {
                                 padding_left: 1,
                                 element: Spinner {
-                                    active: is_compiling,
+                                    active: is_processing,
                                     ..Default::default()
                                 }.into_el(),
                                 ..Default::default()
