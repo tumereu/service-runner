@@ -1,11 +1,11 @@
-use shared::message::Broadcast;
+
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
-use shared::message::models::{CompileStatus, ServiceAction, OutputKind, OutputKey, Service};
-use shared::system_state::Status;
+use shared::message::models::{CompileStatus, ServiceAction, OutputKind, OutputKey};
+
 use std::sync::{Mutex, Arc};
 use shared::format_err;
-use shared::message::models::CompileStatus::Compiling;
+
 
 pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let mut server = server_arc.lock().unwrap();
@@ -39,7 +39,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             }).next()?;
 
         let exec_entry = compilable.compile.as_ref().unwrap().commands.get(index).unwrap();
-        let mut command = create_cmd(exec_entry, compilable.dir.as_ref());
+        let command = create_cmd(exec_entry, compilable.dir.as_ref());
 
         (compilable.name.clone(), command, format!("{exec_entry}"), index)
     };

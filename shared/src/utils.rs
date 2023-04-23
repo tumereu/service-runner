@@ -25,7 +25,7 @@ macro_rules! format_err {
 #[macro_export]
 macro_rules! write_escaped_str {
     ($fmt: tt, $string:expr) => {
-        let mut escaped_str = $string.clone();
+        let escaped_str = $string.clone();
         escaped_str.replace("=", "\\=");
         escaped_str.replace("\"", "\\\"");
 

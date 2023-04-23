@@ -68,7 +68,7 @@ pub fn render_view_profile<B>(
                             frame.size().height.saturating_sub(1).into(),
                             None
                         ).into_iter()
-                            .map(|(key, line)| {
+                            .map(|(_key, line)| {
                                 Cell {
                                     align_horiz: Align::Start,
                                     element: Text {

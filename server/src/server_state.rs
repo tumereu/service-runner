@@ -48,7 +48,7 @@ impl ServerState {
 
     pub fn update_service_status<F>(&mut self, service: &str, update: F) where F: FnOnce(&mut ServiceStatus) {
         self.update_state(move |state| {
-            let mut status = state.service_statuses.get_mut(service).unwrap();
+            let status = state.service_statuses.get_mut(service).unwrap();
             update(status);
         });
     }

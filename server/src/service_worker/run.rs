@@ -1,10 +1,10 @@
 use std::error::Error;
-use std::fmt::format;
-use shared::message::Broadcast;
+
+
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
-use shared::message::models::{CompileStatus, RunStatus, OutputKind, ServiceAction, OutputKey, ServiceStatus};
-use shared::system_state::Status;
+use shared::message::models::{CompileStatus, RunStatus, OutputKind, ServiceAction, OutputKey};
+
 use std::sync::{Mutex, Arc};
 use std::thread;
 use std::time::Duration;
@@ -73,9 +73,9 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                             break;
                         }
 
-                        let mut successful = true;
+                        let successful = true;
 
-                        for check in &health_checks {
+                        for _check in &health_checks {
                             // TODO implement actual checks
                             thread::sleep(Duration::from_millis(1000))
                         }
