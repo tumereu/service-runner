@@ -18,6 +18,14 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             let profile = server.get_state().current_profile.as_ref()?;
             let runnable = profile.services.iter()
                 .filter(|service| service.run.is_some())
+                // Only consider services whose run-step has all dependencies satisfied
+                .filter(|service| {
+                    service.run.as_ref().unwrap().dependencies
+                        .iter()
+                        .all(|dep| {
+                            server.is_satisfied(dep)
+                        })
+                })
                 .find(|service| {
                     // TODO dependencies?
                     let status = server.get_state().service_statuses.get(&service.name).unwrap();

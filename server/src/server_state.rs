@@ -4,7 +4,7 @@ use std::time::Instant;
 use shared::dbg_println;
 
 use shared::message::{Action, Broadcast};
-use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceStatus};
+use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
 use shared::system_state::SystemState;
 
 pub struct ServerState {
@@ -45,8 +45,17 @@ impl ServerState {
         self.get_service_status(&dep.service)
             .map(|status| {
                 match dep.requirement {
-                    RequiredState::Running => matches!(status.run_status, RunStatus::Healthy),
-                    RequiredState::Compiled => matches!(status.compile_status, CompileStatus::FullyCompiled)
+                    RequiredState::Running => match (&status.run_status, &status.action) {
+                        // The service must be running without any incoming changes
+                        (RunStatus::Healthy, ServiceAction::None) => true,
+                        (RunStatus::Healthy, ServiceAction::Restart | ServiceAction::Recompile | ServiceAction::Stop) => false,
+                        (RunStatus::Running | RunStatus::Failed | RunStatus::Stopped, _) => false
+                    },
+                    RequiredState::Compiled => match (&status.compile_status, &status.action) {
+                        (CompileStatus::FullyCompiled, ServiceAction::Restart | ServiceAction::Stop | ServiceAction::None) => true,
+                        (CompileStatus::FullyCompiled, ServiceAction::Recompile) => true,
+                        (CompileStatus::None | CompileStatus::Compiling(_) | CompileStatus::PartiallyCompiled(_) | CompileStatus::Failed, _) => false
+                    }
                 }
             }).unwrap_or(true)
     }
