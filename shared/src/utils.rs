@@ -26,8 +26,8 @@ macro_rules! format_err {
 macro_rules! write_escaped_str {
     ($fmt: tt, $string:expr) => {
         let escaped_str = $string.clone();
-        escaped_str.replace("=", "\\=");
-        escaped_str.replace("\"", "\\\"");
+        let escaped_str = escaped_str.replace("=", "\\=");
+        let escaped_str = escaped_str.replace("\"", "\\\"");
 
         if $string.contains(char::is_whitespace) || escaped_str.len() != $string.len() {
             $fmt.write_str("\"")?;

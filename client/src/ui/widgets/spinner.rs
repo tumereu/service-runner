@@ -27,7 +27,7 @@ impl Spinner {
         let phase: u128 = (Instant::now().duration_since(*REFERENCE_INSTANT).as_millis() / 100) % (SPINNER_CHARS.len() as u128);
 
         let icon = if !self.active {
-            "-"
+            " "
         } else {
             &SPINNER_CHARS[phase as usize]
         };

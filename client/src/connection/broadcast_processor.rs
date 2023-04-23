@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -12,7 +13,7 @@ pub fn start_broadcast_processor(state: Arc<Mutex<ClientState>>) -> thread::Join
         while state.lock().unwrap().status != ClientStatus::Exiting {
             {
                 let mut state = state.lock().unwrap();
-                while let Some(broadcast) = state.broadcasts_in.pop() {
+                while let Some(broadcast) = state.broadcasts_in.pop_front() {
                     process_broadcast(&mut state, broadcast);
                 }
             }

@@ -92,7 +92,7 @@ fn process_select(client: Arc<Mutex<ClientState>>) {
                     profile,
                     &client.config.services
                 ));
-                client.actions_out.push(action);
+                client.actions_out.push_back(action);
             }
         }
         UIState::ViewProfile { .. } => {
@@ -120,7 +120,7 @@ fn process_service_action(client: Arc<Mutex<ClientState>>, action: ServiceAction
                 .current_profile.as_ref().unwrap()
                 .services[*service_selection].name.clone();
             let action = Action::UpdateServiceAction(service_name, action);
-            client.actions_out.push(action);
+            client.actions_out.push_back(action);
         },
         _ => {}
     }

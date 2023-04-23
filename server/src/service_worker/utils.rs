@@ -44,7 +44,7 @@ impl<F, G> ProcessHandler<F, G>
     where F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
           G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
 {
-    pub fn launch(self, server_state: &mut ServerState) {
+    pub fn launch(self) {
         let ProcessHandler { server, handle, service_name, output, on_finish, exit_early } = self;
         let mut new_threads = vec![
             // Kill the process when the server exits and invoke the callback after the process finishes
@@ -118,7 +118,7 @@ impl<F, G> ProcessHandler<F, G>
             }
         ];
 
-        server_state.active_threads.append(&mut new_threads);
+        server.lock().unwrap().active_threads.append(&mut new_threads);
     }
 
     fn process_output_line(

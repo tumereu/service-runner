@@ -15,9 +15,9 @@ pub fn handle_stream(
         while state.lock().unwrap().status != ClientStatus::Exiting {
             while stream.has_incoming(Duration::from_millis(10))? {
                 let incoming: Broadcast = stream.receive()?;
-                state.lock().unwrap().broadcasts_in.push(incoming);
+                state.lock().unwrap().broadcasts_in.push_back(incoming);
             }
-            while let Some(outgoing) = state.lock().unwrap().actions_out.pop() {
+            while let Some(outgoing) = state.lock().unwrap().actions_out.pop_front() {
                 stream.send(outgoing)?;
             }
         }

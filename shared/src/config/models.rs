@@ -13,6 +13,7 @@ pub struct Config {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ServerConfig {
     pub port: u16,
     #[serde(default = "bool_true")]
@@ -22,7 +23,7 @@ pub struct ServerConfig {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(tag = "type")]
+#[serde(tag = "type", deny_unknown_fields)]
 pub enum Service {
     #[serde(rename = "scripted")]
     Scripted {
@@ -43,6 +44,7 @@ impl Service {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ScriptedCompileConfig {
     pub commands: Vec<ExecutableEntry>,
     #[serde(default)]
@@ -50,6 +52,7 @@ pub struct ScriptedCompileConfig {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ScriptedRunConfig {
     pub command: ExecutableEntry,
     #[serde(default)]
@@ -59,12 +62,14 @@ pub struct ScriptedRunConfig {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Dependency {
     pub service: String,
     pub require:  RequiredState
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub enum RequiredState {
     #[serde(rename = "compiled")]
     Compiled,
@@ -73,7 +78,7 @@ pub enum RequiredState {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(tag = "type")]
+#[serde(tag = "type", deny_unknown_fields)]
 pub enum HealthCheck {
     #[serde(rename = "http")]
     Http {
@@ -89,6 +94,7 @@ pub enum HealthCheck {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ExecutableEntry {
     pub executable: String,
     #[serde(default)]
@@ -98,6 +104,7 @@ pub struct ExecutableEntry {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Profile {
     pub name: String,
     pub services: Vec<ServiceRef>,
@@ -110,6 +117,7 @@ impl Profile {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ServiceRef {
     pub name: String,
 }

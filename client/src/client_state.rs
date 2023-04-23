@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use shared::config::Config;
 use shared::message::{Action, Broadcast};
 use shared::message::models::OutputStore;
@@ -8,8 +9,8 @@ use crate::ui::UIState;
 pub struct ClientState {
     pub status: ClientStatus,
     pub system_state: Option<SystemState>,
-    pub actions_out: Vec<Action>,
-    pub broadcasts_in: Vec<Broadcast>,
+    pub actions_out: VecDeque<Action>,
+    pub broadcasts_in: VecDeque<Broadcast>,
     pub output_store: OutputStore,
     pub ui: UIState,
     pub config: Config,
@@ -20,8 +21,8 @@ impl ClientState {
         ClientState {
             status: ClientStatus::Ready,
             system_state: None,
-            actions_out: Vec::new(),
-            broadcasts_in: Vec::new(),
+            actions_out: VecDeque::new(),
+            broadcasts_in: VecDeque::new(),
             ui: UIState::Initializing,
             output_store: OutputStore::new(),
             config,

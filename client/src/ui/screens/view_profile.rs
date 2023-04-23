@@ -106,6 +106,7 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                 let is_processing = status.map(|it| {
                     match (&it.compile_status, &it.run_status) {
                         (CompileStatus::Compiling(_), _) => true,
+                        (CompileStatus::PartiallyCompiled(_), _) => true,
                         (_, RunStatus::Running) => true,
                         _ => false
                     }
@@ -136,9 +137,14 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                             // Run status
                             Cell {
                                 element: Text {
-                                    text: "R".into(),
+                                    text: if service.run.is_none() {
+                                        "-"
+                                    } else {
+                                        "R"
+                                    }.into(),
                                     fg: if let Some(status) = status {
                                         match status.run_status {
+                                            _ if service.run.is_none() => inactive_color.clone(),
                                             RunStatus::Healthy => active_color.clone(),
                                             RunStatus::Running => processing_color.clone(),
                                             RunStatus::Failed => error_color.clone(),
@@ -176,7 +182,7 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                                                     inactive_color.clone()
                                                 }
                                             },
-                                            CompileStatus::PartiallyCompiled(_) => inactive_color.clone(),
+                                            CompileStatus::PartiallyCompiled(_) => processing_color.clone(),
                                             CompileStatus::Compiling(_) => processing_color.clone(),
                                             CompileStatus::Failed  => error_color.clone(),
                                         }

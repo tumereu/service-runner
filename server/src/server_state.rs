@@ -1,15 +1,16 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::thread::JoinHandle;
 use std::time::Instant;
+use shared::dbg_println;
 
 use shared::message::{Action, Broadcast};
-use shared::message::models::{OutputKey, OutputStore, Service, ServiceStatus};
+use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceStatus};
 use shared::system_state::SystemState;
 
 pub struct ServerState {
     pub created: Instant,
-    pub actions_in: Vec<Action>,
-    pub broadcasts_out: HashMap<u32, Vec<Broadcast>>,
+    pub actions_in: VecDeque<Action>,
+    pub broadcasts_out: HashMap<u32, VecDeque<Broadcast>>,
     system_state: SystemState,
     pub output_store: OutputStore,
     pub active_threads: Vec<JoinHandle<()>>
@@ -18,7 +19,7 @@ impl ServerState {
     pub fn new() -> ServerState {
         ServerState {
             created: Instant::now(),
-            actions_in: Vec::new(),
+            actions_in: VecDeque::new(),
             broadcasts_out: HashMap::new(),
             system_state: SystemState::new(),
             output_store: OutputStore::new(),
@@ -40,6 +41,16 @@ impl ServerState {
         self.system_state.service_statuses.get(service_name)
     }
 
+    pub fn is_satisfied(&self, dep: &Dependency) -> bool {
+        self.get_service_status(&dep.service)
+            .map(|status| {
+                match dep.requirement {
+                    RequiredState::Running => matches!(status.run_status, RunStatus::Healthy),
+                    RequiredState::Compiled => matches!(status.compile_status, CompileStatus::FullyCompiled)
+                }
+            }).unwrap_or(true)
+    }
+
     pub fn update_state<F>(&mut self, update: F) where F: FnOnce(&mut SystemState) {
         update(&mut self.system_state);
         let broadcast = Broadcast::State(self.system_state.clone());
@@ -54,15 +65,15 @@ impl ServerState {
     }
 
     pub fn broadcast_all(&mut self, broadcast: Broadcast) {
-        self.broadcasts_out.iter_mut().for_each(|(_key, value)| {
-            value.push(broadcast.clone());
+        self.broadcasts_out.iter_mut().for_each(|(_, queue)| {
+            queue.push_back(broadcast.clone());
         });
     }
 
     pub fn broadcast_one(&mut self, client: u32, broadcast: Broadcast) {
         let queue = self.broadcasts_out.get_mut(&client);
         if let Some(queue) = queue {
-            queue.push(broadcast);
+            queue.push_back(broadcast);
         }
     }
 

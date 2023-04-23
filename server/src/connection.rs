@@ -1,8 +1,10 @@
+use std::collections::VecDeque;
 use std::io::ErrorKind;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use shared::dbg_println;
 
 use shared::message::{Action, Broadcast, MessageTransmitter};
 use shared::system_state::Status;
@@ -22,7 +24,6 @@ pub fn run_server(port: u16, server: Arc<Mutex<ServerState>>) {
         match stream {
             Ok((stream, _)) => {
                 handle_connection(stream, client_count, server.clone());
-                // Whenever a client connects, send the updated system state to all clients
                 {
                     let mut state = server.lock().unwrap();
                     // Send the current system state to the connected client
@@ -46,7 +47,7 @@ pub fn handle_connection(
     index: u32,
     server: Arc<Mutex<ServerState>>
 ) {
-    server.lock().unwrap().broadcasts_out.insert(index, Vec::new());
+    server.lock().unwrap().broadcasts_out.insert(index, VecDeque::new());
 
     let handle = {
         let server = server.clone();
@@ -54,9 +55,9 @@ pub fn handle_connection(
             while server.lock().unwrap().get_state().status != Status::Exiting {
                 while stream.has_incoming(Duration::from_millis(10)).unwrap() {
                     let incoming: Action = stream.receive().unwrap();
-                    server.lock().unwrap().actions_in.push(incoming);
+                    server.lock().unwrap().actions_in.push_back(incoming);
                 }
-                while let Some(outgoing) = server.lock().unwrap().broadcasts_out.get_mut(&index).unwrap().pop() {
+                while let Some(outgoing) = server.lock().unwrap().broadcasts_out.get_mut(&index).unwrap().pop_front() {
                     stream.send(outgoing).unwrap();
                 }
 

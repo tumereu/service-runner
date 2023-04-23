@@ -13,7 +13,7 @@ pub fn start_action_processor(server: Arc<Mutex<ServerState>>) -> thread::JoinHa
         while server.lock().unwrap().get_state().status != Status::Exiting {
             {
                 let mut server = server.lock().unwrap();
-                while let Some(action) = server.actions_in.pop() {
+                while let Some(action) = server.actions_in.pop_front() {
                     process_action(&mut server, action);
                 }
             }
