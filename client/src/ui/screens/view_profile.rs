@@ -169,14 +169,14 @@ fn service_list(profile: &Profile, selection: Option<usize>, service_statuses: &
                                             } else {
                                                 inactive_color.clone()
                                             },
-                                            CompileStatus::Compiled(index) if index >= service.compile.len() - 1 => {
+                                            CompileStatus::FullyCompiled => {
                                                 if auto_recompile {
                                                     active_color.clone()
                                                 } else {
                                                     inactive_color.clone()
                                                 }
                                             },
-                                            CompileStatus::Compiled(_) => inactive_color.clone(),
+                                            CompileStatus::PartiallyCompiled(_) => inactive_color.clone(),
                                             CompileStatus::Compiling(_) => processing_color.clone(),
                                             CompileStatus::Failed  => error_color.clone(),
                                         }

@@ -1,10 +1,11 @@
 use shared::message::Broadcast;
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
-use shared::message::models::{CompileStatus, ServiceAction, OutputKind, OutputKey};
+use shared::message::models::{CompileStatus, ServiceAction, OutputKind, OutputKey, Service};
 use shared::system_state::Status;
 use std::sync::{Mutex, Arc};
 use shared::format_err;
+use shared::message::models::CompileStatus::Compiling;
 
 pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let mut server = server_arc.lock().unwrap();
@@ -17,7 +18,8 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let (service_name, mut command, exec_display, index) = {
         let profile = server.get_state().current_profile.as_ref()?;
         let (compilable, index) = profile.services.iter()
-            .filter(|service| service.compile.len() > 0)
+            .filter(|service| service.compile.is_some())
+            // TODO dependencies
             .flat_map(|service| {
                 let status = server.get_state().service_statuses.get(&service.name).unwrap();
                 match status.compile_status {
@@ -27,16 +29,16 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     // the first step
                     _ if matches!(status.action, ServiceAction::Recompile) => Some((service, 0)),
                     // Services with some but not all compile-steps should be compiled
-                    CompileStatus::Compiled(index) if index < service.compile.len() - 1 => {
+                    CompileStatus::PartiallyCompiled(index) => {
                         Some((service, index + 1))
                     },
-                    // Fully compiled services do not need further complation.
+                    // Fully compiled services do not need further compilation.
                     // Neither do failed or none-state services.
-                    CompileStatus::Compiled(_) | CompileStatus::None | CompileStatus::Failed => None,
+                    CompileStatus::FullyCompiled | CompileStatus::None | CompileStatus::Failed => None,
                 }
             }).next()?;
 
-        let exec_entry = compilable.compile.get(index).unwrap();
+        let exec_entry = compilable.compile.as_ref().unwrap().commands.get(index).unwrap();
         let mut command = create_cmd(exec_entry, compilable.dir.as_ref());
 
         (compilable.name.clone(), command, format!("{exec_entry}"), index)
@@ -64,8 +66,18 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 on_finish: move |(server, service_name, success)| {
                     let mut server = server.lock().unwrap();
                     if success {
-                        server.update_service_status(&service_name, |status| {
-                            status.compile_status = CompileStatus::Compiled(index);
+                        let num_steps = server.get_service(service_name).as_ref()
+                            .map(|service| service.compile.as_ref())
+                            .flatten()
+                            .map(|compile| compile.commands.len())
+                            .unwrap_or(0);
+
+                        server.update_service_status(&service_name, move |status| {
+                            status.compile_status = if index >= num_steps - 1 {
+                                CompileStatus::FullyCompiled
+                            } else {
+                                CompileStatus::PartiallyCompiled(index)
+                            };
                             status.action = ServiceAction::Restart;
                         });
                     } else {

@@ -31,7 +31,7 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 // Generic selection controls
                 KeyCode::Enter | KeyCode::Char(' ') => process_select(client),
                 // Service interaction specific controls
-                KeyCode::Char('r') => process_service_action(client, ServiceAction::Restart),
+                KeyCode::Char('e') => process_service_action(client, ServiceAction::Restart),
                 KeyCode::Char('c') => process_service_action(client, ServiceAction::Recompile),
                 // Disregard everything else
                 _ => {}

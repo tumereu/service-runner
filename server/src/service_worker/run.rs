@@ -22,11 +22,11 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 let status = server.get_state().service_statuses.get(&service.name).unwrap();
                 match (&status.compile_status, &status.run_status) {
                     (_, RunStatus::Running | RunStatus::Healthy) => false,
-                    // TODO allow services with no compilation step at all?
-                    (CompileStatus::None | CompileStatus::Failed | CompileStatus::Compiling(_), _) => false,
+                    (CompileStatus::None, _) => service.compile.is_none(),
+                    (CompileStatus::Failed | CompileStatus::Compiling(_), _) => false,
                     // Allow services that have been fully compiled
-                    (CompileStatus::Compiled(index), _) if *index < service.compile.len() - 1 => false,
-                    (CompileStatus::Compiled(_), RunStatus::Stopped | RunStatus::Failed) => match status.action {
+                    (CompileStatus::PartiallyCompiled(_), _) => false,
+                    (CompileStatus::FullyCompiled, RunStatus::Stopped | RunStatus::Failed) => match status.action {
                         ServiceAction::Restart => true,
                         ServiceAction::None | ServiceAction::Stop | ServiceAction::Recompile => false,
                     }
@@ -73,13 +73,17 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                             break;
                         }
 
+                        let mut successful = true;
+
                         for check in &health_checks {
                             // TODO implement actual checks
                             thread::sleep(Duration::from_millis(1000))
                         }
 
                         // If all checks successful, break out of the loop
-                        break;
+                        if successful {
+                            break;
+                        }
 
                         // Sleep for some time before reattempting, so we don't hog resource
                         thread::sleep(Duration::from_millis(100));

@@ -28,7 +28,7 @@ pub enum Service {
     Scripted {
         name: String,
         dir: String,
-        compile: Vec<ExecutableEntry>,
+        compile: Option<ScriptedCompileConfig>,
         run: Option<ScriptedRunConfig>,
         reset: Vec<ExecutableEntry>,
     }
@@ -43,12 +43,33 @@ impl Service {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct ScriptedCompileConfig {
+    pub commands: Vec<ExecutableEntry>,
+    #[serde(default)]
+    pub dependencies: Vec<Dependency>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct ScriptedRunConfig {
     pub command: ExecutableEntry,
     #[serde(default)]
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<Dependency>,
     #[serde(default)]
     pub health_check: Vec<HealthCheck>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Dependency {
+    pub service: String,
+    pub require:  RequiredState
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub enum RequiredState {
+    #[serde(rename = "compiled")]
+    Compiled,
+    #[serde(rename = "running")]
+    Running
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -74,25 +95,11 @@ pub struct ExecutableEntry {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
-    #[serde(default, rename = "artifact")]
-    pub artifacts: Vec<ArtifactEntry>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct ArtifactEntry {
-    pub path: String,
-    pub name: String,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub enum ServiceType {
-    Compilable
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Profile {
     pub name: String,
-    #[serde(default, rename = "service")]
     pub services: Vec<ServiceRef>,
 }
 

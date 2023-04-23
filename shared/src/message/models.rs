@@ -7,12 +7,7 @@ use serde::{Deserialize, Serialize};
 use toml::value::Index;
 
 use crate::config::{
-    ExecutableEntry as ConfigExecutableEntry,
-    Profile as ConfigProfile,
-    Service as ConfigService,
-    ScriptedRunConfig as ConfigScriptedRunConfig,
-    HealthCheck as ConfigHealthCheck
-};
+    ExecutableEntry as ConfigExecutableEntry, Profile as ConfigProfile, Service as ConfigService, ScriptedRunConfig as ConfigScriptedRunConfig, HealthCheck as ConfigHealthCheck, Dependency as ConfigDependency, RequiredState as ConfigRequiredState, ScriptedCompileConfig as ConfigScriptedCompileConfig};
 use crate::message::models::ServiceAction::{Recompile, Restart};
 use crate::write_escaped_str;
 
@@ -20,7 +15,7 @@ use crate::write_escaped_str;
 pub struct Service {
     pub name: String,
     pub dir: Option<String>,
-    pub compile: Vec<ExecutableEntry>,
+    pub compile: Option<CompileConfig>,
     pub run: Option<RunConfig>,
     pub reset: Vec<ExecutableEntry>,
 }
@@ -32,9 +27,9 @@ impl From<ConfigService> for Service {
                 Service {
                     name,
                     dir: dir.into(),
-                    compile: compile.into_iter().map(|ex| ex.into()).collect(),
-                    run: run.map(|it| it.into()),
-                    reset: reset.into_iter().map(|ex| ex.into()).collect(),
+                    compile: compile.map(Into::into),
+                    run: run.map(Into::into),
+                    reset: reset.into_iter().map(Into::into).collect(),
                 }
             }
         }
@@ -42,17 +37,59 @@ impl From<ConfigService> for Service {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Dependency {
+    pub service: String,
+    pub requirement: RequiredState
+}
+impl From<ConfigDependency> for Dependency {
+    fn from(value: ConfigDependency) -> Self {
+        Dependency {
+            service: value.service,
+            requirement: value.require.into()
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum RequiredState {
+    Compiled,
+    Running
+}
+impl From<ConfigRequiredState> for RequiredState {
+    fn from(value: ConfigRequiredState) -> Self {
+        match value {
+            ConfigRequiredState::Compiled => RequiredState::Compiled,
+            ConfigRequiredState::Running => RequiredState::Running
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CompileConfig {
+    pub commands: Vec<ExecutableEntry>,
+    pub dependencies: Vec<Dependency>,
+}
+impl From<ConfigScriptedCompileConfig> for CompileConfig {
+    fn from(value: ConfigScriptedCompileConfig) -> Self {
+        CompileConfig {
+            commands: value.commands.into_iter().map(Into::into).collect(),
+            dependencies: value.dependencies.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RunConfig {
     pub command: ExecutableEntry,
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<Dependency>,
     pub health_check: Vec<HealthCheck>
 }
 impl From<ConfigScriptedRunConfig> for RunConfig {
     fn from(value: ConfigScriptedRunConfig) -> Self {
         RunConfig {
             command: value.command.into(),
-            dependencies: value.dependencies,
-            health_check: value.health_check.into_iter().map(|it| it.into()).collect(),
+            dependencies: value.dependencies.into_iter().map(Into::into).collect(),
+            health_check: value.health_check.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -177,7 +214,8 @@ pub enum ServiceAction {
 pub enum CompileStatus {
     None,
     Compiling(usize),
-    Compiled(usize),
+    PartiallyCompiled(usize),
+    FullyCompiled,
     Failed
 }
 
