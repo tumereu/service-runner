@@ -3,9 +3,9 @@ use std::io::ErrorKind;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
-use shared::dbg_println;
+
 use shared::message::{Action, Broadcast, MessageTransmitter};
 use shared::system_state::Status;
 

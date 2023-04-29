@@ -15,7 +15,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             return None
         }
 
-        let (service_name, mut command, exec_display, index) = {
+        let (service_name, command, exec_display, index) = {
             let profile = server.get_state().current_profile.as_ref()?;
             let (compilable, index) = profile.services.iter()
                 .filter(|service| service.compile.is_some())

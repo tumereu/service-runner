@@ -1,10 +1,10 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
-use shared::dbg_println;
+
 use shared::system_state::Status;
-use shared::system_state::Status::Idle;
+
 
 use crate::server_state::ServerState;
 

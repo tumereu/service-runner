@@ -7,7 +7,7 @@ use std::time::Duration;
 use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
 
-use shared::{dbg_println, format_err};
+use shared::{format_err};
 use shared::message::models::{CompileStatus, HealthCheck, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
 
 use crate::ServerState;
@@ -17,7 +17,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let (mut command, service_name) = {
         let mut server = server_arc.lock().unwrap();
 
-        let (service_name, mut command, exec_display) = {
+        let (service_name, command, exec_display) = {
             let profile = server.get_state().current_profile.as_ref()?;
             let runnable = profile.services.iter()
                 .filter(|service| service.run.is_some())
