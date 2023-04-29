@@ -32,6 +32,7 @@ pub enum Service {
         compile: Option<ScriptedCompileConfig>,
         run: Option<ScriptedRunConfig>,
         reset: Vec<ExecutableEntry>,
+        autocompile: Option<AutoCompileConfig>
     }
 }
 
@@ -58,7 +59,7 @@ pub struct ScriptedRunConfig {
     #[serde(default)]
     pub dependencies: Vec<Dependency>,
     #[serde(default)]
-    pub health_check: Vec<HealthCheck>,
+    pub health_checks: Vec<HealthCheck>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -111,6 +112,36 @@ pub struct ExecutableEntry {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct AutoCompileConfig {
+    pub mode: AutoCompileMode,
+    pub triggers: Vec<AutoCompileTrigger>
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub enum AutoCompileMode {
+    #[serde(rename = "automatic")]
+    AUTOMATIC,
+    #[serde(rename = "triggered")]
+    TRIGGERED,
+    #[serde(rename = "disabled")]
+    DISABLED
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(tag = "type", deny_unknown_fields)]
+pub enum AutoCompileTrigger {
+    #[serde(rename = "recompiled-service")]
+    RecompiledService {
+        service: String
+    },
+    #[serde(rename = "modified-file")]
+    ModifiedFile {
+        paths: Vec<String>
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]

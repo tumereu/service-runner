@@ -65,7 +65,7 @@ pub fn render_view_profile<B>(
                     element: Flow {
                         direction: Dir::UpDown,
                         cells: state.output_store.query_lines(
-                            frame.size().height.saturating_sub(1).into(),
+                            frame.size().height.saturating_sub(2).into(),
                             None
                         ).into_iter()
                             .map(|(_key, line)| {

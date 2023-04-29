@@ -79,7 +79,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     let health_checks = server.lock().unwrap().get_service(&service_name)
                         .map(|service| service.run.as_ref())
                         .flatten()
-                        .map(|run_conf| run_conf.health_check.clone())
+                        .map(|run_conf| run_conf.health_checks.clone())
                         .unwrap_or(Vec::new());
 
                     let http_client = HttpClient::new();
