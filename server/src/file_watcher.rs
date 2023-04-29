@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use shared::message::models::AutoCompileTrigger;
+use shared::message::models::{AutoCompileTrigger, ServiceAction};
 use shared::system_state::Status;
 use itertools::Itertools;
 use shared::dbg_println;
@@ -119,5 +119,43 @@ fn setup_watchers(server: Arc<Mutex<ServerState>>) {
 }
 
 fn check_triggers(server: Arc<Mutex<ServerState>>) {
+    let triggered_services: Vec<String> = {
+        server.lock().unwrap()
+            .file_watchers
+            .iter()
+            .flat_map(|watcher_state| {
+                watcher_state.latest_events
+                    .iter()
+                    // Filter events down to those that have occurred since the last triggered recompile
+                    .filter(|(service, timestamp)| {
+                        watcher_state.latest_recompiles.get(service.as_str())
+                            .map(|recompile_timestamp| timestamp > &recompile_timestamp)
+                            .unwrap_or(true)
+                    })
+                    // Debounce the remaining events
+                    .filter(|(_, &timestamp)| {
+                        // TODO move debounce time to a config somewhere?
+                        Instant::now().duration_since(timestamp).as_millis() > 3000
+                    })
+            })
+            .map(|(service, _)| service.clone())
+            .collect()
+    };
 
+    let mut server = server.lock().unwrap();
+    for service in triggered_services {
+        server.update_service_status(&service, |service| {
+            service.action = match service.action {
+                // TODO perhaps this shouldn't recompile services that aren't running?
+                | ServiceAction::None
+                | ServiceAction::Restart
+                | ServiceAction::Recompile => ServiceAction::Recompile,
+                ServiceAction::Stop => ServiceAction::Stop
+            }
+        });
+        server.file_watchers.iter_mut()
+            .for_each(|watcher_state| {
+                watcher_state.latest_recompiles.insert(service.clone(), Instant::now());
+            });
+    }
 }
