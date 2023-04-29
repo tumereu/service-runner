@@ -1,14 +1,16 @@
-use std::{env, thread};
 use std::net::{SocketAddr, TcpStream};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
+use std::{env, thread};
 
 use crate::client_state::ClientState;
 use crate::connection::handle_stream;
 
-pub fn connect_to_server(state: Arc<Mutex<ClientState>>) -> Result<JoinHandle<std::io::Result<()>>, String> {
+pub fn connect_to_server(
+    state: Arc<Mutex<ClientState>>,
+) -> Result<JoinHandle<std::io::Result<()>>, String> {
     let stream = {
         let state = state.lock().unwrap();
         let port = state.config.server.port;
@@ -50,10 +52,5 @@ pub fn connect_to_server(state: Arc<Mutex<ClientState>>) -> Result<JoinHandle<st
         stream.ok_or(format!("Could not connect to server on port {port}"))?
     };
 
-    Ok(
-        handle_stream(
-            stream,
-            state.clone()
-        )
-    )
+    Ok(handle_stream(stream, state.clone()))
 }

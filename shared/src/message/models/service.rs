@@ -1,14 +1,10 @@
-
 use std::convert::Into;
-use std::fmt::{Write};
+use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
 
-
-use crate::config::{
-    Service as ConfigService};
+use crate::config::Service as ConfigService;
 use crate::message::models::{AutoCompileConfig, CompileConfig, ExecutableEntry, RunConfig};
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {
@@ -22,16 +18,21 @@ pub struct Service {
 impl From<ConfigService> for Service {
     fn from(value: ConfigService) -> Self {
         match value {
-            ConfigService::Scripted { name, dir, compile, run, reset, autocompile } => {
-                Service {
-                    name,
-                    dir: dir.into(),
-                    compile: compile.map(Into::into),
-                    run: run.map(Into::into),
-                    reset: reset.into_iter().map(Into::into).collect(),
-                    autocompile: autocompile.map(Into::into),
-                }
-            }
+            ConfigService::Scripted {
+                name,
+                dir,
+                compile,
+                run,
+                reset,
+                autocompile,
+            } => Service {
+                name,
+                dir: dir.into(),
+                compile: compile.map(Into::into),
+                run: run.map(Into::into),
+                reset: reset.into_iter().map(Into::into).collect(),
+                autocompile: autocompile.map(Into::into),
+            },
         }
     }
 }

@@ -1,4 +1,3 @@
-
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -23,10 +22,7 @@ pub fn start_broadcast_processor(state: Arc<Mutex<ClientState>>) -> thread::Join
     })
 }
 
-fn process_broadcast(
-    state: &mut ClientState,
-    broadcast: Broadcast
-) {
+fn process_broadcast(state: &mut ClientState, broadcast: Broadcast) {
     match broadcast {
         Broadcast::State(system_state) => {
             match state.ui {
@@ -50,10 +46,10 @@ fn process_broadcast(
             }
 
             state.system_state = Some(system_state);
-        },
+        }
         Broadcast::OutputSync(store) => {
             state.output_store = store;
-        },
+        }
         Broadcast::OutputLine(key, line) => {
             state.output_store.add_output(&key, line.value);
         }

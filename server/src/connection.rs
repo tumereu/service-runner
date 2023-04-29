@@ -3,8 +3,7 @@ use std::io::ErrorKind;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration};
-
+use std::time::Duration;
 
 use shared::message::{Action, Broadcast, MessageTransmitter};
 use shared::system_state::Status;
@@ -33,21 +32,21 @@ pub fn run_server(port: u16, server: Arc<Mutex<ServerState>>) {
                     let broadcast = Broadcast::OutputSync(state.output_store.clone());
                     state.broadcast_one(client_count, broadcast);
                 }
-            },
+            }
             Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                 thread::sleep(Duration::from_millis(10));
             }
-            Err(e) => panic!("Encountered an unexpected IO error {e}")
+            Err(e) => panic!("Encountered an unexpected IO error {e}"),
         }
     }
 }
 
-pub fn handle_connection(
-    mut stream: TcpStream,
-    index: u32,
-    server: Arc<Mutex<ServerState>>
-) {
-    server.lock().unwrap().broadcasts_out.insert(index, VecDeque::new());
+pub fn handle_connection(mut stream: TcpStream, index: u32, server: Arc<Mutex<ServerState>>) {
+    server
+        .lock()
+        .unwrap()
+        .broadcasts_out
+        .insert(index, VecDeque::new());
 
     let handle = {
         let server = server.clone();
@@ -57,7 +56,14 @@ pub fn handle_connection(
                     let incoming: Action = stream.receive().unwrap();
                     server.lock().unwrap().actions_in.push_back(incoming);
                 }
-                while let Some(outgoing) = server.lock().unwrap().broadcasts_out.get_mut(&index).unwrap().pop_front() {
+                while let Some(outgoing) = server
+                    .lock()
+                    .unwrap()
+                    .broadcasts_out
+                    .get_mut(&index)
+                    .unwrap()
+                    .pop_front()
+                {
                     stream.send(outgoing).unwrap();
                 }
 
@@ -72,4 +78,3 @@ pub fn handle_connection(
 
     server.lock().unwrap().active_threads.push(handle);
 }
-

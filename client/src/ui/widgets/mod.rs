@@ -1,8 +1,8 @@
 use std::cmp::min;
 
 use tui::backend::Backend;
-use tui::Frame;
 use tui::layout::Rect;
+use tui::Frame;
 
 pub use cell::*;
 pub use flow::*;
@@ -10,43 +10,44 @@ pub use list::*;
 pub use spinner::*;
 pub use text::*;
 
+mod cell;
 mod flow;
 mod list;
-mod text;
 mod spinner;
-mod cell;
+mod text;
 
 #[derive(Clone, Copy)]
 pub struct Size {
     pub width: u16,
-    pub height: u16
+    pub height: u16,
 }
 impl Size {
     pub fn intersect(&self, other: Size) -> Size {
-        (
-            min(self.width, other.width),
-            min(self.height, other.height)
-        ).into()
+        (min(self.width, other.width), min(self.height, other.height)).into()
     }
 
     pub fn empty() -> Size {
         Size {
             width: 0,
-            height: 0
+            height: 0,
         }
     }
 }
 
-impl<X : Into<u16>, Y : Into<u16>> From<(X, Y)> for Size {
+impl<X: Into<u16>, Y: Into<u16>> From<(X, Y)> for Size {
     fn from(value: (X, Y)) -> Self {
         Size {
             width: value.0.into(),
-            height: value.1.into()
+            height: value.1.into(),
         }
     }
 }
 
-pub fn render_root<B, R>(root: R, frame: &mut Frame<B>) where B : Backend, R: Into<Renderable> {
+pub fn render_root<B, R>(root: R, frame: &mut Frame<B>)
+where
+    B: Backend,
+    R: Into<Renderable>,
+{
     root.into().render(frame.size(), frame);
 }
 
@@ -59,7 +60,10 @@ pub enum Renderable {
     Spinner(Spinner),
 }
 impl Renderable {
-    fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+    fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
+    where
+        B: Backend,
+    {
         match self {
             Renderable::Flow(flow) => flow.render(rect, frame),
             Renderable::Cell(cell) => cell.render(rect, frame),

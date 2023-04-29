@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 use shared::config::Config;
-use shared::message::{Action, Broadcast};
 use shared::message::models::OutputStore;
+use shared::message::{Action, Broadcast};
 use shared::system_state::SystemState;
 
 use crate::ui::UIState;

@@ -2,13 +2,13 @@ use std::cmp::min;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crossterm::event::{Event, KeyCode, poll as poll_events, read as read_event};
+use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode};
 
-use shared::message::Action;
 use shared::message::models::{Profile, ServiceAction};
+use shared::message::Action;
 
-use crate::{ClientState, ClientStatus};
 use crate::ui::{UIState, ViewProfilePane};
+use crate::{ClientState, ClientStatus};
 
 pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
     let config = client.lock().unwrap().config.clone();
@@ -22,7 +22,7 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 // Controls to exit
                 KeyCode::Esc => {
                     client.lock().unwrap().status = ClientStatus::Exiting;
-                },
+                }
                 // Generic navigation controls
                 KeyCode::Left | KeyCode::Char('h') => process_navigation(client, (-1, 0)),
                 KeyCode::Right | KeyCode::Char('l') => process_navigation(client, (1, 0)),
@@ -45,34 +45,45 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
 fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
     let mut client = client.lock().unwrap();
     match &client.ui {
-        UIState::Initializing => {},
+        UIState::Initializing => {}
         UIState::ProfileSelect { selected_idx } => {
             client.ui = UIState::ProfileSelect {
-                selected_idx: update_vert_index(*selected_idx, client.config.profiles.len(), dir)
+                selected_idx: update_vert_index(*selected_idx, client.config.profiles.len(), dir),
             }
         }
-        UIState::ViewProfile { active_pane, service_selection } => {
-            let num_profiles = client.system_state.as_ref().unwrap().current_profile.as_ref().unwrap().services.len();
+        UIState::ViewProfile {
+            active_pane,
+            service_selection,
+        } => {
+            let num_profiles = client
+                .system_state
+                .as_ref()
+                .unwrap()
+                .current_profile
+                .as_ref()
+                .unwrap()
+                .services
+                .len();
 
             match active_pane {
                 ViewProfilePane::ServiceList if dir.0 > 0 => {
                     client.ui = UIState::ViewProfile {
                         active_pane: ViewProfilePane::OutputPane,
-                        service_selection: *service_selection
+                        service_selection: *service_selection,
                     }
-                },
+                }
                 ViewProfilePane::ServiceList if dir.1 != 0 => {
                     client.ui = UIState::ViewProfile {
                         active_pane: ViewProfilePane::ServiceList,
-                        service_selection: update_vert_index(*service_selection, num_profiles, dir)
+                        service_selection: update_vert_index(*service_selection, num_profiles, dir),
                     }
                 }
                 ViewProfilePane::OutputPane if dir.0 < 0 => {
                     client.ui = UIState::ViewProfile {
                         service_selection: *service_selection,
-                        active_pane: ViewProfilePane::ServiceList
+                        active_pane: ViewProfilePane::ServiceList,
                     }
-                },
+                }
                 _ => {}
             }
         }
@@ -83,15 +94,13 @@ fn process_select(client: Arc<Mutex<ClientState>>) {
     let mut client = client.lock().unwrap();
 
     match client.ui {
-        UIState::Initializing => {},
+        UIState::Initializing => {}
         UIState::ProfileSelect { selected_idx } => {
             let selection = client.config.profiles.get(selected_idx);
 
             if let Some(profile) = selection {
-                let action = Action::ActivateProfile(Profile::new(
-                    profile,
-                    &client.config.services
-                ));
+                let action =
+                    Action::ActivateProfile(Profile::new(profile, &client.config.services));
                 client.actions_out.push_back(action);
             }
         }
@@ -115,13 +124,23 @@ fn process_service_action(client: Arc<Mutex<ClientState>>, action: ServiceAction
     let mut client = client.lock().unwrap();
 
     match &client.ui {
-        UIState::ViewProfile { service_selection, active_pane } if matches!(active_pane, ViewProfilePane::ServiceList) => {
-            let service_name = client.system_state.as_ref().unwrap()
-                .current_profile.as_ref().unwrap()
-                .services[*service_selection].name.clone();
+        UIState::ViewProfile {
+            service_selection,
+            active_pane,
+        } if matches!(active_pane, ViewProfilePane::ServiceList) => {
+            let service_name = client
+                .system_state
+                .as_ref()
+                .unwrap()
+                .current_profile
+                .as_ref()
+                .unwrap()
+                .services[*service_selection]
+                .name
+                .clone();
             let action = Action::UpdateServiceAction(service_name, action);
             client.actions_out.push_back(action);
-        },
+        }
         _ => {}
     }
 }

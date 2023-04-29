@@ -7,11 +7,13 @@ use std::time::Duration;
 use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
 
-use shared::{format_err};
-use shared::message::models::{CompileStatus, HealthCheck, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
+use shared::format_err;
+use shared::message::models::{
+    CompileStatus, HealthCheck, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction,
+};
 
-use crate::ServerState;
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
+use crate::ServerState;
 
 pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let (mut command, service_name) = {
@@ -19,28 +21,40 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
         let (service_name, command, exec_display) = {
             let profile = server.get_state().current_profile.as_ref()?;
-            let runnable = profile.services.iter()
+            let runnable = profile
+                .services
+                .iter()
                 .filter(|service| service.run.is_some())
                 // Only consider services whose run-step has all dependencies satisfied
                 .filter(|service| {
-                    service.run.as_ref().unwrap().dependencies
+                    service
+                        .run
+                        .as_ref()
+                        .unwrap()
+                        .dependencies
                         .iter()
-                        .all(|dep| {
-                            server.is_satisfied(dep)
-                        })
+                        .all(|dep| server.is_satisfied(dep))
                 })
                 .find(|service| {
                     // TODO dependencies?
-                    let status = server.get_state().service_statuses.get(&service.name).unwrap();
+                    let status = server
+                        .get_state()
+                        .service_statuses
+                        .get(&service.name)
+                        .unwrap();
                     match (&status.compile_status, &status.run_status) {
                         (_, RunStatus::Running | RunStatus::Healthy) => false,
                         (CompileStatus::None, _) => service.compile.is_none(),
                         (CompileStatus::Failed | CompileStatus::Compiling(_), _) => false,
                         // Allow services that have been fully compiled
                         (CompileStatus::PartiallyCompiled(_), _) => false,
-                        (CompileStatus::FullyCompiled, RunStatus::Stopped | RunStatus::Failed) => match status.action {
-                            ServiceAction::Restart => true,
-                            ServiceAction::None | ServiceAction::Stop | ServiceAction::Recompile => false,
+                        (CompileStatus::FullyCompiled, RunStatus::Stopped | RunStatus::Failed) => {
+                            match status.action {
+                                ServiceAction::Restart => true,
+                                ServiceAction::None
+                                | ServiceAction::Stop
+                                | ServiceAction::Recompile => false,
+                            }
                         }
                     }
                 })?;
@@ -53,15 +67,26 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         };
 
         server.update_state(|state| {
-            state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Running;
-            state.service_statuses.get_mut(&service_name).unwrap().action = ServiceAction::None;
+            state
+                .service_statuses
+                .get_mut(&service_name)
+                .unwrap()
+                .run_status = RunStatus::Running;
+            state
+                .service_statuses
+                .get_mut(&service_name)
+                .unwrap()
+                .action = ServiceAction::None;
         });
 
-        server.add_output(&OutputKey {
-            name: OutputKey::CTRL.into(),
-            service_ref: service_name.clone(),
-            kind: OutputKind::Run,
-        }, format!("Exec: {exec_display}"));
+        server.add_output(
+            &OutputKey {
+                name: OutputKey::CTRL.into(),
+                service_ref: service_name.clone(),
+                kind: OutputKind::Run,
+            },
+            format!("Exec: {exec_display}"),
+        );
 
         (command, service_name)
     };
@@ -76,7 +101,10 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 let service_name = service_name.clone();
 
                 thread::spawn(move || {
-                    let health_checks = server.lock().unwrap().get_service(&service_name)
+                    let health_checks = server
+                        .lock()
+                        .unwrap()
+                        .get_service(&service_name)
                         .map(|service| service.run.as_ref())
                         .flatten()
                         .map(|run_conf| run_conf.health_checks.clone())
@@ -94,18 +122,26 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
                         for check in &health_checks {
                             match check {
-                                HealthCheck::Http { url, method, timeout_millis, status } => {
-                                    let result = http_client.request(
-                                        match method {
-                                            HttpMethod::GET => Method::GET,
-                                            HttpMethod::POST => Method::POST,
-                                            HttpMethod::PUT => Method::PUT,
-                                            HttpMethod::PATCH => Method::PATCH,
-                                            HttpMethod::DELETE => Method::DELETE,
-                                            HttpMethod::OPTIONS => Method::OPTIONS,
-                                        },
-                                        url
-                                    ).timeout(Duration::from_millis(*timeout_millis)).send();
+                                HealthCheck::Http {
+                                    url,
+                                    method,
+                                    timeout_millis,
+                                    status,
+                                } => {
+                                    let result = http_client
+                                        .request(
+                                            match method {
+                                                HttpMethod::GET => Method::GET,
+                                                HttpMethod::POST => Method::POST,
+                                                HttpMethod::PUT => Method::PUT,
+                                                HttpMethod::PATCH => Method::PATCH,
+                                                HttpMethod::DELETE => Method::DELETE,
+                                                HttpMethod::OPTIONS => Method::OPTIONS,
+                                            },
+                                            url,
+                                        )
+                                        .timeout(Duration::from_millis(*timeout_millis))
+                                        .send();
 
                                     if let Ok(response) = result {
                                         let response_status: u16 = response.status().into();
@@ -117,7 +153,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                                         successful = false;
                                         break;
                                     }
-                                },
+                                }
                                 HealthCheck::Port { port } => {
                                     if TcpListener::bind(format!("127.0.0.1:{port}")).is_err() {
                                         successful = false;
@@ -140,18 +176,25 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     // checks passed
                     let has_exited = handle.lock().unwrap().try_wait().unwrap_or(None).is_some();
                     if !has_exited {
-                        server.lock().unwrap().update_service_status(&service_name, |status| {
-                            // If the service is still running, update its status to healthy
-                            if matches!(status.run_status, RunStatus::Running) {
-                                status.run_status = RunStatus::Healthy;
-                            }
-                        });
+                        server
+                            .lock()
+                            .unwrap()
+                            .update_service_status(&service_name, |status| {
+                                // If the service is still running, update its status to healthy
+                                if matches!(status.run_status, RunStatus::Running) {
+                                    status.run_status = RunStatus::Healthy;
+                                }
+                            });
                     }
                 })
             };
 
             // Register the health check thread into active threads
-            server_arc.lock().unwrap().active_threads.push(health_check_thread);
+            server_arc
+                .lock()
+                .unwrap()
+                .active_threads
+                .push(health_check_thread);
 
             ProcessHandler {
                 server: server_arc.clone(),
@@ -164,30 +207,50 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     // TODO message
                     server.update_state(move |state| {
                         if success {
-                            state.service_statuses.get_mut(service_name).unwrap().run_status = RunStatus::Stopped;
+                            state
+                                .service_statuses
+                                .get_mut(service_name)
+                                .unwrap()
+                                .run_status = RunStatus::Stopped;
                         } else {
-                            state.service_statuses.get_mut(service_name).unwrap().run_status = RunStatus::Failed;
+                            state
+                                .service_statuses
+                                .get_mut(service_name)
+                                .unwrap()
+                                .run_status = RunStatus::Failed;
                         }
                     });
                 },
                 exit_early: move |(server, service_name)| {
                     let server = server.lock().unwrap();
-                    let status = &server.get_state().service_statuses.get(service_name).unwrap();
+                    let status = &server
+                        .get_state()
+                        .service_statuses
+                        .get(service_name)
+                        .unwrap();
                     status.action == ServiceAction::Restart || status.action == ServiceAction::Stop
                 },
-            }.launch();
+            }
+            .launch();
         }
         Err(error) => {
             let mut server = server_arc.lock().unwrap();
             server.update_state(|state| {
-                state.service_statuses.get_mut(&service_name).unwrap().run_status = RunStatus::Failed;
+                state
+                    .service_statuses
+                    .get_mut(&service_name)
+                    .unwrap()
+                    .run_status = RunStatus::Failed;
             });
 
-            server.add_output(&OutputKey {
-                name: OutputKey::CTRL.into(),
-                service_ref: service_name,
-                kind: OutputKind::Run,
-            }, format_err!("Failed to spawn child process", error));
+            server.add_output(
+                &OutputKey {
+                    name: OutputKey::CTRL.into(),
+                    service_ref: service_name,
+                    kind: OutputKind::Run,
+                },
+                format_err!("Failed to spawn child process", error),
+            );
         }
     }
 

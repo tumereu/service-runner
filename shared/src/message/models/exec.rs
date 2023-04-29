@@ -1,14 +1,8 @@
-use std::collections::{HashMap};
-
-use std::fmt::{Display, Formatter, Write};
-
-use serde::{Deserialize, Serialize};
-
-
-use crate::config::{
-    ExecutableEntry as ConfigExecutableEntry};
-
+use crate::config::ExecutableEntry as ConfigExecutableEntry;
 use crate::write_escaped_str;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter, Write};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecutableEntry {
@@ -49,4 +43,3 @@ impl Display for ExecutableEntry {
         Ok(())
     }
 }
-

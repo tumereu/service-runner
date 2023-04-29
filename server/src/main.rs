@@ -1,9 +1,9 @@
 extern crate core;
 
-use std::{env, thread};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use std::{env, thread};
 
 use shared::dbg_println;
 use shared::system_state::Status;
@@ -13,13 +13,14 @@ use crate::connection::run_server;
 use crate::server_state::ServerState;
 use crate::service_worker::start_service_worker;
 
-mod server_state;
-mod connection;
 mod action_processor;
+mod connection;
+mod server_state;
 mod service_worker;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let port: u16 = env::args().collect::<Vec<String>>()
+    let port: u16 = env::args()
+        .collect::<Vec<String>>()
         .get(1)
         .unwrap()
         .parse()?;
@@ -41,7 +42,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             loop {
                 {
                     let mut server = server.lock().unwrap();
-                    if server.get_state().status == Status::Exiting && server.active_threads.len() == 0 {
+                    if server.get_state().status == Status::Exiting
+                        && server.active_threads.len() == 0
+                    {
                         break;
                     }
 

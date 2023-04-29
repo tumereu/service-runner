@@ -1,14 +1,9 @@
-
-
-use std::fmt::{Write};
+use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
 
-
-
-use crate::message::models::{Profile, Service};
 use crate::message::models::ServiceAction::Recompile;
-
+use crate::message::models::{Profile, Service};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServiceStatus {
@@ -37,7 +32,7 @@ pub enum ServiceAction {
     None,
     Recompile,
     Restart,
-    Stop
+    Stop,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -46,7 +41,7 @@ pub enum CompileStatus {
     Compiling(usize),
     PartiallyCompiled(usize),
     FullyCompiled,
-    Failed
+    Failed,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -54,6 +49,5 @@ pub enum RunStatus {
     Stopped,
     Running,
     Healthy,
-    Failed
+    Failed,
 }
-

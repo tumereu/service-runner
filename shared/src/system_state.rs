@@ -16,12 +16,12 @@ impl SystemState {
             status: Status::Idle,
             current_profile: None,
             service_statuses: HashMap::new(),
-        }
+        };
     }
 }
 
 #[derive(Deserialize, Serialize, Clone, Copy, Eq, PartialEq, Debug)]
 pub enum Status {
     Idle,
-    Exiting
+    Exiting,
 }

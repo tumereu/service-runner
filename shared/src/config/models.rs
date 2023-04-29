@@ -32,8 +32,8 @@ pub enum Service {
         compile: Option<ScriptedCompileConfig>,
         run: Option<ScriptedRunConfig>,
         reset: Vec<ExecutableEntry>,
-        autocompile: Option<AutoCompileConfig>
-    }
+        autocompile: Option<AutoCompileConfig>,
+    },
 }
 
 impl Service {
@@ -66,7 +66,7 @@ pub struct ScriptedRunConfig {
 #[serde(deny_unknown_fields)]
 pub struct Dependency {
     pub service: String,
-    pub require:  RequiredState
+    pub require: RequiredState,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -75,7 +75,7 @@ pub enum RequiredState {
     #[serde(rename = "compiled")]
     Compiled,
     #[serde(rename = "running")]
-    Running
+    Running,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -89,9 +89,7 @@ pub enum HealthCheck {
         status: u16,
     },
     #[serde(rename = "port")]
-    Port {
-        port: u16
-    },
+    Port { port: u16 },
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -118,7 +116,7 @@ pub struct ExecutableEntry {
 #[serde(deny_unknown_fields)]
 pub struct AutoCompileConfig {
     pub mode: AutoCompileMode,
-    pub triggers: Vec<AutoCompileTrigger>
+    pub triggers: Vec<AutoCompileTrigger>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -128,20 +126,16 @@ pub enum AutoCompileMode {
     #[serde(rename = "triggered")]
     TRIGGERED,
     #[serde(rename = "disabled")]
-    DISABLED
+    DISABLED,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type", deny_unknown_fields)]
 pub enum AutoCompileTrigger {
     #[serde(rename = "recompiled-service")]
-    RecompiledService {
-        service: String
-    },
+    RecompiledService { service: String },
     #[serde(rename = "modified-file")]
-    ModifiedFile {
-        paths: Vec<String>
-    }
+    ModifiedFile { paths: Vec<String> },
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -152,7 +146,9 @@ pub struct Profile {
 }
 impl Profile {
     pub fn includes(&self, service: &Service) -> bool {
-        self.services.iter().any(|reference| reference.references(service))
+        self.services
+            .iter()
+            .any(|reference| reference.references(service))
     }
 }
 

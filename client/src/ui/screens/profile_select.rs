@@ -2,16 +2,16 @@ use tui::backend::Backend;
 use tui::Frame;
 
 use crate::client_state::ClientState;
+use crate::ui::widgets::{render_root, Align, Cell, IntoCell, List};
 use crate::ui::UIState;
-use crate::ui::widgets::{Align, Cell, IntoCell, List, render_root};
 
-pub fn render_profile_select<B>(
-    frame: &mut Frame<B>,
-    state: &ClientState,
-) where B : Backend {
+pub fn render_profile_select<B>(frame: &mut Frame<B>, state: &ClientState)
+where
+    B: Backend,
+{
     let selected_idx = match &state.ui {
         UIState::ProfileSelect { selected_idx } => selected_idx,
-        any @ _ => panic!("Invalid UI state in render_profile_select: {any:?}")
+        any @ _ => panic!("Invalid UI state in render_profile_select: {any:?}"),
     };
 
     render_root(
@@ -20,12 +20,18 @@ pub fn render_profile_select<B>(
             align_horiz: Align::Center,
             element: List {
                 items: List::simple_items(
-                    state.config.profiles.iter().map(|prof| prof.name.clone()).collect()
+                    state
+                        .config
+                        .profiles
+                        .iter()
+                        .map(|prof| prof.name.clone())
+                        .collect(),
                 ),
-                selection: *selected_idx
-            }.into_el(),
+                selection: *selected_idx,
+            }
+            .into_el(),
             ..Default::default()
         },
-        frame
+        frame,
     );
 }

@@ -4,16 +4,16 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use shared::message::Broadcast;
 use shared::message::models::{ExecutableEntry, OutputKey, OutputKind};
+use shared::message::Broadcast;
 use shared::system_state::Status;
 
 use crate::server_state::ServerState;
 
-pub fn create_cmd<S>(
-    entry: &ExecutableEntry,
-    dir: Option<S>,
-) -> Command where S: AsRef<str> {
+pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
+where
+    S: AsRef<str>,
+{
     let mut cmd = Command::new(entry.executable.clone());
     cmd.args(entry.args.clone());
     if let Some(dir) = dir {
@@ -30,8 +30,9 @@ pub fn create_cmd<S>(
 }
 
 pub struct ProcessHandler<F, G>
-    where F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
-          G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
+where
+    F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
+    G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
 {
     pub server: Arc<Mutex<ServerState>>,
     pub handle: Arc<Mutex<Child>>,
@@ -42,11 +43,19 @@ pub struct ProcessHandler<F, G>
 }
 
 impl<F, G> ProcessHandler<F, G>
-    where F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
-          G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
+where
+    F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
+    G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
 {
     pub fn launch(self) {
-        let ProcessHandler { server, handle, service_name, output, on_finish, exit_early } = self;
+        let ProcessHandler {
+            server,
+            handle,
+            service_name,
+            output,
+            on_finish,
+            exit_early,
+        } = self;
         let mut new_threads = vec![
             // Kill the process when the server exits and invoke the callback after the process finishes
             {
@@ -116,17 +125,17 @@ impl<F, G> ProcessHandler<F, G>
                         }
                     }
                 })
-            }
+            },
         ];
 
-        server.lock().unwrap().active_threads.append(&mut new_threads);
+        server
+            .lock()
+            .unwrap()
+            .active_threads
+            .append(&mut new_threads);
     }
 
-    fn process_output_line(
-        state: Arc<Mutex<ServerState>>,
-        key: &OutputKey,
-        output: String,
-    ) {
+    fn process_output_line(state: Arc<Mutex<ServerState>>, key: &OutputKey, output: String) {
         let mut server = state.lock().unwrap();
 
         // Store the line locally so that it can be sent to clients that connect later

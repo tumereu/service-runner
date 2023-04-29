@@ -1,10 +1,10 @@
 use std::cmp::max;
 
 use tui::backend::Backend;
-use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::widgets::Block;
+use tui::Frame;
 
 use crate::ui::widgets::{Cell, Renderable, Size};
 
@@ -15,12 +15,12 @@ pub struct Flow {
     pub direction: Dir,
 }
 impl Flow {
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
+    where
+        B: Backend,
+    {
         if let Some(bg) = self.bg {
-            frame.render_widget(
-                Block::default().style(Style::default().bg(bg)),
-                rect
-            );
+            frame.render_widget(Block::default().style(Style::default().bg(bg)), rect);
         }
 
         let mut free_space = if self.direction == Dir::UpDown {
@@ -31,20 +31,18 @@ impl Flow {
         let mut num_fills = 0;
 
         for cell in &self.cells {
-            free_space = free_space.saturating_sub(
-                if cell.fill {
-                    num_fills += 1;
-                    0
-                } else {
-                    let measured_size = cell.measure();
+            free_space = free_space.saturating_sub(if cell.fill {
+                num_fills += 1;
+                0
+            } else {
+                let measured_size = cell.measure();
 
-                    if self.direction == Dir::UpDown {
-                        measured_size.height
-                    } else {
-                        measured_size.width
-                    }
+                if self.direction == Dir::UpDown {
+                    measured_size.height
+                } else {
+                    measured_size.width
                 }
-            );
+            });
         }
 
         // TODO off-by-one errors? fix by moving inside loop and multiply by index or something?
@@ -68,14 +66,13 @@ impl Flow {
                 } else {
                     measured_size.height
                 },
-            ).into();
+            )
+                .into();
             // Clamp the size-in-layout to be a maximum of the remaining size
-            let size_in_layout = size_in_layout.intersect(
-                match self.direction {
-                    Dir::UpDown => (rect.width, rect.height - current_pos).into(),
-                    Dir::LeftRight => (rect.width - current_pos, rect.height).into()
-                }
-            );
+            let size_in_layout = size_in_layout.intersect(match self.direction {
+                Dir::UpDown => (rect.width, rect.height - current_pos).into(),
+                Dir::LeftRight => (rect.width - current_pos, rect.height).into(),
+            });
 
             let (x, y) = if self.direction == Dir::UpDown {
                 (0, current_pos)
@@ -95,9 +92,9 @@ impl Flow {
                     rect.x + x,
                     rect.y + y,
                     size_in_layout.width,
-                    size_in_layout.height
+                    size_in_layout.height,
                 ),
-                frame
+                frame,
             );
         }
     }
@@ -126,7 +123,7 @@ impl Flow {
 pub enum Dir {
     #[default]
     LeftRight,
-    UpDown
+    UpDown,
 }
 
 impl From<Flow> for Renderable {

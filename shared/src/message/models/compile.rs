@@ -1,15 +1,10 @@
-
 use std::convert::Into;
-use std::fmt::{Write};
+use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
 
-
-use crate::config::{
-    ScriptedCompileConfig as ConfigScriptedCompileConfig};
+use crate::config::ScriptedCompileConfig as ConfigScriptedCompileConfig;
 use crate::message::models::{Dependency, ExecutableEntry};
-
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompileConfig {
@@ -24,5 +19,3 @@ impl From<ConfigScriptedCompileConfig> for CompileConfig {
         }
     }
 }
-
-

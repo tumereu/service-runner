@@ -6,20 +6,19 @@ macro_rules! dbg_println {
 
 #[macro_export]
 macro_rules! format_err {
-    ($msg:expr, $err:expr) => {
-        {
-            use ::std::error::Error;
+    ($msg:expr, $err:expr) => {{
+        use ::std::error::Error;
 
-            let mut error_opt: ::std::option::Option<&dyn ::std::error::Error> = ::std::option::Option::Some(&$err);
-            let mut message: ::std::string::String = $msg.into();
-            while let ::std::option::Option::Some(error) = error_opt {
-                message.push_str(::std::format!(": {error}").as_str());
-                error_opt = error.source();
-            }
-
-            message
+        let mut error_opt: ::std::option::Option<&dyn ::std::error::Error> =
+            ::std::option::Option::Some(&$err);
+        let mut message: ::std::string::String = $msg.into();
+        while let ::std::option::Option::Some(error) = error_opt {
+            message.push_str(::std::format!(": {error}").as_str());
+            error_opt = error.source();
         }
-    };
+
+        message
+    }};
 }
 
 #[macro_export]
@@ -36,5 +35,5 @@ macro_rules! write_escaped_str {
         } else {
             $fmt.write_str(&escaped_str)?;
         }
-    }
+    };
 }

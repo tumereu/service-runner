@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use shared::message::Action;
 use shared::message::models::ServiceStatus;
+use shared::message::Action;
 use shared::system_state::Status;
 
 use crate::server_state::ServerState;
@@ -23,10 +23,7 @@ pub fn start_action_processor(server: Arc<Mutex<ServerState>>) -> thread::JoinHa
     })
 }
 
-fn process_action(
-    server: &mut ServerState,
-    action: Action
-) {
+fn process_action(server: &mut ServerState, action: Action) {
     match action {
         Action::Shutdown => {
             server.update_state(|state| {
@@ -35,13 +32,14 @@ fn process_action(
         }
         Action::ActivateProfile(profile) => {
             server.update_state(|state| {
-                state.service_statuses = profile.services.iter()
-                    .map(|service| {
-                        (service.name.clone(), ServiceStatus::from(&profile, service))
-                    }).collect();
+                state.service_statuses = profile
+                    .services
+                    .iter()
+                    .map(|service| (service.name.clone(), ServiceStatus::from(&profile, service)))
+                    .collect();
                 state.current_profile = Some(profile);
             });
-        },
+        }
         Action::UpdateServiceAction(service_name, action) => {
             server.update_service_status(&service_name, |status| {
                 status.action = action;

@@ -1,15 +1,12 @@
-use std::{env, error::Error, io::stdout, thread, time::Duration};
 use std::sync::{Arc, Mutex};
+use std::{env, error::Error, io::stdout, thread, time::Duration};
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use tui::{
-    backend::CrosstermBackend,
-    Terminal
-};
+use tui::{backend::CrosstermBackend, Terminal};
 
 use shared::config::read_config;
 use shared::dbg_println;
@@ -20,12 +17,13 @@ use crate::input::process_inputs;
 use crate::ui::render;
 
 mod client_state;
-mod ui;
-mod input;
 mod connection;
+mod input;
+mod ui;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let config_dir: String = env::args().collect::<Vec<String>>()
+    let config_dir: String = env::args()
+        .collect::<Vec<String>>()
         .get(1)
         .ok_or("Specify the configuration directory in order to run the app")?
         .clone();
@@ -34,16 +32,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let num_profiles = state.lock().unwrap().config.profiles.len();
     let num_services = state.lock().unwrap().config.services.len();
 
-    dbg_println!("Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)");
+    dbg_println!(
+        "Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)"
+    );
 
     enable_raw_mode()?;
 
     let mut stdout = stdout();
-    execute!(
-        stdout,
-        EnterAlternateScreen,
-        EnableMouseCapture
-    )?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -73,8 +69,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     terminal.show_cursor()?;
 
-    stream_thread.join().expect("Could not join the stream-handler")?;
-    broadcast_thread.join().expect("Could not join the broadcast handler");
+    stream_thread
+        .join()
+        .expect("Could not join the stream-handler")?;
+    broadcast_thread
+        .join()
+        .expect("Could not join the broadcast handler");
 
     Ok(())
 }

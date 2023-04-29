@@ -7,7 +7,7 @@ use crate::system_state::SystemState;
 pub enum Action {
     Shutdown,
     ActivateProfile(Profile),
-    UpdateServiceAction(String, ServiceAction)
+    UpdateServiceAction(String, ServiceAction),
 }
 impl AsRef<Action> for Action {
     fn as_ref(&self) -> &Action {
@@ -31,7 +31,10 @@ pub trait Message {
     fn encode(&self) -> Vec<u8>;
     fn decode(bytes: &Vec<u8>) -> Self;
 }
-impl<M> Message for M where M : Serialize + for<'de> Deserialize<'de> {
+impl<M> Message for M
+where
+    M: Serialize + for<'de> Deserialize<'de>,
+{
     fn encode(&self) -> Vec<u8> {
         bincode::serialize(self).unwrap()
     }

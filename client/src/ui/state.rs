@@ -4,24 +4,22 @@ use crate::ui::state::ViewProfilePane::ServiceList;
 pub enum UIState {
     Initializing,
     ProfileSelect {
-        selected_idx: usize
+        selected_idx: usize,
     },
     ViewProfile {
         active_pane: ViewProfilePane,
-        service_selection: usize
-    }
+        service_selection: usize,
+    },
 }
 impl UIState {
     pub fn profile_select() -> UIState {
-        UIState::ProfileSelect {
-            selected_idx: 0
-        }
+        UIState::ProfileSelect { selected_idx: 0 }
     }
 
     pub fn view_profile() -> UIState {
         UIState::ViewProfile {
             active_pane: ServiceList,
-            service_selection: 0
+            service_selection: 0,
         }
     }
 }
@@ -29,5 +27,5 @@ impl UIState {
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub enum ViewProfilePane {
     ServiceList,
-    OutputPane
+    OutputPane,
 }

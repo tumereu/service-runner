@@ -6,14 +6,23 @@ use std::time::Duration;
 
 use crate::message::Message;
 
-pub trait MessageTransmitter<E : Error> {
-    fn send<M, R>(&mut self, msg: R) -> Result<(), E> where M : Message, R: AsRef<M>;
-    fn receive<M>(&mut self) -> Result<M, E> where M : Message;
+pub trait MessageTransmitter<E: Error> {
+    fn send<M, R>(&mut self, msg: R) -> Result<(), E>
+    where
+        M: Message,
+        R: AsRef<M>;
+    fn receive<M>(&mut self) -> Result<M, E>
+    where
+        M: Message;
     fn has_incoming(&self, block_for: Duration) -> Result<bool, E>;
 }
 
 impl MessageTransmitter<std::io::Error> for TcpStream {
-    fn send<M, R>(&mut self, msg: R) -> Result<(), std::io::Error> where M: Message, R: AsRef<M> {
+    fn send<M, R>(&mut self, msg: R) -> Result<(), std::io::Error>
+    where
+        M: Message,
+        R: AsRef<M>,
+    {
         let bytes = msg.as_ref().encode();
 
         let len = bytes.len() as u64;
@@ -24,7 +33,10 @@ impl MessageTransmitter<std::io::Error> for TcpStream {
         Ok(())
     }
 
-    fn receive<M>(&mut self) -> Result<M, std::io::Error> where M: Message {
+    fn receive<M>(&mut self) -> Result<M, std::io::Error>
+    where
+        M: Message,
+    {
         self.set_read_timeout(None)?;
 
         let mut len_bytes = [0 as u8; size_of::<u64>()];

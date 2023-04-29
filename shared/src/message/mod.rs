@@ -5,4 +5,3 @@ mod message;
 mod transmitter;
 
 pub mod models;
-

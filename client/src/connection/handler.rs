@@ -9,7 +9,7 @@ use crate::client_state::{ClientState, ClientStatus};
 
 pub fn handle_stream(
     mut stream: TcpStream,
-    state: Arc<Mutex<ClientState>>
+    state: Arc<Mutex<ClientState>>,
 ) -> thread::JoinHandle<std::io::Result<()>> {
     thread::spawn(move || {
         while state.lock().unwrap().status != ClientStatus::Exiting {

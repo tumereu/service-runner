@@ -1,11 +1,11 @@
 use std::cmp::{max, min};
 
 use tui::backend::Backend;
-use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Spans;
 use tui::widgets::{Block, Borders};
+use tui::Frame;
 
 use crate::ui::widgets::{Renderable, Size};
 
@@ -25,14 +25,18 @@ pub struct Cell {
     pub min_height: u16,
 }
 impl Cell {
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>) where B: Backend {
+    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
+    where
+        B: Backend,
+    {
         if self.border.is_some() || self.bg.is_some() {
             let mut block = Block::default();
             if let Some(bg) = self.bg {
                 block = block.style(Style::default().bg(bg));
             }
-            if let Some((color, title)) = &self.border  {
-                block = block.borders(Borders::ALL)
+            if let Some((color, title)) = &self.border {
+                block = block
+                    .borders(Borders::ALL)
                     .border_style(Style::default().fg(color.clone()))
                     .title(Spans::from(title.to_string()));
             }
@@ -57,12 +61,14 @@ impl Cell {
                 rect.width
             } else {
                 min(el_size.width, rect.width)
-            } - padding_left - padding_right;
+            } - padding_left
+                - padding_right;
             let height = if self.align_vert == Align::Stretch {
                 rect.height
             } else {
                 min(el_size.height, rect.height)
-            } - padding_top - padding_bottom;
+            } - padding_top
+                - padding_bottom;
 
             let x = match self.align_horiz {
                 Align::Start | Align::Stretch => rect.x + padding_left,
@@ -80,13 +86,13 @@ impl Cell {
     }
 
     pub fn measure(&self) -> Size {
-        let el_size = self.element.as_ref().map(|el| el.measure()).unwrap_or((0 as u16, 0 as u16).into());
+        let el_size = self
+            .element
+            .as_ref()
+            .map(|el| el.measure())
+            .unwrap_or((0 as u16, 0 as u16).into());
 
-        let border_pad = if self.border.is_some() {
-            2
-        } else {
-            0
-        };
+        let border_pad = if self.border.is_some() { 2 } else { 0 };
 
         let mut width = el_size.width + self.padding_left + self.padding_right + border_pad;
         width = max(width, self.min_width);
@@ -104,7 +110,7 @@ pub enum Align {
     Start,
     End,
     Center,
-    Stretch
+    Stretch,
 }
 
 impl From<Cell> for Renderable {
@@ -119,7 +125,10 @@ pub trait IntoCell {
     fn into_el(self) -> Option<Box<Renderable>>;
 }
 
-impl<R> IntoCell for R where R : Into<Renderable> {
+impl<R> IntoCell for R
+where
+    R: Into<Renderable>,
+{
     fn into_el(self) -> Option<Box<Renderable>> {
         Some(Box::new(self.into()))
     }

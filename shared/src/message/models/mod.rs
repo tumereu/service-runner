@@ -8,13 +8,12 @@ pub use run::*;
 pub use service::*;
 pub use status::*;
 
-mod service;
-mod dependency;
-mod run;
-mod compile;
 mod autocompile;
+mod compile;
+mod dependency;
 mod exec;
-mod profile;
-mod status;
 mod output;
-
+mod profile;
+mod run;
+mod service;
+mod status;

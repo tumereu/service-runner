@@ -2,9 +2,11 @@ use std::collections::{HashMap, VecDeque};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
-
+use shared::message::models::{
+    CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service,
+    ServiceAction, ServiceStatus,
+};
 use shared::message::{Action, Broadcast};
-use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
 use shared::system_state::SystemState;
 
 pub struct ServerState {
@@ -13,7 +15,7 @@ pub struct ServerState {
     pub broadcasts_out: HashMap<u32, VecDeque<Broadcast>>,
     system_state: SystemState,
     pub output_store: OutputStore,
-    pub active_threads: Vec<JoinHandle<()>>
+    pub active_threads: Vec<JoinHandle<()>>,
 }
 impl ServerState {
     pub fn new() -> ServerState {
@@ -32,8 +34,15 @@ impl ServerState {
     }
 
     pub fn get_service(&self, service_name: &str) -> Option<&Service> {
-        self.system_state.current_profile.as_ref()
-            .map(|profile| profile.services.iter().find(|service| service.name == service_name))
+        self.system_state
+            .current_profile
+            .as_ref()
+            .map(|profile| {
+                profile
+                    .services
+                    .iter()
+                    .find(|service| service.name == service_name)
+            })
             .flatten()
     }
 
@@ -48,25 +57,44 @@ impl ServerState {
                     RequiredState::Running => match (&status.run_status, &status.action) {
                         // The service must be running without any incoming changes
                         (RunStatus::Healthy, ServiceAction::None) => true,
-                        (RunStatus::Healthy, ServiceAction::Restart | ServiceAction::Recompile | ServiceAction::Stop) => false,
-                        (RunStatus::Running | RunStatus::Failed | RunStatus::Stopped, _) => false
+                        (
+                            RunStatus::Healthy,
+                            ServiceAction::Restart | ServiceAction::Recompile | ServiceAction::Stop,
+                        ) => false,
+                        (RunStatus::Running | RunStatus::Failed | RunStatus::Stopped, _) => false,
                     },
                     RequiredState::Compiled => match (&status.compile_status, &status.action) {
-                        (CompileStatus::FullyCompiled, ServiceAction::Restart | ServiceAction::Stop | ServiceAction::None) => true,
+                        (
+                            CompileStatus::FullyCompiled,
+                            ServiceAction::Restart | ServiceAction::Stop | ServiceAction::None,
+                        ) => true,
                         (CompileStatus::FullyCompiled, ServiceAction::Recompile) => true,
-                        (CompileStatus::None | CompileStatus::Compiling(_) | CompileStatus::PartiallyCompiled(_) | CompileStatus::Failed, _) => false
-                    }
+                        (
+                            CompileStatus::None
+                            | CompileStatus::Compiling(_)
+                            | CompileStatus::PartiallyCompiled(_)
+                            | CompileStatus::Failed,
+                            _,
+                        ) => false,
+                    },
                 }
-            }).unwrap_or(true)
+            })
+            .unwrap_or(true)
     }
 
-    pub fn update_state<F>(&mut self, update: F) where F: FnOnce(&mut SystemState) {
+    pub fn update_state<F>(&mut self, update: F)
+    where
+        F: FnOnce(&mut SystemState),
+    {
         update(&mut self.system_state);
         let broadcast = Broadcast::State(self.system_state.clone());
         self.broadcast_all(broadcast);
     }
 
-    pub fn update_service_status<F>(&mut self, service: &str, update: F) where F: FnOnce(&mut ServiceStatus) {
+    pub fn update_service_status<F>(&mut self, service: &str, update: F)
+    where
+        F: FnOnce(&mut ServiceStatus),
+    {
         self.update_state(move |state| {
             let status = state.service_statuses.get_mut(service).unwrap();
             update(status);
