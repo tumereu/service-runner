@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use shared::format_err;
 use shared::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger};
@@ -87,10 +88,16 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             format!("Exec: {exec_display}"),
         );
 
+        // Update the status of the service to be compiling and reset its action
         server.update_service_status(&service_name, |status| {
             status.compile_status = CompileStatus::Compiling(index);
             status.action = ServiceAction::None;
         });
+        // Register the time that the compilation was started
+        server.file_watchers.iter_mut()
+            .for_each(|watcher_state| {
+                watcher_state.latest_recompiles.insert(service_name.clone(), Instant::now());
+            });
 
         (command, service_name, index)
     };
@@ -145,13 +152,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                             .iter()
                             .for_each(|service| {
                                 server.update_service_status(&service, |status| {
-                                    status.action = match status.action {
-                                        | ServiceAction::None
-                                        | ServiceAction::Restart
-                                        | ServiceAction::Recompile => ServiceAction::Recompile,
-                                        // No need to recompile services if we are currently trying to stop them
-                                        ServiceAction::Stop => ServiceAction::Stop
-                                    }
+                                    status.action = ServiceAction::Recompile;
                                 })
                             });
                     } else {

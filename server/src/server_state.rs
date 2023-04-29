@@ -77,16 +77,16 @@ impl ServerState {
                         (RunStatus::Healthy, ServiceAction::None) => true,
                         (
                             RunStatus::Healthy,
-                            ServiceAction::Restart | ServiceAction::Recompile | ServiceAction::Stop,
+                            ServiceAction::Restart | ServiceAction::Recompile
                         ) => false,
                         (RunStatus::Running | RunStatus::Failed | RunStatus::Stopped, _) => false,
                     },
                     RequiredState::Compiled => match (&status.compile_status, &status.action) {
                         (
                             CompileStatus::FullyCompiled,
-                            ServiceAction::Restart | ServiceAction::Stop | ServiceAction::None,
+                            ServiceAction::Restart | ServiceAction::None,
                         ) => true,
-                        (CompileStatus::FullyCompiled, ServiceAction::Recompile) => true,
+                        (_, ServiceAction::Recompile) => false,
                         (
                             CompileStatus::None
                             | CompileStatus::Compiling(_)

@@ -145,17 +145,7 @@ fn check_triggers(server: Arc<Mutex<ServerState>>) {
     let mut server = server.lock().unwrap();
     for service in triggered_services {
         server.update_service_status(&service, |service| {
-            service.action = match service.action {
-                // TODO perhaps this shouldn't recompile services that aren't running?
-                | ServiceAction::None
-                | ServiceAction::Restart
-                | ServiceAction::Recompile => ServiceAction::Recompile,
-                ServiceAction::Stop => ServiceAction::Stop
-            }
+            service.action = ServiceAction::Recompile;
         });
-        server.file_watchers.iter_mut()
-            .for_each(|watcher_state| {
-                watcher_state.latest_recompiles.insert(service.clone(), Instant::now());
-            });
     }
 }

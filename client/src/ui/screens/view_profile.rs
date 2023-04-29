@@ -5,7 +5,7 @@ use tui::backend::Backend;
 use tui::style::Color;
 use tui::Frame;
 
-use shared::message::models::{CompileStatus, Profile, RunStatus, ServiceAction, ServiceStatus};
+use shared::message::models::{AutoCompileMode, CompileStatus, Profile, RunStatus, ServiceAction, ServiceStatus};
 
 use crate::client_state::ClientState;
 use crate::ui::state::ViewProfilePane;
@@ -111,6 +111,7 @@ fn service_list(
 ) -> List {
     // TODO Theme?
     let active_color = Color::Rgb(0, 140, 0);
+    let secondary_active_color = Color::Rgb(0, 0, 140);
     let processing_color = Color::Rgb(230, 180, 0);
     let error_color = Color::Rgb(180, 0, 0);
     let inactive_color = Color::Gray;
@@ -163,19 +164,15 @@ fn service_list(
                                 element: Text {
                                     text: if service.run.is_none() { "-" } else { "R" }.into(),
                                     fg: if let Some(status) = status {
-                                        match status.run_status {
-                                            _ if service.run.is_none() => inactive_color.clone(),
-                                            RunStatus::Healthy => active_color.clone(),
-                                            RunStatus::Running => processing_color.clone(),
-                                            RunStatus::Failed => error_color.clone(),
-                                            RunStatus::Stopped => match status.action {
-                                                ServiceAction::Restart
-                                                | ServiceAction::Recompile => {
-                                                    processing_color.clone()
-                                                }
-                                                _ if status.should_run => processing_color.clone(),
-                                                _ => inactive_color.clone(),
-                                            },
+                                        match (&status.run_status, &status.action) {
+                                            (_, _) if service.run.is_none() => inactive_color.clone(),
+                                            (_, ServiceAction::Restart) => processing_color.clone(),
+                                            (RunStatus::Healthy, _) => active_color.clone(),
+                                            (RunStatus::Running, _) => processing_color.clone(),
+                                            (RunStatus::Failed, _) => error_color.clone(),
+                                            (RunStatus::Stopped, ServiceAction::Recompile) => processing_color.clone(),
+                                            (RunStatus::Stopped, _) if status.should_run => processing_color.clone(),
+                                            (_, _) => inactive_color.clone(),
                                         }
                                     } else {
                                         inactive_color.clone()
@@ -241,6 +238,25 @@ fn service_list(
                                     ..Default::default()
                                 }
                                 .into_el(),
+                                ..Default::default()
+                            },
+                            // Autocompile status
+                            Cell {
+                                element: Text {
+                                    text: if service.autocompile.is_some() {
+                                        "A"
+                                    } else {
+                                        "-"
+                                    }.into(),
+                                    fg: match service.autocompile.as_ref().map(|autocompile| &autocompile.mode) {
+                                        None => inactive_color.clone(),
+                                        Some(AutoCompileMode::AUTOMATIC) => active_color.clone(),
+                                        Some(AutoCompileMode::TRIGGERED) => secondary_active_color.clone(),
+                                        Some(AutoCompileMode::DISABLED) => inactive_color.clone(),
+                                    }.into(),
+                                    ..Default::default()
+                                }
+                                    .into_el(),
                                 ..Default::default()
                             },
                             Cell {

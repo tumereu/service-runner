@@ -27,8 +27,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 .filter(|service| service.run.is_some())
                 // Only consider services whose run-step has all dependencies satisfied
                 .filter(|service| {
-                    service
-                        .run
+                    service.run
                         .as_ref()
                         .unwrap()
                         .dependencies
@@ -51,8 +50,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         (CompileStatus::FullyCompiled, RunStatus::Stopped | RunStatus::Failed) => {
                             match status.action {
                                 ServiceAction::Restart => true,
-                                ServiceAction::None
-                                | ServiceAction::Stop
+                                | ServiceAction::None
                                 | ServiceAction::Recompile => false,
                             }
                         }
@@ -228,7 +226,17 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         .service_statuses
                         .get(service_name)
                         .unwrap();
-                    status.action == ServiceAction::Restart || status.action == ServiceAction::Stop
+                    let deps_satisfied = server.get_service(service_name)
+                        .as_ref()
+                        .unwrap()
+                        .run
+                        .as_ref()
+                        .unwrap()
+                        .dependencies
+                        .iter()
+                        .all(|dep| server.is_satisfied(dep));
+
+                    status.action == ServiceAction::Restart && deps_satisfied
                 },
             }
             .launch();

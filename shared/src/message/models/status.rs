@@ -32,7 +32,6 @@ pub enum ServiceAction {
     None,
     Recompile,
     Restart,
-    Stop,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
