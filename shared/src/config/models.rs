@@ -83,7 +83,7 @@ pub enum HealthCheck {
     #[serde(rename = "http")]
     Http {
         url: String,
-        method: String,
+        method: HttpMethod,
         timeout_millis: u64,
         status: u16,
     },
@@ -91,6 +91,16 @@ pub enum HealthCheck {
     Port {
         port: u16
     },
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub enum HttpMethod {
+    GET,
+    POST,
+    PATCH,
+    PUT,
+    DELETE,
+    OPTIONS,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -109,7 +119,6 @@ pub struct Profile {
     pub name: String,
     pub services: Vec<ServiceRef>,
 }
-
 impl Profile {
     pub fn includes(&self, service: &Service) -> bool {
         self.services.iter().any(|reference| reference.references(service))

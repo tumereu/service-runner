@@ -1,13 +1,16 @@
 use std::error::Error;
+use std::net::TcpListener;
 
 
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
-use shared::message::models::{CompileStatus, RunStatus, OutputKind, ServiceAction, OutputKey};
+use shared::message::models::{CompileStatus, RunStatus, OutputKind, ServiceAction, OutputKey, HttpMethod, HealthCheck};
 
 use std::sync::{Mutex, Arc};
 use std::thread;
 use std::time::Duration;
+use reqwest::Method;
+use reqwest::blocking::Client as HttpClient;
 use shared::{dbg_println, format_err};
 
 pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
@@ -79,17 +82,49 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         .map(|run_conf| run_conf.health_check.clone())
                         .unwrap_or(Vec::new());
 
+                    let http_client = HttpClient::new();
+
                     loop {
                         // If the process handle has exited, then we should not perform any health checks
                         if handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
                             break;
                         }
 
-                        let successful = true;
+                        let mut successful = true;
 
-                        for _check in &health_checks {
-                            // TODO implement actual checks
-                            thread::sleep(Duration::from_millis(500))
+                        for check in &health_checks {
+                            match check {
+                                HealthCheck::Http { url, method, timeout_millis, status } => {
+                                    let result = http_client.request(
+                                        match method {
+                                            HttpMethod::GET => Method::GET,
+                                            HttpMethod::POST => Method::POST,
+                                            HttpMethod::PUT => Method::PUT,
+                                            HttpMethod::PATCH => Method::PATCH,
+                                            HttpMethod::DELETE => Method::DELETE,
+                                            HttpMethod::OPTIONS => Method::OPTIONS,
+                                        },
+                                        url
+                                    ).timeout(Duration::from_millis(*timeout_millis)).send();
+
+                                    if let Ok(response) = result {
+                                        let response_status: u16 = response.status().into();
+                                        if response_status != *status {
+                                            successful = false;
+                                            break;
+                                        }
+                                    } else {
+                                        successful = false;
+                                        break;
+                                    }
+                                },
+                                HealthCheck::Port { port } => {
+                                    if TcpListener::bind(format!("127.0.0.1:{port}")).is_err() {
+                                        successful = false;
+                                        break;
+                                    }
+                                }
+                            }
                         }
 
                         // If all checks successful, break out of the loop
@@ -97,7 +132,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                             break;
                         }
 
-                        // Sleep for some time before reattempting, so we don't hog resource
+                        // Sleep for some time before reattempting, so we don't hog resources
                         thread::sleep(Duration::from_millis(100));
                     }
 
