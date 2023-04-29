@@ -10,13 +10,13 @@ use crate::config::{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AutoCompileConfig {
-    pub mode: AutoCompileMode,
+    pub default_mode: AutoCompileMode,
     pub triggers: Vec<AutoCompileTrigger>,
 }
 impl From<ConfigAutoCompileConfig> for AutoCompileConfig {
     fn from(value: ConfigAutoCompileConfig) -> Self {
         AutoCompileConfig {
-            mode: value.mode.into(),
+            default_mode: value.mode.into(),
             triggers: value.triggers.into_iter().map(Into::into).collect(),
         }
     }

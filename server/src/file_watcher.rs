@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::os::linux::raw::stat;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use shared::message::models::{AutoCompileTrigger, ServiceAction};
+use shared::message::models::{AutoCompileMode, AutoCompileTrigger, ServiceAction};
 use shared::system_state::Status;
 use itertools::Itertools;
 use shared::dbg_println;
@@ -62,11 +63,25 @@ fn setup_watchers(server: Arc<Mutex<ServerState>>) {
                         match res {
                             Ok(event) => {
                                 dbg_println!("Received filesystem event for service {service_name}: {event:?}");
-                                server.lock().unwrap().file_watchers
-                                    .iter_mut()
-                                    .for_each(|watcher_state| {
-                                        watcher_state.latest_events.insert(service_name.clone(), Instant::now());
-                                    })
+                                let mut server = server.lock().unwrap();
+                                match server.get_service_status(&service_name).map(|status| status.auto_compile.clone()).flatten() {
+                                    // For automatic compile, add the server into the events so that the recompile can
+                                    // be triggered later, as the debounce interval passes
+                                    Some(AutoCompileMode::AUTOMATIC) => {
+                                        server.file_watchers
+                                            .iter_mut()
+                                            .for_each(|watcher_state| {
+                                                watcher_state.latest_events.insert(service_name.clone(), Instant::now());
+                                            })
+                                    },
+                                    // For triggered compile we just mark the service as having changes
+                                    Some(AutoCompileMode::TRIGGERED) => {
+                                        server.update_service_status(&service_name, |status| {
+                                            status.has_uncompiled_changes = true;
+                                        });
+                                    }
+                                    _ => {}
+                                }
                             }
                             Err(err) => dbg_println!("Error in file watcher for service {service_name}: {err:?}"),
                         }

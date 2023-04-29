@@ -125,7 +125,6 @@ fn service_list(
             .map(|(_index, service)| {
                 let status = service_statuses.get(&service.name);
                 let show_output = status.map(|it| it.show_output).unwrap_or(false);
-                let auto_recompile = status.map(|it| it.auto_recompile).unwrap_or(false);
                 let is_processing = status
                     .map(|it| match (&it.compile_status, &it.run_status) {
                         (CompileStatus::Compiling(_), _) => true,
@@ -192,27 +191,10 @@ fn service_list(
                                             _ if matches!(
                                                 status.action,
                                                 ServiceAction::Recompile
-                                            ) =>
-                                            {
-                                                processing_color.clone()
-                                            }
-                                            CompileStatus::None => {
-                                                if auto_recompile {
-                                                    active_color.clone()
-                                                } else {
-                                                    inactive_color.clone()
-                                                }
-                                            }
-                                            CompileStatus::FullyCompiled => {
-                                                if auto_recompile {
-                                                    active_color.clone()
-                                                } else {
-                                                    inactive_color.clone()
-                                                }
-                                            }
-                                            CompileStatus::PartiallyCompiled(_) => {
-                                                processing_color.clone()
-                                            }
+                                            ) => processing_color.clone(),
+                                            CompileStatus::None => inactive_color.clone(),
+                                            CompileStatus::FullyCompiled => active_color.clone(),
+                                            CompileStatus::PartiallyCompiled(_) => processing_color.clone(),
                                             CompileStatus::Compiling(_) => processing_color.clone(),
                                             CompileStatus::Failed => error_color.clone(),
                                         }
@@ -248,11 +230,18 @@ fn service_list(
                                     } else {
                                         "-"
                                     }.into(),
-                                    fg: match service.autocompile.as_ref().map(|autocompile| &autocompile.mode) {
-                                        None => inactive_color.clone(),
-                                        Some(AutoCompileMode::AUTOMATIC) => active_color.clone(),
-                                        Some(AutoCompileMode::TRIGGERED) => secondary_active_color.clone(),
-                                        Some(AutoCompileMode::DISABLED) => inactive_color.clone(),
+                                    fg: if let Some(status) = status {
+                                        match &status.auto_compile {
+                                            None => inactive_color.clone(),
+                                            Some(AutoCompileMode::AUTOMATIC) => active_color.clone(),
+                                            Some(AutoCompileMode::TRIGGERED) if status.has_uncompiled_changes => {
+                                                processing_color.clone()
+                                            },
+                                            Some(AutoCompileMode::TRIGGERED) => secondary_active_color.clone(),
+                                            Some(AutoCompileMode::DISABLED) => inactive_color.clone(),
+                                        }
+                                    } else {
+                                        inactive_color.clone()
                                     }.into(),
                                     ..Default::default()
                                 }

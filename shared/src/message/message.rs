@@ -8,6 +8,7 @@ pub enum Action {
     Shutdown,
     ActivateProfile(Profile),
     UpdateServiceAction(String, ServiceAction),
+    CycleAutoCompile(String)
 }
 impl AsRef<Action> for Action {
     fn as_ref(&self) -> &Action {

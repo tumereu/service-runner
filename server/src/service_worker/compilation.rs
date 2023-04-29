@@ -92,6 +92,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         server.update_service_status(&service_name, |status| {
             status.compile_status = CompileStatus::Compiling(index);
             status.action = ServiceAction::None;
+            status.has_uncompiled_changes = false;
         });
         // Register the time that the compilation was started
         server.file_watchers.iter_mut()

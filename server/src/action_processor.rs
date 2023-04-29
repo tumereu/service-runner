@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use shared::message::models::ServiceStatus;
+use shared::message::models::{AutoCompileMode, ServiceAction, ServiceStatus};
 use shared::message::Action;
 use shared::system_state::Status;
 
@@ -29,7 +29,7 @@ fn process_action(server: &mut ServerState, action: Action) {
             server.update_state(|state| {
                 state.status = Status::Exiting;
             });
-        }
+        },
         Action::ActivateProfile(profile) => {
             server.update_state(|state| {
                 state.service_statuses = profile
@@ -39,11 +39,28 @@ fn process_action(server: &mut ServerState, action: Action) {
                     .collect();
                 state.current_profile = Some(profile);
             });
-        }
+        },
         Action::UpdateServiceAction(service_name, action) => {
             server.update_service_status(&service_name, |status| {
                 status.action = action;
             });
+        },
+        Action::CycleAutoCompile(service_name) => {
+            server.update_service_status(&service_name, |status| {
+                status.auto_compile = match status.auto_compile {
+                    None => None,
+                    Some(AutoCompileMode::AUTOMATIC) => Some(AutoCompileMode::DISABLED),
+                    Some(AutoCompileMode::DISABLED) => Some(AutoCompileMode::TRIGGERED),
+                    Some(AutoCompileMode::TRIGGERED) => {
+                        // When changing from triggered to automatic, if there were pending changes then we should also
+                        // trigger compilation
+                        if status.has_uncompiled_changes {
+                            status.action = ServiceAction::Recompile;
+                        }
+                        Some(AutoCompileMode::AUTOMATIC)
+                    },
+                }
+            })
         }
     }
 }

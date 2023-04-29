@@ -3,7 +3,7 @@ use std::fmt::Write;
 use serde::{Deserialize, Serialize};
 
 use crate::message::models::ServiceAction::Recompile;
-use crate::message::models::{Profile, Service};
+use crate::message::models::{AutoCompileMode, Profile, Service};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServiceStatus {
@@ -12,17 +12,19 @@ pub struct ServiceStatus {
     pub compile_status: CompileStatus,
     pub run_status: RunStatus,
     pub show_output: bool,
-    pub auto_recompile: bool,
+    pub auto_compile: Option<AutoCompileMode>,
+    pub has_uncompiled_changes: bool,
 }
 impl ServiceStatus {
-    pub fn from(_profile: &Profile, _service: &Service) -> ServiceStatus {
+    pub fn from(_profile: &Profile, service: &Service) -> ServiceStatus {
         ServiceStatus {
             should_run: true,
             action: Recompile,
-            auto_recompile: true,
+            auto_compile: service.autocompile.as_ref().map(|auto_compile| auto_compile.default_mode.clone()),
             compile_status: CompileStatus::None,
             run_status: RunStatus::Stopped,
             show_output: true,
+            has_uncompiled_changes: false,
         }
     }
 }

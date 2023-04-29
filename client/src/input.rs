@@ -6,6 +6,7 @@ use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode};
 
 use shared::message::models::{Profile, ServiceAction};
 use shared::message::Action;
+use shared::message::Action::{CycleAutoCompile, UpdateServiceAction};
 
 use crate::ui::{UIState, ViewProfilePane};
 use crate::{ClientState, ClientStatus};
@@ -31,8 +32,15 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 // Generic selection controls
                 KeyCode::Enter | KeyCode::Char(' ') => process_select(client),
                 // Service interaction specific controls
-                KeyCode::Char('e') => process_service_action(client, ServiceAction::Restart),
-                KeyCode::Char('c') => process_service_action(client, ServiceAction::Recompile),
+                KeyCode::Char('e') => {
+                    process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Restart));
+                },
+                KeyCode::Char('c') => {
+                    process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Recompile));
+                },
+                KeyCode::Char('a') => {
+                    process_service_action(client, |service| CycleAutoCompile(service));
+                }
                 // Disregard everything else
                 _ => {}
             }
@@ -120,7 +128,10 @@ fn update_vert_index(current: usize, list_len: usize, dir: (i8, i8)) -> usize {
     }
 }
 
-fn process_service_action(client: Arc<Mutex<ClientState>>, action: ServiceAction) {
+fn process_service_action<F>(
+    client: Arc<Mutex<ClientState>>,
+    create_action: F
+) where F: Fn(String) -> Action {
     let mut client = client.lock().unwrap();
 
     match &client.ui {
@@ -129,17 +140,12 @@ fn process_service_action(client: Arc<Mutex<ClientState>>, action: ServiceAction
             active_pane,
         } if matches!(active_pane, ViewProfilePane::ServiceList) => {
             let service_name = client
-                .system_state
-                .as_ref()
-                .unwrap()
-                .current_profile
-                .as_ref()
-                .unwrap()
+                .system_state.as_ref().unwrap()
+                .current_profile.as_ref().unwrap()
                 .services[*service_selection]
                 .name
                 .clone();
-            let action = Action::UpdateServiceAction(service_name, action);
-            client.actions_out.push_back(action);
+            client.actions_out.push_back(create_action(service_name));
         }
         _ => {}
     }
