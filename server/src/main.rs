@@ -10,6 +10,7 @@ use shared::system_state::Status;
 
 use crate::action_processor::start_action_processor;
 use crate::connection::run_server;
+use crate::file_watcher::start_file_watcher;
 use crate::server_state::ServerState;
 use crate::service_worker::start_service_worker;
 
@@ -17,6 +18,7 @@ mod action_processor;
 mod connection;
 mod server_state;
 mod service_worker;
+mod file_watcher;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let port: u16 = env::args()
@@ -30,6 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut handles = vec![
         start_action_processor(server.clone()),
         start_service_worker(server.clone()),
+        start_file_watcher(server.clone()),
     ];
 
     server.lock().unwrap().active_threads.append(&mut handles);

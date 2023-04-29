@@ -17,7 +17,7 @@ pub fn start_broadcast_processor(state: Arc<Mutex<ClientState>>) -> thread::Join
                 }
             }
 
-            thread::sleep(Duration::from_millis(1))
+            thread::sleep(Duration::from_millis(10))
         }
     })
 }

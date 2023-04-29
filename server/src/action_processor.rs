@@ -18,7 +18,7 @@ pub fn start_action_processor(server: Arc<Mutex<ServerState>>) -> thread::JoinHa
                 }
             }
 
-            thread::sleep(Duration::from_millis(1))
+            thread::sleep(Duration::from_millis(10))
         }
     })
 }

@@ -67,7 +67,7 @@ pub fn handle_connection(mut stream: TcpStream, index: u32, server: Arc<Mutex<Se
                     stream.send(outgoing).unwrap();
                 }
 
-                thread::sleep(Duration::from_millis(1));
+                thread::sleep(Duration::from_millis(10));
             }
 
             server.lock().unwrap().broadcasts_out.remove(&index);

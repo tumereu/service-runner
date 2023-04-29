@@ -14,7 +14,7 @@ pub fn start_service_worker(server: Arc<Mutex<ServerState>>) -> thread::JoinHand
     thread::spawn(move || {
         while server.lock().unwrap().get_state().status != Status::Exiting {
             work_services(server.clone());
-            thread::sleep(Duration::from_millis(1))
+            thread::sleep(Duration::from_millis(10))
         }
     })
 }

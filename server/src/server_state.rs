@@ -1,11 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 use std::thread::JoinHandle;
 use std::time::Instant;
+use notify::RecommendedWatcher;
 
-use shared::message::models::{
-    CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service,
-    ServiceAction, ServiceStatus,
-};
+use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, Profile, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
 use shared::message::{Action, Broadcast};
 use shared::system_state::SystemState;
 
@@ -16,7 +14,16 @@ pub struct ServerState {
     system_state: SystemState,
     pub output_store: OutputStore,
     pub active_threads: Vec<JoinHandle<()>>,
+    pub file_watchers: Option<FileWatcherState>
 }
+
+pub struct FileWatcherState {
+    pub profile_name: String,
+    pub watchers: Vec<RecommendedWatcher>,
+    pub latest_events: HashMap<String, Instant>,
+    pub latest_recompiles: HashMap<String, Instant>,
+}
+
 impl ServerState {
     pub fn new() -> ServerState {
         ServerState {
@@ -26,7 +33,12 @@ impl ServerState {
             system_state: SystemState::new(),
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
+            file_watchers: None,
         }
+    }
+
+    pub fn get_profile_name(&self) -> Option<&str> {
+        self.system_state.current_profile.as_ref().map(|profile| profile.name.as_str())
     }
 
     pub fn get_state(&self) -> &SystemState {
