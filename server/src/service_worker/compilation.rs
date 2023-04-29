@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use shared::format_err;
-use shared::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction};
+use shared::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger};
 
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
@@ -54,7 +54,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         CompileStatus::PartiallyCompiled(index) => Some((service, index + 1)),
                         // Fully compiled services do not need further compilation.
                         // Neither do failed or none-state services.
-                        CompileStatus::FullyCompiled
+                        | CompileStatus::FullyCompiled
                         | CompileStatus::None
                         | CompileStatus::Failed => None,
                     }
@@ -122,6 +122,38 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                             };
                             status.action = ServiceAction::Restart;
                         });
+
+                        let triggered_recompiles: Vec<String> = server.iter_services()
+                            .filter(|service| {
+                                // The service matches if it has an autocompile-entry that references the compilation
+                                // of the just-now compiled service
+                                service.autocompile
+                                    .iter()
+                                    .flat_map(|autocompile| &autocompile.triggers)
+                                    .any(|trigger| {
+                                        match trigger {
+                                            AutoCompileTrigger::RecompiledService { service } => service == service_name,
+                                            _ => false
+                                        }
+                                    })
+                            })
+                            .map(|service| service.name.clone())
+                            .collect();
+
+                        // Trigger recompile for any service that has the just-compiled service as a trigger
+                        triggered_recompiles
+                            .iter()
+                            .for_each(|service| {
+                                server.update_service_status(&service, |status| {
+                                    status.action = match status.action {
+                                        | ServiceAction::None
+                                        | ServiceAction::Restart
+                                        | ServiceAction::Recompile => ServiceAction::Recompile,
+                                        // No need to recompile services if we are currently trying to stop them
+                                        ServiceAction::Stop => ServiceAction::Stop
+                                    }
+                                })
+                            });
                     } else {
                         server.update_service_status(&service_name, |status| {
                             status.compile_status = CompileStatus::Failed;

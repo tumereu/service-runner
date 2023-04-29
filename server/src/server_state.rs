@@ -46,6 +46,12 @@ impl ServerState {
             .flatten()
     }
 
+    pub fn iter_services(&self) -> impl Iterator<Item = &Service> {
+        self.system_state.current_profile
+            .iter()
+            .flat_map(|profile| profile.services.iter())
+    }
+
     pub fn get_service_status(&self, service_name: &str) -> Option<&ServiceStatus> {
         self.system_state.service_statuses.get(service_name)
     }
