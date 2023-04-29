@@ -1,8 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 use std::thread::JoinHandle;
 use std::time::Instant;
-use shared::dbg_println;
 
+use shared::dbg_println;
 use shared::message::{Action, Broadcast};
 use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
 use shared::system_state::SystemState;

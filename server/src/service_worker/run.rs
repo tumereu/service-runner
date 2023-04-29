@@ -1,17 +1,17 @@
 use std::error::Error;
 use std::net::TcpListener;
-
-
-use crate::service_worker::utils::{create_cmd, ProcessHandler};
-use crate::ServerState;
-use shared::message::models::{CompileStatus, RunStatus, OutputKind, ServiceAction, OutputKey, HttpMethod, HealthCheck};
-
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use reqwest::Method;
+
 use reqwest::blocking::Client as HttpClient;
+use reqwest::Method;
+
 use shared::{dbg_println, format_err};
+use shared::message::models::{CompileStatus, HealthCheck, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
+
+use crate::ServerState;
+use crate::service_worker::utils::{create_cmd, ProcessHandler};
 
 pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let (mut command, service_name) = {

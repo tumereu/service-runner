@@ -3,10 +3,9 @@ use std::cmp::max;
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
-use tui::style::{Color};
+use tui::style::Color;
 
-
-use crate::ui::widgets::{Flow, Dir, Cell, Renderable, Size, Text, IntoCell};
+use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 
 #[derive(Debug, Default)]
 pub struct List {

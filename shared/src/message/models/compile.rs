@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 use toml::value::Index;
 
 use crate::config::{
-    HttpMethod as ConfigHttpMethod,
-    ExecutableEntry as ConfigExecutableEntry, Profile as ConfigProfile, Service as ConfigService, ScriptedRunConfig as ConfigScriptedRunConfig, HealthCheck as ConfigHealthCheck, Dependency as ConfigDependency, RequiredState as ConfigRequiredState, ScriptedCompileConfig as ConfigScriptedCompileConfig};
+    Dependency as ConfigDependency,
+    ExecutableEntry as ConfigExecutableEntry, HealthCheck as ConfigHealthCheck, HttpMethod as ConfigHttpMethod, Profile as ConfigProfile, RequiredState as ConfigRequiredState, ScriptedCompileConfig as ConfigScriptedCompileConfig, ScriptedRunConfig as ConfigScriptedRunConfig, Service as ConfigService};
 use crate::message::models::{Dependency, ExecutableEntry};
-use crate::message::models::ServiceAction::{Recompile};
+use crate::message::models::ServiceAction::Recompile;
 use crate::write_escaped_str;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

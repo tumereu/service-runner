@@ -4,11 +4,11 @@ use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 
+pub use cell::*;
 pub use flow::*;
 pub use list::*;
-pub use text::*;
 pub use spinner::*;
-pub use cell::*;
+pub use text::*;
 
 mod flow;
 mod list;

@@ -1,10 +1,10 @@
-
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
-use tui::text::{Span};
-use tui::widgets::{Paragraph};
+use tui::text::Span;
+use tui::widgets::Paragraph;
+
 use crate::ui::widgets::{Renderable, Size};
 
 #[derive(Debug, Default)]

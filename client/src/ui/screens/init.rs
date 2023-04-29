@@ -1,5 +1,5 @@
-use tui::Frame;
 use tui::backend::Backend;
+use tui::Frame;
 use tui::text::Spans;
 use tui::widgets::Paragraph;
 

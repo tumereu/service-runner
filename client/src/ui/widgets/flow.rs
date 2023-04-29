@@ -1,4 +1,4 @@
-use std::cmp::{max};
+use std::cmp::max;
 
 use tui::backend::Backend;
 use tui::Frame;

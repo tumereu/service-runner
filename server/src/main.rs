@@ -4,6 +4,7 @@ use std::{env, thread};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
 use shared::dbg_println;
 use shared::system_state::Status;
 

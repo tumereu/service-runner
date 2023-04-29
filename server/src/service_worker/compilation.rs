@@ -1,11 +1,10 @@
+use std::sync::{Arc, Mutex};
 
-use crate::service_worker::utils::{create_cmd, ProcessHandler};
-use crate::ServerState;
-use shared::message::models::{CompileStatus, ServiceAction, OutputKind, OutputKey};
-
-use std::sync::{Mutex, Arc};
 use shared::format_err;
+use shared::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction};
 
+use crate::ServerState;
+use crate::service_worker::utils::{create_cmd, ProcessHandler};
 
 pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let (mut command, service_name, index) = {

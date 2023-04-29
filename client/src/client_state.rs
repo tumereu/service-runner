@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+
 use shared::config::Config;
 use shared::message::{Action, Broadcast};
 use shared::message::models::OutputStore;

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use toml::value::Index;
 
 use crate::config::{AutoCompileConfig as ConfigAutoCompileConfig, AutoCompileMode as ConfigAutoCompileMode, AutoCompileTrigger as ConfigAutoCompileTrigger};
-use crate::message::models::ServiceAction::{Recompile};
+use crate::message::models::ServiceAction::Recompile;
 use crate::write_escaped_str;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

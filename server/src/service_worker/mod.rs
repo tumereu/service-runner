@@ -1,14 +1,16 @@
-mod utils;
-mod compilation;
-mod run;
-
-use shared::system_state::Status;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+
 use shared::dbg_println;
+use shared::system_state::Status;
 use shared::system_state::Status::Idle;
-use crate::server_state::{ServerState};
+
+use crate::server_state::ServerState;
+
+mod utils;
+mod compilation;
+mod run;
 
 pub fn start_service_worker(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {

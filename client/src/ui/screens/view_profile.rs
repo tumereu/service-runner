@@ -1,14 +1,16 @@
 use std::cmp::{max, min};
 use std::collections::HashMap;
+
 use tui::backend::Backend;
 use tui::Frame;
 use tui::style::Color;
-use shared::message::models::{CompileStatus, ServiceAction, RunStatus, Profile, ServiceStatus};
+
+use shared::message::models::{CompileStatus, Profile, RunStatus, ServiceAction, ServiceStatus};
 
 use crate::client_state::ClientState;
 use crate::ui::state::ViewProfilePane;
 use crate::ui::UIState;
-use crate::ui::widgets::{Flow, Cell, Align, List, render_root, Text, Dir, Spinner, IntoCell};
+use crate::ui::widgets::{Align, Cell, Dir, Flow, IntoCell, List, render_root, Spinner, Text};
 
 pub fn render_view_profile<B>(
     frame: &mut Frame<B>,

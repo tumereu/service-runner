@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use shared::message::{Action};
+use shared::message::Action;
 use shared::message::models::ServiceStatus;
 use shared::system_state::Status;
 

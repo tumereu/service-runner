@@ -1,10 +1,12 @@
 use std::cmp::{max, min};
+
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Spans;
 use tui::widgets::{Block, Borders};
+
 use crate::ui::widgets::{Renderable, Size};
 
 #[derive(Default, Debug)]
