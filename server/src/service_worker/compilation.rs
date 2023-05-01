@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use shared::format_err;
-use shared::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger};
+use shared::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger, AutoCompileMode};
 
 use crate::service_worker::utils::{create_cmd, ProcessHandler};
 use crate::ServerState;
@@ -153,7 +153,15 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                             .iter()
                             .for_each(|service| {
                                 server.update_service_status(&service, |status| {
-                                    status.action = ServiceAction::Recompile;
+                                    match status.auto_compile {
+                                        Some(AutoCompileMode::AUTOMATIC) => {
+                                            status.action = ServiceAction::Recompile;
+                                        },
+                                        Some(AutoCompileMode::TRIGGERED) => {
+                                            status.has_uncompiled_changes = true;
+                                        },
+                                        _ => {}
+                                    }
                                 })
                             });
                     } else {
