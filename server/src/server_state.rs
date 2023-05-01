@@ -119,6 +119,21 @@ impl ServerState {
         });
     }
 
+    pub fn update_all_statuses<F>(&mut self, update: F)
+        where
+            F: Fn(&Service, &mut ServiceStatus),
+    {
+        self.update_state(move |state| {
+            state.current_profile.as_ref()
+                .iter()
+                .flat_map(|profile| &profile.services)
+                .for_each(|service| {
+                    let status = state.service_statuses.get_mut(&service.name).unwrap();
+                    update(service, status);
+                });
+        });
+    }
+
     pub fn broadcast_all(&mut self, broadcast: Broadcast) {
         self.broadcasts_out.iter_mut().for_each(|(_, queue)| {
             queue.push_back(broadcast.clone());

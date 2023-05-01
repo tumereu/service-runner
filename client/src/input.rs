@@ -2,11 +2,11 @@ use std::cmp::min;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode};
+use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode, KeyModifiers};
 
 use shared::message::models::{Profile, ServiceAction};
 use shared::message::Action;
-use shared::message::Action::{CycleAutoCompile, UpdateServiceAction};
+use shared::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleRun, ToggleRunAll, UpdateAllServiceActions, UpdateServiceAction};
 
 use crate::ui::{UIState, ViewProfilePane};
 use crate::{ClientState, ClientStatus};
@@ -19,7 +19,14 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
         let event = read_event().unwrap();
 
         if let Event::Key(key) = event {
-            match key.code {
+            let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+
+            let code = match key.code {
+                KeyCode::Char(character) => KeyCode::Char(character.to_ascii_lowercase()),
+                any @ _ => any
+            };
+
+            match code {
                 // Controls to exit
                 KeyCode::Esc => {
                     client.lock().unwrap().status = ClientStatus::Exiting;
@@ -29,17 +36,37 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 KeyCode::Right | KeyCode::Char('l') => process_navigation(client, (1, 0)),
                 KeyCode::Up | KeyCode::Char('k') => process_navigation(client, (0, -1)),
                 KeyCode::Down | KeyCode::Char('j') => process_navigation(client, (0, 1)),
+                KeyCode::Tab => process_cycle(client),
                 // Generic selection controls
                 KeyCode::Enter | KeyCode::Char(' ') => process_select(client),
                 // Service interaction specific controls
+                // Restarting
+                KeyCode::Char('e') if shift => {
+                    process_service_action(client, |_| UpdateAllServiceActions(ServiceAction::Restart));
+                },
                 KeyCode::Char('e') => {
                     process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Restart));
+                },
+                // Recompiling
+                KeyCode::Char('c') if shift => {
+                    process_service_action(client, |_| UpdateAllServiceActions(ServiceAction::Recompile));
                 },
                 KeyCode::Char('c') => {
                     process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Recompile));
                 },
+                // Cycling autocompile
+                KeyCode::Char('a') if shift => {
+                    process_service_action(client, |_| CycleAutoCompileAll);
+                },
                 KeyCode::Char('a') => {
                     process_service_action(client, |service| CycleAutoCompile(service));
+                }
+                // Toggling should_run
+                KeyCode::Char('r') if shift => {
+                    process_service_action(client, |service| ToggleRunAll);
+                },
+                KeyCode::Char('r') => {
+                    process_service_action(client, |service| ToggleRun(service));
                 }
                 // Disregard everything else
                 _ => {}
@@ -87,6 +114,34 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
                     }
                 }
                 ViewProfilePane::OutputPane if dir.0 < 0 => {
+                    client.ui = UIState::ViewProfile {
+                        service_selection: *service_selection,
+                        active_pane: ViewProfilePane::ServiceList,
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn process_cycle(client: Arc<Mutex<ClientState>>) {
+    let mut client = client.lock().unwrap();
+    match &client.ui {
+        | UIState::Initializing
+        | UIState::ProfileSelect { .. } => {}
+        UIState::ViewProfile {
+            active_pane,
+            service_selection,
+        } => {
+            match active_pane {
+                ViewProfilePane::ServiceList => {
+                    client.ui = UIState::ViewProfile {
+                        active_pane: ViewProfilePane::OutputPane,
+                        service_selection: *service_selection,
+                    }
+                }
+                ViewProfilePane::OutputPane => {
                     client.ui = UIState::ViewProfile {
                         service_selection: *service_selection,
                         active_pane: ViewProfilePane::ServiceList,

@@ -165,12 +165,16 @@ fn service_list(
                                     fg: if let Some(status) = status {
                                         match (&status.run_status, &status.action) {
                                             (_, _) if service.run.is_none() => inactive_color.clone(),
+                                            (RunStatus::Healthy | RunStatus::Running, _) if !status.should_run => {
+                                                processing_color.clone()
+                                            },
+                                            (_, _) if !status.should_run => inactive_color.clone(),
                                             (_, ServiceAction::Restart) => processing_color.clone(),
                                             (RunStatus::Healthy, _) => active_color.clone(),
                                             (RunStatus::Running, _) => processing_color.clone(),
                                             (RunStatus::Failed, _) => error_color.clone(),
                                             (RunStatus::Stopped, ServiceAction::Recompile) => processing_color.clone(),
-                                            (RunStatus::Stopped, _) if status.should_run => processing_color.clone(),
+                                            (_, _) if status.should_run => processing_color.clone(),
                                             (_, _) => inactive_color.clone(),
                                         }
                                     } else {

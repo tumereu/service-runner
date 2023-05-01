@@ -47,13 +47,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         (CompileStatus::Failed | CompileStatus::Compiling(_), _) => false,
                         // Allow services that have been fully compiled
                         (CompileStatus::PartiallyCompiled(_), _) => false,
-                        (CompileStatus::FullyCompiled, RunStatus::Stopped | RunStatus::Failed) => {
-                            match status.action {
-                                ServiceAction::Restart => true,
-                                | ServiceAction::None
-                                | ServiceAction::Recompile => false,
-                            }
-                        }
+                        (CompileStatus::FullyCompiled, RunStatus::Stopped | RunStatus::Failed) => status.should_run,
                     }
                 })?;
 
@@ -64,17 +58,9 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             (runnable.name.clone(), command, format!("{exec_entry}"))
         };
 
-        server.update_state(|state| {
-            state
-                .service_statuses
-                .get_mut(&service_name)
-                .unwrap()
-                .run_status = RunStatus::Running;
-            state
-                .service_statuses
-                .get_mut(&service_name)
-                .unwrap()
-                .action = ServiceAction::None;
+        server.update_service_status(&service_name, |status| {
+            status.run_status = RunStatus::Running;
+            status.action = ServiceAction::None;
         });
 
         server.add_output(
@@ -236,7 +222,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         .iter()
                         .all(|dep| server.is_satisfied(dep));
 
-                    status.action == ServiceAction::Restart && deps_satisfied
+                    (status.action == ServiceAction::Restart && deps_satisfied) || !status.should_run
                 },
             }
             .launch();
