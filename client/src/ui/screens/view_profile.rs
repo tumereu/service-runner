@@ -1,16 +1,52 @@
 use std::cmp::{max, min};
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::fmt::format;
+use std::hash::{Hash, Hasher};
+use once_cell::sync::Lazy;
 
 use tui::backend::Backend;
 use tui::style::Color;
 use tui::Frame;
 
-use shared::message::models::{AutoCompileMode, CompileStatus, Profile, RunStatus, ServiceAction, ServiceStatus};
+use shared::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
+use shared::message::models::OutputKind::Compile;
 
 use crate::client_state::ClientState;
 use crate::ui::state::ViewProfilePane;
-use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text};
+use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart};
 use crate::ui::UIState;
+
+const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
+    vec![
+        Color::Rgb(226, 132, 19),
+        Color::Rgb(245, 100, 22),
+        Color::Rgb(221, 75, 26),
+        Color::Rgb(239, 39, 27),
+        Color::Rgb(234, 23, 68),
+        Color::Rgb(18, 53, 91),
+        Color::Rgb(66, 0, 57,),
+        Color::Rgb(67, 185, 41),
+        Color::Rgb(135, 231, 82),
+        Color::Rgb(255, 202, 233),
+        Color::Rgb(186, 215, 242),
+        Color::Rgb(242, 226, 186),
+        Color::Rgb(2, 1, 34),
+        Color::Rgb(252, 158, 79),
+        Color::Rgb(49, 8, 31),
+        Color::Rgb(131, 128, 182),
+        Color::Rgb(69, 240, 223),
+        Color::Rgb(17, 29, 74),
+        Color::Rgb(226, 212, 183),
+        Color::Rgb(176, 187, 191),
+        Color::Rgb(88, 81, 35),
+        Color::Rgb(84, 86, 67),
+        Color::Rgb(104, 131, 186),
+        Color::Rgb(224, 114, 164),
+        Color::Rgb(176, 226, 152),
+        Color::Rgb(117, 79, 91),
+    ]
+});
 
 pub fn render_view_profile<B>(frame: &mut Frame<B>, state: &ClientState)
 where
@@ -75,25 +111,47 @@ where
                         fill: true,
                         align_vert: Align::Stretch,
                         align_horiz: Align::Stretch,
-                        element: Flow {
-                            direction: Dir::UpDown,
-                            cells: state
-                                .output_store
-                                .query_lines(frame.size().height.saturating_sub(2).into(), None)
+                        element: OutputDisplay {
+                            // TODO make into a toggleable setting
+                            wrap: true,
+                            lines: state.output_store
+                                .query_lines(frame.size().height.into(), None)
                                 .into_iter()
-                                .map(|(_key, line)| Cell {
-                                    align_horiz: Align::Start,
-                                    element: Text {
-                                        text: line.to_string(),
-                                        ..Default::default()
+                                .map(|(key, line)| {
+                                    OutputLine {
+                                        prefix: vec![
+                                            LinePart {
+                                                text: match key.kind {
+                                                    OutputKind::Run => "r/",
+                                                    OutputKind::Compile => "c/"
+                                                }.to_string(),
+                                                color: match key.kind {
+                                                    OutputKind::Run => Color::Rgb(0, 180, 0),
+                                                    OutputKind::Compile => Color::Rgb(0, 0, 220)
+                                                }.into(),
+                                            },
+                                            LinePart {
+                                                text: format!("{name}/", name = key.name),
+                                                color: match key.name.as_str() {
+                                                    OutputKey::STD => None,
+                                                    OutputKey::CTL => Some(Color::Rgb(180, 0, 130)),
+                                                    other => Some(hashed_color(other))
+                                                }.into(),
+                                            },
+                                            LinePart {
+                                                text: format!("{service} | ", service = key.service_ref.clone()),
+                                                color: hashed_color(&key.service_ref).into(),
+                                            },
+                                        ],
+                                        parts: vec![
+                                            LinePart {
+                                                text: line.to_string(),
+                                                color: None
+                                            }
+                                        ]
                                     }
-                                    .into_el(),
-                                    ..Default::default()
-                                })
-                                .collect(),
-                            ..Default::default()
-                        }
-                        .into_el(),
+                                }).collect(),
+                        }.into_el(),
                         ..Default::default()
                     },
                 ],
@@ -271,4 +329,12 @@ fn service_list(
             .collect(),
         ..Default::default()
     }
+}
+
+fn hashed_color(text: &str) -> Color {
+    // Hash the service name to obtain a color for it
+    let mut hasher = DefaultHasher::new();
+    text.hash(&mut hasher);
+    let hash: usize = hasher.finish() as usize;
+    SERVICE_NAME_COLORS[hash % SERVICE_NAME_COLORS.len()]
 }

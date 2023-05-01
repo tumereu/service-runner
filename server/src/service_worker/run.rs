@@ -65,7 +65,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
         server.add_output(
             &OutputKey {
-                name: OutputKey::CTRL.into(),
+                name: OutputKey::CTL.into(),
                 service_ref: service_name.clone(),
                 kind: OutputKind::Run,
             },
@@ -239,7 +239,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
             server.add_output(
                 &OutputKey {
-                    name: OutputKey::CTRL.into(),
+                    name: OutputKey::CTL.into(),
                     service_ref: service_name,
                     kind: OutputKind::Run,
                 },

@@ -9,12 +9,14 @@ pub use flow::*;
 pub use list::*;
 pub use spinner::*;
 pub use text::*;
+pub use output_display::*;
 
 mod cell;
 mod flow;
 mod list;
 mod spinner;
 mod text;
+mod output_display;
 
 #[derive(Clone, Copy)]
 pub struct Size {
@@ -58,6 +60,7 @@ pub enum Renderable {
     List(List),
     Text(Text),
     Spinner(Spinner),
+    OutputDisplay(OutputDisplay),
 }
 impl Renderable {
     fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
@@ -70,6 +73,7 @@ impl Renderable {
             Renderable::List(list) => list.render(rect, frame),
             Renderable::Text(text) => text.render(rect, frame),
             Renderable::Spinner(spinner) => spinner.render(rect, frame),
+            Renderable::OutputDisplay(display) => display.render(rect, frame),
         }
     }
 
@@ -80,6 +84,7 @@ impl Renderable {
             Renderable::List(list) => list.measure(),
             Renderable::Text(text) => text.measure(),
             Renderable::Spinner(spinner) => spinner.measure(),
+            Renderable::OutputDisplay(display) => display.measure(),
         }
     }
 }

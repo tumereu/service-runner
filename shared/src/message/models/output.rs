@@ -115,7 +115,7 @@ pub struct OutputKey {
 }
 impl OutputKey {
     pub const STD: &'static str = "std";
-    pub const CTRL: &'static str = "ctrl";
+    pub const CTL: &'static str = "ctl";
 
     pub fn new(name: String, service_ref: String, kind: OutputKind) -> Self {
         OutputKey {

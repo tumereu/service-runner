@@ -88,6 +88,7 @@ dependencies = [
  "once_cell",
  "shared",
  "tui",
+ "unicode-segmentation",
 ]
 
 [[package]]

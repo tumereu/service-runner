@@ -81,7 +81,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
         server.add_output(
             &OutputKey {
-                name: OutputKey::CTRL.into(),
+                name: OutputKey::CTL.into(),
                 service_ref: service_name.clone(),
                 kind: OutputKind::Compile,
             },
@@ -172,7 +172,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
                         server.add_output(
                             &OutputKey {
-                                name: OutputKey::CTRL.into(),
+                                name: OutputKey::CTL.into(),
                                 service_ref: service_name.into(),
                                 kind: OutputKind::Compile,
                             },
@@ -190,7 +190,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             });
             server.add_output(
                 &OutputKey {
-                    name: OutputKey::CTRL.into(),
+                    name: OutputKey::CTL.into(),
                     service_ref: service_name,
                     kind: OutputKind::Compile,
                 },
