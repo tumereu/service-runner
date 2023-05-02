@@ -20,6 +20,7 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
 
         if let Event::Key(key) = event {
             let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+            let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
             let code = match key.code {
                 KeyCode::Char(character) => KeyCode::Char(character.to_ascii_lowercase()),
@@ -27,10 +28,6 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
             };
 
             match code {
-                // Controls to exit
-                KeyCode::Esc => {
-                    client.lock().unwrap().status = ClientStatus::Exiting;
-                }
                 // Generic navigation controls
                 KeyCode::Left | KeyCode::Char('h') => process_navigation(client, (-1, 0)),
                 KeyCode::Right | KeyCode::Char('l') => process_navigation(client, (1, 0)),
@@ -67,6 +64,16 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 },
                 KeyCode::Char('r') => {
                     process_service_action(client, |service| ToggleRun(service));
+                }
+                // Controls to exit
+                KeyCode::Char('q') if ctrl => {
+                    let mut client = client.lock().unwrap();
+                    client.actions_out.push_back(Action::Shutdown);
+                    client.status = ClientStatus::Exiting;
+                }
+                KeyCode::Char('d') if ctrl => {
+                    let mut client = client.lock().unwrap();
+                    client.status = ClientStatus::Exiting;
                 }
                 // Disregard everything else
                 _ => {}

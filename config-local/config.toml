@@ -1,4 +1,3 @@
 [server]
 port=6765
-daemon=false
 executable="./target/debug/server"
