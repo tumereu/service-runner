@@ -28,11 +28,12 @@ impl Display for ExecutableEntry {
         }
 
         if !self.env.is_empty() {
-            f.write_str(" (env: ")?;
+            f.write_str(" (env:")?;
             // Place env keys into a tmp variable so that we can sort them
             let mut env_keys: Vec<String> = self.env.keys().map(Clone::clone).collect();
             env_keys.sort();
             for key in env_keys {
+                f.write_str(" ")?;
                 write_escaped_str!(f, &key);
                 f.write_str("=")?;
                 write_escaped_str!(f, self.env.get(&key).unwrap());
