@@ -1,0 +1,2 @@
+- services should not fail when killed intentionally. Failed services should not be automatically restarted
+- categorize services
