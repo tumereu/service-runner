@@ -1,2 +1,3 @@
 - services should not fail when killed intentionally. Failed services should not be automatically restarted
+- Recursively kill children when stopping a process (try with NPM)?
 - categorize services
