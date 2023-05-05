@@ -4,7 +4,7 @@ use std::time::Instant;
 use shared::format_err;
 use shared::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger, AutoCompileMode};
 
-use crate::service_worker::utils::{create_cmd, ProcessHandler};
+use crate::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::ServerState;
 
 pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
@@ -111,7 +111,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 service_name: service_name.clone(),
                 output: OutputKind::Compile,
                 exit_early: |_| false,
-                on_finish: move |(server, service_name, success)| {
+                on_finish: move |OnFinishParams { server, service_name, success, .. }| {
                     let mut server = server.lock().unwrap();
                     if success {
                         let num_steps = server

@@ -12,7 +12,7 @@ use shared::message::models::{
     CompileStatus, HealthCheck, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction,
 };
 
-use crate::service_worker::utils::{create_cmd, ProcessHandler};
+use crate::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::ServerState;
 
 pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
@@ -35,19 +35,17 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         .all(|dep| server.is_satisfied(dep))
                 })
                 .find(|service| {
-                    // TODO dependencies?
-                    let status = server
-                        .get_state()
-                        .service_statuses
-                        .get(&service.name)
-                        .unwrap();
+                    let status = server.get_service_status(&service.name).unwrap();
+
                     match (&status.compile_status, &status.run_status) {
                         (_, RunStatus::Running | RunStatus::Healthy) => false,
-                        (CompileStatus::None, _) => service.compile.is_none(),
                         (CompileStatus::Failed | CompileStatus::Compiling(_), _) => false,
                         // Allow services that have been fully compiled
                         (CompileStatus::PartiallyCompiled(_), _) => false,
-                        (CompileStatus::FullyCompiled, RunStatus::Stopped | RunStatus::Failed) => status.should_run,
+                        (CompileStatus::None, RunStatus::Stopped) => service.compile.is_none() && status.should_run,
+                        (CompileStatus::None, RunStatus::Failed) => service.compile.is_none() && status.should_run && status.action == ServiceAction::Restart,
+                        (CompileStatus::FullyCompiled, RunStatus::Stopped) => status.should_run,
+                        (CompileStatus::FullyCompiled, RunStatus::Failed) => status.should_run && status.action == ServiceAction::Restart,
                     }
                 })?;
 
@@ -185,12 +183,12 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 handle,
                 service_name: service_name.clone(),
                 output: OutputKind::Run,
-                on_finish: move |(server, service_name, success)| {
+                on_finish: move |OnFinishParams { server, service_name, success, killed }| {
                     let mut server = server.lock().unwrap();
                     // Mark the service as no longer running when it exits
                     // TODO message
                     server.update_state(move |state| {
-                        if success {
+                        if success || killed {
                             state
                                 .service_statuses
                                 .get_mut(service_name)

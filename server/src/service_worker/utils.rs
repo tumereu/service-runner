@@ -31,7 +31,7 @@ where
 
 pub struct ProcessHandler<F, G>
 where
-    F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
+    F: FnOnce(OnFinishParams) + Send + 'static,
     G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
 {
     pub server: Arc<Mutex<ServerState>>,
@@ -44,7 +44,7 @@ where
 
 impl<F, G> ProcessHandler<F, G>
 where
-    F: FnOnce((Arc<Mutex<ServerState>>, &str, bool)) + Send + 'static,
+    F: FnOnce(OnFinishParams) + Send + 'static,
     G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
 {
     pub fn launch(self) {
@@ -65,8 +65,10 @@ where
                 thread::spawn(move || {
                     // Wait as long as the server and the process are both running, or until an early-exit condition is
                     // fulfilled.
+                    let mut killed = false;
                     loop {
                         if exit_early((server.clone(), &service_name)) {
+                            killed = true;
                             break;
                         }
                         if handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
@@ -85,7 +87,14 @@ where
                     // Obtain exit status and invoke callback
                     let status = handle.wait();
                     let success = status.map_or(false, |status| status.success());
-                    on_finish((server, &service_name, success));
+                    on_finish(
+                        OnFinishParams {
+                            server,
+                            service_name: &service_name,
+                            success,
+                            killed
+                        }
+                    )
                 })
             },
             // Read stdout
@@ -144,4 +153,11 @@ where
         // But also broadcast the line to all clients
         server.broadcast_all(Broadcast::OutputLine(key.clone(), line));
     }
+}
+
+pub struct OnFinishParams<'a> {
+    pub server: Arc<Mutex<ServerState>>,
+    pub service_name: &'a str,
+    pub success: bool,
+    pub killed: bool,
 }

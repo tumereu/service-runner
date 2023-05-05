@@ -31,9 +31,7 @@ const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
         Color::Rgb(255, 202, 233),
         Color::Rgb(186, 215, 242),
         Color::Rgb(242, 226, 186),
-        Color::Rgb(2, 1, 34),
         Color::Rgb(252, 158, 79),
-        Color::Rgb(49, 8, 31),
         Color::Rgb(131, 128, 182),
         Color::Rgb(69, 240, 223),
         Color::Rgb(17, 29, 74),
@@ -226,11 +224,11 @@ fn service_list(
                                             (RunStatus::Healthy | RunStatus::Running, _) if !status.should_run => {
                                                 processing_color.clone()
                                             },
+                                            (RunStatus::Failed, _) => error_color.clone(),
                                             (_, _) if !status.should_run => inactive_color.clone(),
                                             (_, ServiceAction::Restart) => processing_color.clone(),
                                             (RunStatus::Healthy, _) => active_color.clone(),
                                             (RunStatus::Running, _) => processing_color.clone(),
-                                            (RunStatus::Failed, _) => error_color.clone(),
                                             (RunStatus::Stopped, ServiceAction::Recompile) => processing_color.clone(),
                                             (_, _) if status.should_run => processing_color.clone(),
                                             (_, _) => inactive_color.clone(),

@@ -13,10 +13,14 @@ pub struct Profile {
 }
 impl Profile {
     pub fn new(profile: &ConfigProfile, all_services: &Vec<ConfigService>) -> Profile {
-        let services: Vec<Service> = all_services
+        let services: Vec<Service> = profile.services
             .iter()
-            .filter(|service| profile.includes(service))
-            .map(|service| service.clone().into())
+            .flat_map(|service_ref| {
+                all_services.iter()
+                    .find(|service| service.name() == &service_ref.name)
+                    .map(|service| service.to_owned().into())
+                    .into_iter()
+            })
             .collect();
 
         Profile {
