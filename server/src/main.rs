@@ -4,6 +4,7 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, thread};
+use itertools::Itertools;
 
 use shared::dbg_println;
 use shared::system_state::Status;
@@ -30,9 +31,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let server = Arc::new(Mutex::new(ServerState::new()));
 
     let mut handles = vec![
-        start_action_processor(server.clone()),
-        start_service_worker(server.clone()),
-        start_file_watcher(server.clone()),
+        ("action-processor".into(), start_action_processor(server.clone())),
+        ("service-worker".into(), start_service_worker(server.clone())),
+        ("file-watcher".into(), start_file_watcher(server.clone())),
     ];
 
     server.lock().unwrap().active_threads.append(&mut handles);
@@ -51,10 +52,26 @@ fn main() -> Result<(), Box<dyn Error>> {
                         break;
                     }
 
-                    server.active_threads.retain(|thread| !thread.is_finished());
-                    if Instant::now().duration_since(last_print).as_millis() >= 5000 {
+                    server.active_threads.retain(|(_, thread)| !thread.is_finished());
+
+                    let print_delay = if server.get_state().status == Status::Exiting {
+                        Duration::from_millis(1000)
+                    } else {
+                        Duration::from_millis(60_000)
+                    };
+
+                    if Instant::now().duration_since(last_print) >= print_delay {
+                        let status = if server.get_state().status == Status::Exiting {
+                            "Server is trying to exit"
+                        } else {
+                            "Server running normally"
+                        };
+
                         let thread_count = server.active_threads.len();
-                        dbg_println!("Active thread count: {thread_count}");
+                        let threads = server.active_threads.iter()
+                            .map(|(name, _)| name)
+                            .join(", ");
+                        dbg_println!("{status}. Active threads ({thread_count} total): {threads}");
                         last_print = Instant::now();
                     }
                 }

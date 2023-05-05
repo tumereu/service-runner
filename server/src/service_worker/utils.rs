@@ -2,6 +2,7 @@ use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::{io, thread};
+use std::ops::Neg;
 use std::time::{Duration, Instant};
 use nix::libc::stat;
 use shared::dbg_println;
@@ -27,6 +28,12 @@ where
     cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
+
+    // Set process group
+    if cfg!(target_os = "linux") {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
 
     cmd
 }
@@ -60,78 +67,87 @@ where
         } = self;
         let mut new_threads = vec![
             // Kill the process when the server exits and invoke the callback after the process finishes
-            {
-                let handle = handle.clone();
-                let server = server.clone();
-                let service_name = service_name.clone();
-                thread::spawn(move || {
-                    // Wait as long as the server and the process are both running, or until an early-exit condition is
-                    // fulfilled.
-                    let mut killed = false;
-                    loop {
-                        if exit_early((server.clone(), &service_name)) {
-                            killed = true;
-                            break;
+            (
+                format!("{service_name}-manager"),
+                {
+                    let handle = handle.clone();
+                    let server = server.clone();
+                    let service_name = service_name.clone();
+                    thread::spawn(move || {
+                        // Wait as long as the server and the process are both running, or until an early-exit condition
+                        // is fulfilled.
+                        let mut killed = false;
+                        loop {
+                            if exit_early((server.clone(), &service_name)) {
+                                killed = true;
+                                break;
+                            }
+                            if handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
+                                break;
+                            }
+                            if server.lock().unwrap().get_state().status == Status::Exiting {
+                                break;
+                            }
+                            thread::sleep(Duration::from_millis(10));
                         }
-                        if handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
-                            break;
-                        }
-                        if server.lock().unwrap().get_state().status == Status::Exiting {
-                            break;
-                        }
-                        thread::sleep(Duration::from_millis(10));
-                    }
-                    let status = Self::kill_process(handle);
-                    let success = status.as_ref().map_or(false, |status| status.success());
-                    on_finish(
-                        OnFinishParams {
-                            server,
-                            service_name: &service_name,
-                            success,
-                            exit_code: status.map(|status| status.code().unwrap_or(0)).unwrap_or(0),
-                            killed
-                        }
-                    )
-                })
-            },
+                        let status = Self::kill_process(handle);
+                        let success = status.as_ref().map_or(false, |status| status.success());
+                        on_finish(
+                            OnFinishParams {
+                                server,
+                                service_name: &service_name,
+                                success,
+                                exit_code: status.map(|status| status.code().unwrap_or(0)).unwrap_or(0),
+                                killed
+                            }
+                        )
+                    })
+                },
+            ),
             // Read stdout
-            {
-                let handle = handle.clone();
-                let server = server.clone();
-                let service_name = service_name.clone();
-                thread::spawn(move || {
-                    let stream = {
-                        let mut handle = handle.lock().unwrap();
-                        handle.stdout.take().unwrap()
-                    };
-                    let key = OutputKey::new(OutputKey::STD.into(), service_name, output.clone());
+            (
+                format!("{service_name}-stdout"),
+                {
+                    let handle = handle.clone();
+                    let server = server.clone();
+                    let service_name = service_name.clone();
+                    thread::spawn(move || {
+                        let stream = {
+                            let mut handle = handle.lock().unwrap();
+                            handle.stdout.take().unwrap()
+                        };
+                        let key = OutputKey::new(OutputKey::STD.into(), service_name, output.clone());
 
-                    for line in BufReader::new(stream).lines() {
-                        if let Ok(line) = line {
-                            Self::process_output_line(server.clone(), &key, line);
+                        for line in BufReader::new(stream).lines() {
+                            if let Ok(line) = line {
+                                Self::process_output_line(server.clone(), &key, line);
+                            }
                         }
-                    }
-                })
-            },
+                    })
+                },
+            ),
             // Read stderr
-            {
-                let handle = handle.clone();
-                let server = server.clone();
-                let service_name = service_name.clone();
-                thread::spawn(move || {
-                    let stream = {
-                        let mut handle = handle.lock().unwrap();
-                        handle.stderr.take().unwrap()
-                    };
-                    let key = OutputKey::new(OutputKey::STD.into(), service_name, output.clone());
+            (
+                format!("{service_name}-stderr"),
+                {
+                    let handle = handle.clone();
+                    let server = server.clone();
+                    let service_name = service_name.clone();
+                    thread::spawn(move || {
+                        let stream = {
+                            let mut handle = handle.lock().unwrap();
+                            handle.stderr.take().unwrap()
+                        };
+                        let key = OutputKey::new(OutputKey::STD.into(), service_name, output.clone());
 
-                    for line in BufReader::new(stream).lines() {
-                        if let Ok(line) = line {
-                            Self::process_output_line(server.clone(), &key, line);
+                        for line in BufReader::new(stream).lines() {
+                            if let Ok(line) = line {
+                                Self::process_output_line(server.clone(), &key, line);
+                            }
                         }
-                    }
-                })
-            },
+                    })
+                },
+            )
         ];
 
         server
@@ -158,42 +174,46 @@ where
 
         let mut handle = handle.lock().unwrap();
 
-        fn signal_and_wait(handle: &mut MutexGuard<Child>, signal: Signal, timeout: Duration) -> io::Result<()> {
-            signal::kill(Pid::from_raw(handle.id() as i32), signal)?;
-            let signal_sent = Instant::now();
+        fn signal_and_wait(handle: &mut MutexGuard<Child>, signal: Signal, timeout: Duration) {
+            dbg_println!("Sending {signal} to process group {pid}", pid = handle.id());
+            if let Err(err) = signal::kill(Pid::from_raw((handle.id() as i32).neg()), signal) {
+                dbg_println!("Failed to send {signal} to process: {err:?}")
+            } else {
+                let signal_sent = Instant::now();
 
-            // Wait for the process to finish, up to a limit
-            loop {
-                if Instant::now().duration_since(signal_sent) > timeout {
-                    break;
+                // Wait for the process to finish, up to a limit
+                loop {
+                    if Instant::now().duration_since(signal_sent) > timeout {
+                        break;
+                    }
+                    if handle.try_wait().unwrap_or(None).is_some() {
+                        break;
+                    }
+                    thread::sleep(Duration::from_millis(10));
                 }
-                if handle.try_wait().unwrap_or(None).is_some() {
-                    break;
-                }
-                thread::sleep(Duration::from_millis(10));
             }
-
-            Ok(())
         }
 
 
         // If the process is running, start by sending SIGINT
         if handle.try_wait().unwrap_or(None).is_none() {
-            if let Err(err) = signal_and_wait(&mut handle, Signal::SIGINT, Duration::from_millis(5000)) {
-                dbg_println!("Failed to send SIGINT to process: {err:?}")
-            }
+            signal_and_wait(&mut handle, Signal::SIGINT, Duration::from_millis(5000))
         }
 
         // If the process is still running, then we should send a SIGTERM
         if handle.try_wait().unwrap_or(None).is_none() {
-            if let Err(err) = signal_and_wait(&mut handle, Signal::SIGTERM, Duration::from_millis(5000)) {
-                dbg_println!("Failed to send SIGTERM to process: {err:?}")
-            }
+            signal_and_wait(&mut handle, Signal::SIGTERM, Duration::from_millis(5000))
         }
 
-        // Finally, if the process is still alive, we should kill it forcefully
+        // If the process is STILL running, then we should send a SIGKILL
         if handle.try_wait().unwrap_or(None).is_none() {
-            // TODO kill the process group? Must be set when starting the process though
+            signal_and_wait(&mut handle, Signal::SIGKILL, Duration::from_millis(5000))
+        }
+
+        // The process really should not be running anymore. But as a fallback, we use the kill()
+        // function for handles
+        if handle.try_wait().unwrap_or(None).is_none() {
+            dbg_println!("Terminating process {pid} forcefully", pid = handle.id());
             handle.kill().unwrap_or(());
         }
         // Obtain exit status and invoke callback

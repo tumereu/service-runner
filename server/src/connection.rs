@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::fmt::format;
 use std::io::ErrorKind;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
@@ -76,5 +77,5 @@ pub fn handle_connection(mut stream: TcpStream, index: u32, server: Arc<Mutex<Se
         })
     };
 
-    server.lock().unwrap().active_threads.push(handle);
+    server.lock().unwrap().active_threads.push((format!("connection-handler-{index}"), handle));
 }

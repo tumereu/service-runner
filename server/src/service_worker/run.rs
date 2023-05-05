@@ -225,7 +225,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 .lock()
                 .unwrap()
                 .active_threads
-                .push(health_check_thread);
+                .push((format!("{service_name}-health-check"), health_check_thread));
 
             ProcessHandler {
                 server: server_arc.clone(),

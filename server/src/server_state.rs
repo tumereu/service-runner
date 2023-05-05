@@ -13,7 +13,7 @@ pub struct ServerState {
     pub broadcasts_out: HashMap<u32, VecDeque<Broadcast>>,
     system_state: SystemState,
     pub output_store: OutputStore,
-    pub active_threads: Vec<JoinHandle<()>>,
+    pub active_threads: Vec<(String, JoinHandle<()>)>,
     pub file_watchers: Option<FileWatcherState>
 }
 
