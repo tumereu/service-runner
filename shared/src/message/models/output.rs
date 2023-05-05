@@ -34,9 +34,62 @@ impl OutputStore {
         deque.iter().last().unwrap()
     }
 
-    pub fn query_lines(&self, num_lines: usize, max_idx: Option<u128>) -> Vec<(&OutputKey, &str)> {
+    pub fn query_lines_from(&self, num_lines: usize, min_idx: Option<u128>) -> Vec<(&OutputKey, &OutputLine)> {
+        let min_idx = min_idx.unwrap_or(0);
+        let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
+        let mut bucket_indices: HashMap<OutputKey, Option<usize>> = self
+            .outputs
+            .iter()
+            .map(|(key, lines)| {
+                if lines.len() == 0 {
+                    // If the bucket has 0 lines, then there's nothing we could ever return
+                    (key.clone(), None)
+                } else if lines.iter().all(|OutputLine { index, .. }| index < &min_idx) {
+                    (key.clone(), (lines.len() - 1).into())
+                } else {
+                    // Otherwise find the partition point for elements over the given index, and select the first
+                    // index of the last partition
+                    (key.clone(), lines.partition_point(|OutputLine { index, .. }| index < &min_idx).into())
+                }
+            })
+            .collect();
+
+        // Loop until the result vec is fully populated, or we run out of lines.
+        while result.len() < num_lines && bucket_indices.iter().any(|(_, value)| value.is_some()) {
+            // Figure out the bucket with the next line
+            let next_bucket = self
+                .outputs
+                .iter()
+                .min_by_key(|(key, lines)| {
+                    if let Some(cur_idx) = bucket_indices.get(key).unwrap() {
+                        lines.get(*cur_idx).unwrap().index
+                    } else {
+                        u128::MAX
+                    }
+                })
+                .unwrap()
+                .0;
+            let cur_idx = bucket_indices.get(next_bucket).unwrap().unwrap();
+
+            let line_ref = &self.outputs.get(next_bucket).unwrap().get(cur_idx).unwrap();
+            if line_ref.index >= min_idx {
+                // Push the relevant line into the returned results
+                result.push((next_bucket, line_ref));
+            }
+            // Update the current index for the bucket
+            if cur_idx < self.outputs.get(next_bucket).unwrap().len() - 1 {
+                *bucket_indices.get_mut(next_bucket).unwrap() = Some(cur_idx + 1);
+            } else {
+                *bucket_indices.get_mut(next_bucket).unwrap() = None;
+            }
+        }
+
+        result.into_iter().collect()
+    }
+
+    pub fn query_lines_to(&self, num_lines: usize, max_idx: Option<u128>) -> Vec<(&OutputKey, &OutputLine)> {
         let max_idx = max_idx.unwrap_or(self.current_idx);
-        let mut result: Vec<(&OutputKey, &str)> = Vec::with_capacity(num_lines);
+        let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
         let mut bucket_indices: HashMap<OutputKey, Option<usize>> = self
             .outputs
             .iter()
@@ -58,7 +111,7 @@ impl OutputStore {
                     // index of the first partition
                     (
                         key.clone(),
-                        (lines.partition_point(|OutputLine { index, .. }| index <= &max_idx) - 1)
+                        (lines.partition_point(|OutputLine { index, .. }| index <= &max_idx).saturating_sub(1))
                             .into(),
                     )
                 }
@@ -82,17 +135,11 @@ impl OutputStore {
                 .0;
             let cur_idx = bucket_indices.get(next_bucket).unwrap().unwrap();
 
-            // Push the relevant line into the returned results
-            result.push((
-                next_bucket,
-                &self
-                    .outputs
-                    .get(next_bucket)
-                    .unwrap()
-                    .get(cur_idx)
-                    .unwrap()
-                    .value,
-            ));
+            let line_ref = &self.outputs.get(next_bucket).unwrap().get(cur_idx).unwrap();
+            if line_ref.index <= max_idx {
+                // Push the relevant line into the returned results
+                result.push((next_bucket, line_ref));
+            }
             // Update the current index for the bucket
             if cur_idx > 0 {
                 *bucket_indices.get_mut(next_bucket).unwrap() = Some(cur_idx - 1);
@@ -134,4 +181,43 @@ pub enum OutputKind {
 pub struct OutputLine {
     pub value: String,
     pub index: u128,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message::models::{OutputKey, OutputKind, OutputStore};
+
+    #[test]
+    fn test_simple_store() {
+        let mut store = OutputStore::new();
+        store.add_output(&OutputKey {
+            name: "std".into(),
+            service_ref: "ser".into(),
+            kind: OutputKind::Run,
+        }, "First".into());
+        store.add_output(&OutputKey {
+            name: "std".into(),
+            service_ref: "ser".into(),
+            kind: OutputKind::Run,
+        }, "Second".into());
+        store.add_output(&OutputKey {
+            name: "std".into(),
+            service_ref: "de".into(),
+            kind: OutputKind::Run,
+        }, "Third".into());
+        store.add_output(&OutputKey {
+            name: "std".into(),
+            service_ref: "de".into(),
+            kind: OutputKind::Run,
+        }, "Fourth".into());
+        store.add_output(&OutputKey {
+            name: "std".into(),
+            service_ref: "ser".into(),
+            kind: OutputKind::Run,
+        }, "Fifth".into());
+
+        store.query_lines_from(4, Some(2)).iter().for_each(|(_, line)| {
+            println!("Line: {idx}: {text}", idx = line.index, text = line.value);
+        });
+    }
 }

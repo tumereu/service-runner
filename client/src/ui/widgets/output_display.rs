@@ -12,6 +12,7 @@ use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 #[derive(Default)]
 pub struct OutputDisplay {
     pub lines: Vec<OutputLine>,
+    pub pos_horiz: Option<u64>,
     pub wrap: bool
 }
 impl OutputDisplay {
@@ -88,9 +89,23 @@ impl OutputDisplay {
 
                     lines
                 } else {
+                    let mut remaining_to_drop = self.pos_horiz.unwrap_or(0) as usize;
                     vec![
                         line.prefix.into_iter()
                             .chain(line.parts.into_iter())
+                            .map(|part| {
+                                let new_part = LinePart {
+                                    text: part.text.graphemes(true)
+                                        .enumerate()
+                                        .filter(|(index, grapheme)| index >= &remaining_to_drop)
+                                        .map(|(_, grapheme)| grapheme)
+                                        .collect::<Vec<&str>>()
+                                        .concat(),
+                                    color: part.color
+                                };
+                                remaining_to_drop = remaining_to_drop.saturating_sub(part.text.len());
+                                new_part
+                            })
                             .collect()
                     ]
                 }

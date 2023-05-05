@@ -15,6 +15,7 @@ pub struct ClientState {
     pub output_store: OutputStore,
     pub ui: UIState,
     pub config: Config,
+    pub last_frame_size: (u16, u16)
 }
 
 impl ClientState {
@@ -26,6 +27,7 @@ impl ClientState {
             broadcasts_in: VecDeque::new(),
             ui: UIState::Initializing,
             output_store: OutputStore::new(),
+            last_frame_size: (0, 0),
             config,
         }
     }

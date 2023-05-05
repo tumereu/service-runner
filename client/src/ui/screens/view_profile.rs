@@ -317,8 +317,9 @@ fn output_pane(
                 fill: true,
                 element: OutputDisplay {
                     wrap: wrap_output,
+                    pos_horiz,
                     lines: state.output_store
-                        .query_lines(height, pos_vert)
+                        .query_lines_to(height, pos_vert)
                         .into_iter()
                         .map(|(key, line)| {
                             let service_idx = profile.services.iter()
@@ -353,7 +354,7 @@ fn output_pane(
                                 ],
                                 parts: vec![
                                     LinePart {
-                                        text: line.to_string(),
+                                        text: line.value.clone(),
                                         color: None
                                     }
                                 ]
