@@ -161,7 +161,11 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
                                 None
                             ).last().unwrap().1.index;
                             client.output_store.query_lines_to(
-                                (dir.1.neg() as usize) * amount + 1,
+                                (dir.1.neg() as usize) * amount + if output_pos_vert.is_none() {
+                                    0
+                                } else {
+                                    1
+                                },
                                 output_pos_vert
                             ).first().map(|(_, line)| max(line.index, min_index))
                         },

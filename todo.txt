@@ -1,4 +1,10 @@
+- Prettier profile selection
+- Switch profile during runtime
+- Button to navigate to end of output window. To start too?
+- Toggleable services and output types for output window
+- Fullscreen output
+- Search in output
 - Support services that are run and then detach, i.e. have a separate stop command?
 - Parameterizable wait times for kill-signals for processes
-- Recursively kill children when stopping a process (try with NPM)?
 - categorize services
+- git checkout window
