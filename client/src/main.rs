@@ -52,6 +52,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         process_inputs(state.clone())?;
         render(&mut terminal, state.clone())?;
 
+        if stream_thread.is_finished() {
+            state.lock().unwrap().status = ClientStatus::Exiting;
+        }
+
         if state.lock().unwrap().status == ClientStatus::Exiting {
             break;
         } else {
@@ -68,12 +72,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     terminal.show_cursor()?;
 
-    stream_thread
-        .join()
-        .expect("Could not join the stream-handler")?;
-    broadcast_thread
-        .join()
-        .expect("Could not join the broadcast handler");
+    stream_thread.join().ok();
+    broadcast_thread.join().ok();
 
     Ok(())
 }

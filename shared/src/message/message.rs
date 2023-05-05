@@ -5,6 +5,7 @@ use crate::system_state::SystemState;
 
 #[derive(Serialize, Deserialize)]
 pub enum Action {
+    Tick,
     Shutdown,
     ActivateProfile(Profile),
     UpdateServiceAction(String, ServiceAction),

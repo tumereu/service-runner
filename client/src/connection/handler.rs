@@ -20,6 +20,9 @@ pub fn handle_stream(
             while let Some(outgoing) = state.lock().unwrap().actions_out.pop_front() {
                 stream.send(outgoing)?;
             }
+            // ticket/send data through the stream. If the connection is broken, then this will fail and the thread will
+            // exit.
+            stream.send(Action::Tick)?;
         }
 
         if !state.lock().unwrap().config.server.daemon {

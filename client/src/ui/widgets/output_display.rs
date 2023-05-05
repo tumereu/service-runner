@@ -22,59 +22,69 @@ impl OutputDisplay {
             .flat_map(|line| {
                 if self.wrap {
                     let mut lines: Vec<Vec<LinePart>> = Vec::new();
-                    line.parts.into_iter()
-                        .flat_map(|part| {
-                            let LinePart { text, color } = part;
-                            let mut whitespace_split: Vec<Vec<&str>> = Vec::new();
-                            let mut last_whitespace = false;
-                            UnicodeSegmentation::graphemes(text.as_str(), true)
-                                .for_each(|grapheme| {
-                                    // Separate each word into their own vector. Each whitspace-element should end up
-                                    // in a vector containing only that element
-                                    if whitespace_split.is_empty() || grapheme.trim().len() == 0 || last_whitespace {
-                                        whitespace_split.push(Vec::new());
-                                    }
-                                    last_whitespace = grapheme.trim().len() == 0;
-                                    whitespace_split.last_mut().unwrap().push(grapheme);
-                                });
+                    // Special case handling: empty lines/line breaks in the output. These should result in an empty
+                    // line and no wrapping
+                    if line.parts.iter().all(|part| part.text.chars().all(|char| char.is_whitespace())) {
+                        lines.push(
+                            line.prefix.iter()
+                                .map(|prefix| prefix.clone())
+                                .collect()
+                        );
+                    } else {
+                        line.parts.into_iter()
+                            .flat_map(|part| {
+                                let LinePart { text, color } = part;
+                                let mut whitespace_split: Vec<Vec<&str>> = Vec::new();
+                                let mut last_whitespace = false;
+                                UnicodeSegmentation::graphemes(text.as_str(), true)
+                                    .for_each(|grapheme| {
+                                        // Separate each word into their own vector. Each whitspace-element should end up
+                                        // in a vector containing only that element
+                                        if whitespace_split.is_empty() || grapheme.trim().len() == 0 || last_whitespace {
+                                            whitespace_split.push(Vec::new());
+                                        }
+                                        last_whitespace = grapheme.trim().len() == 0;
+                                        whitespace_split.last_mut().unwrap().push(grapheme);
+                                    });
 
-                            whitespace_split.into_iter()
-                                .map(|graphemes| {
-                                    graphemes.concat()
-                                })
-                                .map(|word| {
-                                    LinePart {
-                                        text: word.to_string(),
-                                        color: color.clone()
+                                whitespace_split.into_iter()
+                                    .map(|graphemes| {
+                                        graphemes.concat()
+                                    })
+                                    .map(|word| {
+                                        LinePart {
+                                            text: word.to_string(),
+                                            color: color.clone()
+                                        }
+                                    }).collect::<Vec<LinePart>>()
+                            })
+                            .for_each(|part| {
+                                let required_width: usize = lines.last().iter()
+                                    .flat_map(|vec| vec.iter())
+                                    .map(|part| part.text.len()).sum::<usize>() + part.text.len();
+                                if lines.is_empty() || required_width > rect.width.into() {
+                                    // Never start wrapped lines with words that are solely whitespace
+                                    if part.text.chars().any(|char| !char.is_whitespace()) || lines.is_empty() {
+                                        lines.push(
+                                            line.prefix.iter()
+                                                .map(|prefix| prefix.clone())
+                                                .chain(if !lines.is_empty() {
+                                                    Some(LinePart {
+                                                        text: String::from("\u{21AA}"),
+                                                        color: Color::Rgb(120, 120, 120).into()
+                                                    })
+                                                } else {
+                                                    None
+                                                }.into_iter())
+                                                .chain(iter::once(part))
+                                                .collect()
+                                        );
                                     }
-                                }).collect::<Vec<LinePart>>()
-                        })
-                        .for_each(|part| {
-                            let required_width: usize = lines.last().iter()
-                                .flat_map(|vec| vec.iter())
-                                .map(|part| part.text.len()).sum::<usize>() + part.text.len();
-                            if lines.is_empty() || required_width > rect.width.into() {
-                                // Never start wrapped lines with words that are solely whitespace
-                                if part.text.chars().any(|char| !char.is_whitespace()) || lines.is_empty() {
-                                    lines.push(
-                                        line.prefix.iter()
-                                            .map(|prefix| prefix.clone())
-                                            .chain(if !lines.is_empty() {
-                                                Some(LinePart {
-                                                    text: String::from("\u{21AA}"),
-                                                    color: Color::Rgb(120, 120, 120).into()
-                                                })
-                                            } else {
-                                                None
-                                            }.into_iter())
-                                            .chain(iter::once(part))
-                                            .collect()
-                                    );
+                                } else {
+                                    lines.last_mut().unwrap().push(part);
                                 }
-                            } else {
-                                lines.last_mut().unwrap().push(part);
-                            }
-                        });
+                            });
+                    }
 
                     lines
                 } else {

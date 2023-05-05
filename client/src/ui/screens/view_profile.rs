@@ -3,6 +3,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::fmt::format;
 use std::hash::{Hash, Hasher};
+use std::iter;
+use std::ops::Index;
 use once_cell::sync::Lazy;
 
 use tui::backend::Backend;
@@ -18,30 +20,19 @@ use crate::ui::UIState;
 
 const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     vec![
-        Color::Rgb(226, 132, 19),
-        Color::Rgb(245, 100, 22),
-        Color::Rgb(221, 75, 26),
-        Color::Rgb(239, 39, 27),
-        Color::Rgb(234, 23, 68),
-        Color::Rgb(18, 53, 91),
-        Color::Rgb(66, 0, 57,),
-        Color::Rgb(67, 185, 41),
-        Color::Rgb(135, 231, 82),
-        Color::Rgb(255, 202, 233),
-        Color::Rgb(186, 215, 242),
-        Color::Rgb(242, 226, 186),
-        Color::Rgb(252, 158, 79),
-        Color::Rgb(131, 128, 182),
-        Color::Rgb(69, 240, 223),
-        Color::Rgb(17, 29, 74),
-        Color::Rgb(226, 212, 183),
-        Color::Rgb(176, 187, 191),
-        Color::Rgb(88, 81, 35),
-        Color::Rgb(84, 86, 67),
-        Color::Rgb(104, 131, 186),
-        Color::Rgb(224, 114, 164),
-        Color::Rgb(176, 226, 152),
-        Color::Rgb(117, 79, 91),
+        Color::Rgb(255, 0, 0),
+        Color::Rgb(255, 165, 0),
+        Color::Rgb(255, 255, 0),
+        Color::Rgb(0, 255, 0),
+        Color::Rgb(0, 255, 255),
+        Color::Rgb(0, 120, 180),
+        Color::Rgb(128, 0, 128),
+        Color::Rgb(255, 0, 255),
+        Color::Rgb(255, 192, 203),
+        Color::Rgb(255, 215, 0),
+        Color::Rgb(255, 69, 0),
+        Color::Rgb(0, 128, 0),
+        Color::Rgb(139, 0, 139),
     ]
 });
 
@@ -49,11 +40,14 @@ pub fn render_view_profile<B>(frame: &mut Frame<B>, state: &ClientState)
 where
     B: Backend,
 {
-    let (pane, selection) = match &state.ui {
-        UIState::ViewProfile {
+    let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert) = match &state.ui {
+        &UIState::ViewProfile {
             active_pane,
             service_selection,
-        } => (active_pane, service_selection),
+            wrap_output,
+            output_pos_horiz,
+            output_pos_vert
+        } => (active_pane, service_selection, wrap_output, output_pos_horiz, output_pos_vert),
         any @ _ => panic!("Invalid UI state in render_view_profile: {any:?}"),
     };
 
@@ -69,7 +63,7 @@ where
     let border_color = Color::Rgb(100, 100, 0);
 
     let service_selection: Option<usize> = match pane {
-        ViewProfilePane::ServiceList => Some(*selection),
+        ViewProfilePane::ServiceList => Some(selection),
         _ => None,
     };
 
@@ -102,53 +96,27 @@ where
                                 ViewProfilePane::OutputPane => active_border_color.clone(),
                                 _ => border_color.clone(),
                             },
-                            String::from("Output"),
+                            format!(
+                                "Output [wrap: {wrap_symbol}]",
+                                wrap_symbol = if wrap_output {
+                                    "Y"
+                                } else {
+                                    "N"
+                                }
+                            ),
                         )
                             .into(),
                         fill: true,
                         align_vert: Align::Stretch,
                         align_horiz: Align::Stretch,
-                        element: OutputDisplay {
-                            // TODO make into a toggleable setting
-                            wrap: true,
-                            lines: state.output_store
-                                .query_lines(frame.size().height.into(), None)
-                                .into_iter()
-                                .map(|(key, line)| {
-                                    OutputLine {
-                                        prefix: vec![
-                                            LinePart {
-                                                text: match key.kind {
-                                                    OutputKind::Run => "r/",
-                                                    OutputKind::Compile => "c/"
-                                                }.to_string(),
-                                                color: match key.kind {
-                                                    OutputKind::Run => Color::Rgb(0, 180, 0),
-                                                    OutputKind::Compile => Color::Rgb(0, 0, 220)
-                                                }.into(),
-                                            },
-                                            LinePart {
-                                                text: format!("{name}/", name = key.name),
-                                                color: match key.name.as_str() {
-                                                    OutputKey::STD => None,
-                                                    OutputKey::CTL => Some(Color::Rgb(180, 0, 130)),
-                                                    other => Some(hashed_color(other))
-                                                }.into(),
-                                            },
-                                            LinePart {
-                                                text: format!("{service} | ", service = key.service_ref.clone()),
-                                                color: hashed_color(&key.service_ref).into(),
-                                            },
-                                        ],
-                                        parts: vec![
-                                            LinePart {
-                                                text: line.to_string(),
-                                                color: None
-                                            }
-                                        ]
-                                    }
-                                }).collect(),
-                        }.into_el(),
+                        element: output_pane(
+                            frame.size().height.into(),
+                            wrap_output,
+                            output_pos_horiz,
+                            output_pos_vert,
+                            &profile,
+                            &state
+                        ).into_el(),
                         ..Default::default()
                     },
                 ],
@@ -223,8 +191,8 @@ fn service_list(
                                             (RunStatus::Healthy | RunStatus::Running, _) if !status.should_run => {
                                                 processing_color.clone()
                                             },
-                                            (RunStatus::Failed, _) => error_color.clone(),
                                             (_, _) if !status.should_run => inactive_color.clone(),
+                                            (RunStatus::Failed, _) => error_color.clone(),
                                             (_, ServiceAction::Restart) => processing_color.clone(),
                                             (RunStatus::Healthy, _) => active_color.clone(),
                                             (RunStatus::Running, _) => processing_color.clone(),
@@ -331,6 +299,90 @@ fn service_list(
         ..Default::default()
     }
 }
+
+fn output_pane(
+    height: usize,
+    wrap_output: bool,
+    pos_horiz: Option<u64>,
+    pos_vert: Option<u128>,
+    profile: &Profile,
+    state: &ClientState,
+) -> Flow {
+    Flow {
+        direction: Dir::UpDown,
+        cells: iter::once(
+            Cell {
+                align_horiz: Align::Stretch,
+                align_vert: Align::Stretch,
+                fill: true,
+                element: OutputDisplay {
+                    wrap: wrap_output,
+                    lines: state.output_store
+                        .query_lines(height, pos_vert)
+                        .into_iter()
+                        .map(|(key, line)| {
+                            let service_idx = profile.services.iter()
+                                .enumerate()
+                                .find(|(_, service)| service.name == key.service_ref)
+                                .unwrap().0;
+
+                            OutputLine {
+                                prefix: vec![
+                                    LinePart {
+                                        text: match key.kind {
+                                            OutputKind::Run => "r/",
+                                            OutputKind::Compile => "c/"
+                                        }.to_string(),
+                                        color: match key.kind {
+                                            OutputKind::Run => Color::Rgb(0, 180, 0),
+                                            OutputKind::Compile => Color::Rgb(0, 120, 220)
+                                        }.into(),
+                                    },
+                                    LinePart {
+                                        text: format!("{name}/", name = key.name),
+                                        color: match key.name.as_str() {
+                                            OutputKey::STD => None,
+                                            OutputKey::CTL => Some(Color::Rgb(180, 0, 130)),
+                                            other => Some(hashed_color(other))
+                                        }.into(),
+                                    },
+                                    LinePart {
+                                        text: format!("{service} | ", service = key.service_ref.clone()),
+                                        color: SERVICE_NAME_COLORS[service_idx % SERVICE_NAME_COLORS.len()].into(),
+                                    },
+                                ],
+                                parts: vec![
+                                    LinePart {
+                                        text: line.to_string(),
+                                        color: None
+                                    }
+                                ]
+                            }
+                        }).collect(),
+                }.into_el(),
+                ..Default::default()
+            }
+        ).chain(
+            if pos_vert.is_none() {
+                Some(
+                    Cell {
+                        align_horiz: Align::Stretch,
+                        element: Spinner {
+                            active: true,
+                            ..Default::default()
+                        }.into_el(),
+                        ..Default::default()
+                    }
+                )
+            } else {
+                None
+            }.into_iter()
+        )
+            .collect(),
+        ..Default::default()
+    }
+}
+
 
 fn hashed_color(text: &str) -> Color {
     // Hash the service name to obtain a color for it

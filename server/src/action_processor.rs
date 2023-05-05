@@ -28,6 +28,7 @@ pub fn start_action_processor(server: Arc<Mutex<ServerState>>) -> thread::JoinHa
 
 fn process_action(server: &mut ServerState, action: Action) {
     match action {
+        Action::Tick => {},
         Action::Shutdown => {
             server.update_state(|state| {
                 state.status = Status::Exiting;

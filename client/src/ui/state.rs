@@ -10,6 +10,9 @@ pub enum UIState {
     ViewProfile {
         active_pane: ViewProfilePane,
         service_selection: usize,
+        wrap_output: bool,
+        output_pos_vert: Option<u128>,
+        output_pos_horiz: Option<u64>
     },
 }
 impl UIState {
@@ -21,11 +24,14 @@ impl UIState {
         UIState::ViewProfile {
             active_pane: ServiceList,
             service_selection: 0,
+            wrap_output: false,
+            output_pos_horiz: None,
+            output_pos_vert: None,
         }
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum ViewProfilePane {
     ServiceList,
     OutputPane,

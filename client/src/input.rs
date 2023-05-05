@@ -12,10 +12,8 @@ use crate::ui::{UIState, ViewProfilePane};
 use crate::{ClientState, ClientStatus};
 
 pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
-    let config = client.lock().unwrap().config.clone();
-
-    if poll_events(Duration::from_millis(0)).unwrap() {
-        let _port = config.server.port;
+    while poll_events(Duration::from_millis(0)).unwrap_or(false) {
+        let client = client.clone();
         let event = read_event().unwrap();
 
         if let Event::Key(key) = event {
@@ -36,6 +34,8 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 KeyCode::Tab => process_cycle(client),
                 // Generic selection controls
                 KeyCode::Enter | KeyCode::Char(' ') => process_select(client),
+                // Output wrapping controls
+                KeyCode::Char('w') => process_toggle_output_wrap(client),
                 // Service interaction specific controls
                 // Restarting
                 KeyCode::Char('e') if shift => {
@@ -69,7 +69,6 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 KeyCode::Char('q') if ctrl => {
                     let mut client = client.lock().unwrap();
                     client.actions_out.push_back(Action::Shutdown);
-                    client.status = ClientStatus::Exiting;
                 }
                 KeyCode::Char('d') if ctrl => {
                     let mut client = client.lock().unwrap();
@@ -94,9 +93,12 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
                 selected_idx: update_vert_index(*selected_idx, client.config.profiles.len(), dir),
             }
         }
-        UIState::ViewProfile {
+        &UIState::ViewProfile {
             active_pane,
             service_selection,
+            wrap_output,
+            output_pos_vert,
+            output_pos_horiz
         } => {
             let num_profiles = client
                 .system_state
@@ -112,19 +114,28 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
                 ViewProfilePane::ServiceList if dir.0 > 0 => {
                     client.ui = UIState::ViewProfile {
                         active_pane: ViewProfilePane::OutputPane,
-                        service_selection: *service_selection,
+                        service_selection,
+                        wrap_output,
+                        output_pos_vert,
+                        output_pos_horiz,
                     }
                 }
                 ViewProfilePane::ServiceList if dir.1 != 0 => {
                     client.ui = UIState::ViewProfile {
                         active_pane: ViewProfilePane::ServiceList,
-                        service_selection: update_vert_index(*service_selection, num_profiles, dir),
+                        service_selection: update_vert_index(service_selection, num_profiles, dir),
+                        wrap_output,
+                        output_pos_vert,
+                        output_pos_horiz,
                     }
                 }
                 ViewProfilePane::OutputPane if dir.0 < 0 => {
                     client.ui = UIState::ViewProfile {
-                        service_selection: *service_selection,
                         active_pane: ViewProfilePane::ServiceList,
+                        service_selection,
+                        wrap_output,
+                        output_pos_vert,
+                        output_pos_horiz,
                     }
                 }
                 _ => {}
@@ -139,21 +150,30 @@ fn process_cycle(client: Arc<Mutex<ClientState>>) {
         | UIState::Initializing
         | UIState::Exiting
         | UIState::ProfileSelect { .. } => {}
-        UIState::ViewProfile {
+        &UIState::ViewProfile {
             active_pane,
             service_selection,
+            wrap_output,
+            output_pos_horiz,
+            output_pos_vert,
         } => {
             match active_pane {
                 ViewProfilePane::ServiceList => {
                     client.ui = UIState::ViewProfile {
                         active_pane: ViewProfilePane::OutputPane,
-                        service_selection: *service_selection,
+                        service_selection,
+                        wrap_output,
+                        output_pos_vert,
+                        output_pos_horiz,
                     }
                 }
                 ViewProfilePane::OutputPane => {
                     client.ui = UIState::ViewProfile {
-                        service_selection: *service_selection,
                         active_pane: ViewProfilePane::ServiceList,
+                        service_selection,
+                        wrap_output,
+                        output_pos_vert,
+                        output_pos_horiz,
                     }
                 }
                 _ => {}
@@ -203,6 +223,7 @@ fn process_service_action<F>(
         UIState::ViewProfile {
             service_selection,
             active_pane,
+            ..
         } if matches!(active_pane, ViewProfilePane::ServiceList) => {
             let service_name = client
                 .system_state.as_ref().unwrap()
@@ -211,6 +232,29 @@ fn process_service_action<F>(
                 .name
                 .clone();
             client.actions_out.push_back(create_action(service_name));
+        }
+        _ => {}
+    }
+}
+
+fn process_toggle_output_wrap(client: Arc<Mutex<ClientState>>) {
+    let mut client = client.lock().unwrap();
+
+    match &client.ui {
+        &UIState::ViewProfile {
+            service_selection,
+            active_pane,
+            wrap_output,
+            output_pos_vert,
+            output_pos_horiz,
+        } => {
+            client.ui = UIState::ViewProfile {
+                service_selection,
+                active_pane,
+                wrap_output: !wrap_output,
+                output_pos_vert,
+                output_pos_horiz,
+            }
         }
         _ => {}
     }
