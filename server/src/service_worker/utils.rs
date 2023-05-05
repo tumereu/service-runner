@@ -1,8 +1,10 @@
 use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
+use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::{Arc, Mutex, MutexGuard};
+use std::{io, thread};
+use std::time::{Duration, Instant};
+use nix::libc::stat;
+use shared::dbg_println;
 
 use shared::message::models::{ExecutableEntry, OutputKey, OutputKind};
 use shared::message::Broadcast;
@@ -79,19 +81,14 @@ where
                         }
                         thread::sleep(Duration::from_millis(10));
                     }
-
-                    let mut handle = handle.lock().unwrap();
-                    // Kill the process if it its alive
-                    // TODO graceful terminate? Maybe use the kill-program on Unix systems?
-                    handle.kill().unwrap_or(());
-                    // Obtain exit status and invoke callback
-                    let status = handle.wait();
-                    let success = status.map_or(false, |status| status.success());
+                    let status = Self::kill_process(handle);
+                    let success = status.as_ref().map_or(false, |status| status.success());
                     on_finish(
                         OnFinishParams {
                             server,
                             service_name: &service_name,
                             success,
+                            exit_code: status.map(|status| status.code().unwrap_or(0)).unwrap_or(0),
                             killed
                         }
                     )
@@ -153,11 +150,71 @@ where
         // But also broadcast the line to all clients
         server.broadcast_all(Broadcast::OutputLine(key.clone(), line));
     }
+
+    #[cfg(target_os = "linux")]
+    fn kill_process(handle: Arc<Mutex<Child>>) -> io::Result<ExitStatus> {
+        use nix::unistd::Pid;
+        use nix::sys::signal::{self, Signal};
+
+        let mut handle = handle.lock().unwrap();
+
+        fn signal_and_wait(handle: &mut MutexGuard<Child>, signal: Signal, timeout: Duration) -> io::Result<()> {
+            signal::kill(Pid::from_raw(handle.id() as i32), signal)?;
+            let signal_sent = Instant::now();
+
+            // Wait for the process to finish, up to a limit
+            loop {
+                if Instant::now().duration_since(signal_sent) > timeout {
+                    break;
+                }
+                if handle.try_wait().unwrap_or(None).is_some() {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+
+            Ok(())
+        }
+
+
+        // If the process is running, start by sending SIGINT
+        if handle.try_wait().unwrap_or(None).is_none() {
+            if let Err(err) = signal_and_wait(&mut handle, Signal::SIGINT, Duration::from_millis(5000)) {
+                dbg_println!("Failed to send SIGINT to process: {err:?}")
+            }
+        }
+
+        // If the process is still running, then we should send a SIGTERM
+        if handle.try_wait().unwrap_or(None).is_none() {
+            if let Err(err) = signal_and_wait(&mut handle, Signal::SIGTERM, Duration::from_millis(5000)) {
+                dbg_println!("Failed to send SIGTERM to process: {err:?}")
+            }
+        }
+
+        // Finally, if the process is still alive, we should kill it forcefully
+        if handle.try_wait().unwrap_or(None).is_none() {
+            // TODO kill the process group? Must be set when starting the process though
+            handle.kill().unwrap_or(());
+        }
+        // Obtain exit status and invoke callback
+        handle.wait()
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn kill_process(handle: Arc<Mutex<Child>>) -> io::Result<ExitStatus> {
+        let mut handle = handle.lock().unwrap();
+        // Kill the process if it its alive
+        // TODO graceful terminate? Kill children somehow
+        handle.kill().unwrap_or(());
+        // Obtain exit status and invoke callback
+        handle.wait()
+    }
 }
 
 pub struct OnFinishParams<'a> {
     pub server: Arc<Mutex<ServerState>>,
     pub service_name: &'a str,
     pub success: bool,
+    pub exit_code: i32,
     pub killed: bool,
 }

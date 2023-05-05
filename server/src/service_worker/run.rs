@@ -183,12 +183,12 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 handle,
                 service_name: service_name.clone(),
                 output: OutputKind::Run,
-                on_finish: move |OnFinishParams { server, service_name, success, killed }| {
+                on_finish: move |OnFinishParams { server, service_name, killed, .. }| {
                     let mut server = server.lock().unwrap();
                     // Mark the service as no longer running when it exits
                     // TODO message
                     server.update_state(move |state| {
-                        if success || killed {
+                        if killed {
                             state
                                 .service_statuses
                                 .get_mut(service_name)

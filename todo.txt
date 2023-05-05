@@ -1,3 +1,4 @@
-- services should not fail when killed intentionally. Failed services should not be automatically restarted
+- Support services that are run and then detach, i.e. have a separate stop command?
+- Parameterizable wait times for kill-signals for processes
 - Recursively kill children when stopping a process (try with NPM)?
 - categorize services

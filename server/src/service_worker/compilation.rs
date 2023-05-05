@@ -111,7 +111,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                 service_name: service_name.clone(),
                 output: OutputKind::Compile,
                 exit_early: |_| false,
-                on_finish: move |OnFinishParams { server, service_name, success, .. }| {
+                on_finish: move |OnFinishParams { server, service_name, success, exit_code, .. }| {
                     let mut server = server.lock().unwrap();
                     if success {
                         let num_steps = server
@@ -176,7 +176,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                                 service_ref: service_name.into(),
                                 kind: OutputKind::Compile,
                             },
-                            format!("Process exited with a non-zero status code"),
+                            format!("Process exited with a non-zero status code {exit_code}"),
                         );
                     }
                 },
