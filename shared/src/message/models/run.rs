@@ -1,11 +1,10 @@
 use std::convert::Into;
-use std::fmt::Write;
-
 use serde::{Deserialize, Serialize};
 
 use crate::config::{
     HealthCheck as ConfigHealthCheck, HttpMethod as ConfigHttpMethod,
     ScriptedRunConfig as ConfigScriptedRunConfig,
+    HealthCheckConfig as ConfigHealthCheckConfig
 };
 use crate::message::models::{Dependency, ExecutableEntry};
 
@@ -13,14 +12,28 @@ use crate::message::models::{Dependency, ExecutableEntry};
 pub struct RunConfig {
     pub command: ExecutableEntry,
     pub dependencies: Vec<Dependency>,
-    pub health_checks: Vec<HealthCheck>,
+    pub health_check: Option<HealthCheckConfig>,
 }
 impl From<ConfigScriptedRunConfig> for RunConfig {
     fn from(value: ConfigScriptedRunConfig) -> Self {
         RunConfig {
             command: value.command.into(),
             dependencies: value.dependencies.into_iter().map(Into::into).collect(),
-            health_checks: value.health_checks.into_iter().map(Into::into).collect(),
+            health_check: value.health_check.map(Into::into),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HealthCheckConfig {
+    pub timeout_millis: u64,
+    pub checks: Vec<HealthCheck>
+}
+impl From<ConfigHealthCheckConfig> for HealthCheckConfig {
+    fn from(value: ConfigHealthCheckConfig) -> Self {
+        HealthCheckConfig {
+            timeout_millis: value.timeout_millis,
+            checks: value.checks.into_iter().map(Into::into).collect(),
         }
     }
 }

@@ -59,7 +59,7 @@ pub struct ScriptedRunConfig {
     #[serde(default)]
     pub dependencies: Vec<Dependency>,
     #[serde(default)]
-    pub health_checks: Vec<HealthCheck>,
+    pub health_check: Option<HealthCheckConfig>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -76,6 +76,13 @@ pub enum RequiredState {
     Compiled,
     #[serde(rename = "running")]
     Running,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct HealthCheckConfig {
+    pub timeout_millis: u64,
+    pub checks: Vec<HealthCheck>
 }
 
 #[derive(Deserialize, Debug, Clone)]

@@ -2,7 +2,7 @@ use crate::config::ExecutableEntry as ConfigExecutableEntry;
 use crate::write_escaped_str;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::{Display, Formatter};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecutableEntry {

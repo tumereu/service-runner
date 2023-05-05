@@ -3,6 +3,7 @@ use std::thread;
 use std::time::Duration;
 
 use shared::message::Broadcast;
+use shared::system_state::Status;
 
 use crate::client_state::{ClientState, ClientStatus};
 use crate::ui::UIState;
@@ -25,6 +26,9 @@ pub fn start_broadcast_processor(state: Arc<Mutex<ClientState>>) -> thread::Join
 fn process_broadcast(state: &mut ClientState, broadcast: Broadcast) {
     match broadcast {
         Broadcast::State(system_state) => {
+            if system_state.status == Status::Exiting {
+                state.ui = UIState::Exiting;
+            }
             match state.ui {
                 UIState::Initializing => {
                     if system_state.current_profile.is_none() {
@@ -43,6 +47,7 @@ fn process_broadcast(state: &mut ClientState, broadcast: Broadcast) {
                         state.ui = UIState::profile_select();
                     }
                 }
+                UIState::Exiting => {}
             }
 
             state.system_state = Some(system_state);

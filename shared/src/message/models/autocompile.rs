@@ -1,6 +1,4 @@
 use std::convert::Into;
-use std::fmt::Write;
-
 use serde::{Deserialize, Serialize};
 
 use crate::config::{

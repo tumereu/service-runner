@@ -3,6 +3,7 @@ use crate::ui::state::ViewProfilePane::ServiceList;
 #[derive(Eq, PartialEq, Debug)]
 pub enum UIState {
     Initializing,
+    Exiting,
     ProfileSelect {
         selected_idx: usize,
     },

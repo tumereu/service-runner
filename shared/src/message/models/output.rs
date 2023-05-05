@@ -1,9 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::convert::Into;
-use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
-use toml::value::Index;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OutputStore {

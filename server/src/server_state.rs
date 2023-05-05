@@ -130,6 +130,13 @@ impl ServerState {
                 .for_each(|service| {
                     let status = state.service_statuses.get_mut(&service.name).unwrap();
                     update(service, status);
+
+                    // Remove impossible configurations
+                    if status.action == ServiceAction::Recompile && service.compile.is_none() {
+                        status.action = ServiceAction::None;
+                    } else if status.action == ServiceAction::Restart && service.run.is_none() {
+                        status.action = ServiceAction::None;
+                    }
                 });
         });
     }

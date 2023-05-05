@@ -10,6 +10,7 @@ use crate::ui::init::render_init;
 use crate::ui::profile_select::render_profile_select;
 use crate::ui::screens::view_profile::render_view_profile;
 use crate::ClientState;
+use crate::ui::screens::exit::render_exit;
 
 mod screens;
 mod state;
@@ -25,6 +26,7 @@ where
             UIState::Initializing => render_init(f, &state),
             UIState::ProfileSelect { .. } => render_profile_select(f, &state),
             UIState::ViewProfile { .. } => render_view_profile(f, &state),
+            UIState::Exiting => render_exit(f, &state),
         }
     })?;
 

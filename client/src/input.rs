@@ -87,7 +87,8 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
 fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8)) {
     let mut client = client.lock().unwrap();
     match &client.ui {
-        UIState::Initializing => {}
+        | UIState::Exiting
+        | UIState::Initializing => {}
         UIState::ProfileSelect { selected_idx } => {
             client.ui = UIState::ProfileSelect {
                 selected_idx: update_vert_index(*selected_idx, client.config.profiles.len(), dir),
@@ -136,6 +137,7 @@ fn process_cycle(client: Arc<Mutex<ClientState>>) {
     let mut client = client.lock().unwrap();
     match &client.ui {
         | UIState::Initializing
+        | UIState::Exiting
         | UIState::ProfileSelect { .. } => {}
         UIState::ViewProfile {
             active_pane,
@@ -164,7 +166,8 @@ fn process_select(client: Arc<Mutex<ClientState>>) {
     let mut client = client.lock().unwrap();
 
     match client.ui {
-        UIState::Initializing => {}
+        | UIState::Exiting
+        | UIState::Initializing => {}
         UIState::ProfileSelect { selected_idx } => {
             let selection = client.config.profiles.get(selected_idx);
 

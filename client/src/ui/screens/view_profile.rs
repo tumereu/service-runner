@@ -10,7 +10,6 @@ use tui::style::Color;
 use tui::Frame;
 
 use shared::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
-use shared::message::models::OutputKind::Compile;
 
 use crate::client_state::ClientState;
 use crate::ui::state::ViewProfilePane;
@@ -245,7 +244,11 @@ fn service_list(
                             // Compilation status
                             Cell {
                                 element: Text {
-                                    text: "C".into(),
+                                    text: if service.compile.is_some() {
+                                        "C"
+                                    } else {
+                                        "-"
+                                    }.into(),
                                     fg: if let Some(status) = status {
                                         match status.compile_status {
                                             _ if matches!(
