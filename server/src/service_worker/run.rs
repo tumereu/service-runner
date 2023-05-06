@@ -197,6 +197,10 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
                     if timeout {
                         if !has_exited {
+                            server.lock().unwrap().add_ctrl_output(
+                                &service_name,
+                                format!("Health checks failed: timeout exceeded")
+                            );
                             server
                                 .lock()
                                 .unwrap()

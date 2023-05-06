@@ -1,7 +1,7 @@
-- Prettier profile selection
 - Switch profile during runtime
-- Button to navigate to end of output window. To start too?
-- Toggleable services and output types for output window
+- Reset-action for services
+- Retry starts up to n times? configurable option
+- Toggleable output types for output window
 - Fullscreen output
 - Search in output
 - Support services that are run and then detach, i.e. have a separate stop command?

@@ -12,9 +12,10 @@ use tui::style::Color;
 use tui::Frame;
 
 use shared::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
+use shared::utils::get_active_outputs;
 
 use crate::client_state::ClientState;
-use crate::ui::state::ViewProfilePane;
+use crate::ui::state::{ViewProfilePane, ViewProfileState};
 use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart};
 use crate::ui::UIState;
 
@@ -41,13 +42,13 @@ where
     B: Backend,
 {
     let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert) = match &state.ui {
-        &UIState::ViewProfile {
+        &UIState::ViewProfile(ViewProfileState {
             active_pane,
             service_selection,
             wrap_output,
             output_pos_horiz,
             output_pos_vert
-        } => (active_pane, service_selection, wrap_output, output_pos_horiz, output_pos_vert),
+        }) => (active_pane, service_selection, wrap_output, output_pos_horiz, output_pos_vert),
         any @ _ => panic!("Invalid UI state in render_view_profile: {any:?}"),
     };
 
@@ -85,6 +86,7 @@ where
                         )
                             .into(),
                         min_width: side_panel_width,
+                        align_horiz: Align::Stretch,
                         element: service_list(profile, service_selection, service_statuses)
                             .into_el(),
                         ..Default::default()
@@ -319,7 +321,11 @@ fn output_pane(
                     wrap: wrap_output,
                     pos_horiz,
                     lines: state.output_store
-                        .query_lines_to(height, pos_vert)
+                        .query_lines_to(
+                            height,
+                            pos_vert,
+                            get_active_outputs(&state.output_store, &state.system_state)
+                        )
                         .into_iter()
                         .map(|(key, line)| {
                             let service_idx = profile.services.iter()

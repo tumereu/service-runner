@@ -1,3 +1,6 @@
+use std::iter;
+use crate::message::models::{OutputKey, OutputStore};
+use crate::system_state::SystemState;
 /// Prints out a line to stdout, but only when the binary has been compiled in debug mode
 #[macro_export]
 macro_rules! dbg_println {
@@ -36,4 +39,16 @@ macro_rules! write_escaped_str {
             $fmt.write_str(&escaped_str)?;
         }
     };
+}
+
+pub fn get_active_outputs<'a>(store: &'a OutputStore, state: &'a Option<SystemState>) -> Vec<&'a OutputKey> {
+    store.outputs.iter()
+        .map(|(key, _)| key)
+        .filter(|key| {
+            state.as_ref().map(|state| {
+                state.service_statuses
+                    .get(key.service_ref.as_str())
+                    .map(|status| status.show_output)
+            }).flatten().unwrap_or(false)
+        }).collect()
 }

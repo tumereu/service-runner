@@ -14,6 +14,9 @@ pub enum Action {
     CycleAutoCompileAll,
     ToggleRun(String),
     ToggleRunAll,
+    TriggerPendingCompiles,
+    ToggleOutput(String),
+    ToggleOutputAll
 }
 impl AsRef<Action> for Action {
     fn as_ref(&self) -> &Action {

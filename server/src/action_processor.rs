@@ -115,6 +115,31 @@ fn process_action(server: &mut ServerState, action: Action) {
             server.update_all_statuses(|_, status| {
                 status.should_run = has_non_running;
             })
+        },
+        Action::TriggerPendingCompiles => {
+            server.update_all_statuses(|_, status| {
+                if status.has_uncompiled_changes {
+                    status.has_uncompiled_changes = false;
+                    status.action = ServiceAction::Recompile;
+                }
+            })
+        },
+        Action::ToggleOutput(service_name) => {
+            server.update_service_status(&service_name, |status| {
+                status.show_output = !status.show_output;
+            });
+        },
+        Action::ToggleOutputAll => {
+            let has_disabled = server.iter_services()
+                .map(|service| {
+                    server.get_service_status(&service.name).as_ref()
+                        .map(|status| status.show_output)
+                }).flatten()
+                .any(|cond| !cond);
+
+            server.update_all_statuses(|_, status| {
+                status.show_output = has_disabled;
+            })
         }
     }
 }

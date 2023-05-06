@@ -7,9 +7,10 @@ use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode, 
 
 use shared::message::models::{Profile, ServiceAction};
 use shared::message::Action;
-use shared::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleRun, ToggleRunAll, UpdateAllServiceActions, UpdateServiceAction};
+use shared::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleOutput, ToggleOutputAll, ToggleRun, ToggleRunAll, TriggerPendingCompiles, UpdateAllServiceActions, UpdateServiceAction};
+use shared::utils::get_active_outputs;
 
-use crate::ui::{UIState, ViewProfilePane};
+use crate::ui::{UIState, ViewProfilePane, ViewProfileState};
 use crate::{ClientState, ClientStatus};
 
 pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
@@ -61,11 +62,19 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 }
                 // Toggling should_run
                 KeyCode::Char('r') if shift => {
-                    process_service_action(client, |service| ToggleRunAll);
+                    process_service_action(client, |_| ToggleRunAll);
                 },
                 KeyCode::Char('r') => {
                     process_service_action(client, |service| ToggleRun(service));
                 }
+                // Toggling output
+                KeyCode::Char('o') if shift => {
+                    process_service_action(client, |_| ToggleOutputAll);
+                },
+                // Toggling output
+                KeyCode::Char('o') => {
+                    process_service_action(client, |service| ToggleOutput(service));
+                },
                 // Controls to exit
                 KeyCode::Char('q') if ctrl => {
                     let mut client = client.lock().unwrap();
@@ -74,6 +83,21 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 KeyCode::Char('d') if ctrl => {
                     let mut client = client.lock().unwrap();
                     client.status = ClientStatus::Exiting;
+                }
+                // Triggering pending compiles
+                KeyCode::Char('t') => {
+                    process_service_action(client, |_| TriggerPendingCompiles);
+                }
+                // Scroll to start/end of the output
+                KeyCode::Char('g') => {
+                    process_navigate_to_limit(
+                        client,
+                        if shift {
+                            NavLimit::End
+                        } else {
+                            NavLimit::Start
+                        }
+                    );
                 }
                 // Disregard everything else
                 _ => {}
@@ -94,13 +118,7 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
                 selected_idx: update_vert_index(*selected_idx, client.config.profiles.len(), dir),
             }
         }
-        &UIState::ViewProfile {
-            active_pane,
-            service_selection,
-            wrap_output,
-            output_pos_vert,
-            output_pos_horiz
-        } => {
+        UIState::ViewProfile(view_profile) => {
             let num_profiles = client
                 .system_state
                 .as_ref()
@@ -111,22 +129,15 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
                 .services
                 .len();
 
-            match active_pane {
+            match view_profile.active_pane {
                 ViewProfilePane::ServiceList if dir.1 != 0 => {
-                    client.ui = UIState::ViewProfile {
-                        service_selection: update_vert_index(service_selection, num_profiles, dir),
-                        active_pane,
-                        wrap_output,
-                        output_pos_vert,
-                        output_pos_horiz,
-                    }
+                    client.ui = UIState::ViewProfile(ViewProfileState {
+                        service_selection: update_vert_index(view_profile.service_selection, num_profiles, dir),
+                        ..*view_profile
+                    })
                 }
                 ViewProfilePane::OutputPane if dir.0 != 0 => {
-                    client.ui = UIState::ViewProfile {
-                        active_pane,
-                        service_selection,
-                        wrap_output,
-                        output_pos_vert,
+                    client.ui = UIState::ViewProfile(ViewProfileState {
                         output_pos_horiz: {
                             let amount: u64 = if boosted {
                                 64
@@ -135,20 +146,17 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
                             };
                             Some(
                                 if dir.0 > 0 {
-                                    output_pos_horiz.unwrap_or(0).saturating_add(amount)
+                                    view_profile.output_pos_horiz.unwrap_or(0).saturating_add(amount)
                                 } else {
-                                    output_pos_horiz.unwrap_or(0).saturating_sub(amount)
+                                    view_profile.output_pos_horiz.unwrap_or(0).saturating_sub(amount)
                                 }
                             )
                         },
-                    }
+                        ..*view_profile
+                    })
                 }
                 ViewProfilePane::OutputPane if dir.1 < 0 => {
-                    client.ui = UIState::ViewProfile {
-                        active_pane,
-                        service_selection,
-                        wrap_output,
-                        output_pos_horiz,
+                    client.ui = UIState::ViewProfile(ViewProfileState {
                         output_pos_vert: {
                             let amount: usize = if boosted {
                                 (client.last_frame_size.1 / 2) as usize
@@ -158,27 +166,26 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
                             // Prevent users from scrolling past the first line of output
                             let min_index = client.output_store.query_lines_from(
                                 client.last_frame_size.1.saturating_sub(2) as usize,
-                                None
+                                None,
+                                get_active_outputs(&client.output_store, &client.system_state)
                             ).last().unwrap().1.index;
                             client.output_store.query_lines_to(
-                                (dir.1.neg() as usize) * amount + if output_pos_vert.is_none() {
+                                (dir.1.neg() as usize) * amount + if view_profile.output_pos_vert.is_none() {
                                     0
                                 } else {
                                     1
                                 },
-                                output_pos_vert
+                                view_profile.output_pos_vert,
+                                get_active_outputs(&client.output_store, &client.system_state)
                             ).first().map(|(_, line)| max(line.index, min_index))
                         },
-                    }
+                        ..*view_profile
+                    })
                 }
                 ViewProfilePane::OutputPane if dir.1 > 0 => {
-                    client.ui = UIState::ViewProfile {
-                        active_pane,
-                        service_selection,
-                        wrap_output,
-                        output_pos_horiz,
+                    client.ui = UIState::ViewProfile(ViewProfileState {
                         output_pos_vert: {
-                            if output_pos_vert.is_some() {
+                            if view_profile.output_pos_vert.is_some() {
                                 let amount: usize = if boosted {
                                     (client.last_frame_size.1 / 2) as usize
                                 } else {
@@ -186,7 +193,8 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
                                 };
                                 let lines = client.output_store.query_lines_from(
                                     (dir.1 as usize) * amount + 1,
-                                    output_pos_vert
+                                    view_profile.output_pos_vert,
+                                    get_active_outputs(&client.output_store, &client.system_state)
                                 );
                                 if lines.len() == (dir.1 as usize) * amount + 1 {
                                     lines.last().map(|(_, line)| line.index)
@@ -197,7 +205,43 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
                                 None
                             }
                         },
-                    }
+                        ..*view_profile
+                    })
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+enum NavLimit {
+    End, Start
+}
+
+fn process_navigate_to_limit(client: Arc<Mutex<ClientState>>, limit: NavLimit) {
+    let mut client = client.lock().unwrap();
+    match &client.ui {
+        | UIState::Exiting
+        | UIState::Initializing
+        | UIState::ProfileSelect { .. } => {},
+        UIState::ViewProfile(view_profile) => {
+            match view_profile.active_pane {
+                ViewProfilePane::OutputPane => {
+                    client.ui = UIState::ViewProfile(ViewProfileState {
+                        output_pos_vert: {
+                            match limit {
+                                NavLimit::Start => Some(
+                                    client.output_store.query_lines_from(
+                                        client.last_frame_size.1.saturating_sub(2) as usize,
+                                        None,
+                                        get_active_outputs(&client.output_store, &client.system_state)
+                                    ).last().unwrap().1.index
+                                ),
+                                NavLimit::End => None
+                            }
+                        },
+                        ..*view_profile
+                    })
                 }
                 _ => {}
             }
@@ -211,31 +255,19 @@ fn process_cycle(client: Arc<Mutex<ClientState>>) {
         | UIState::Initializing
         | UIState::Exiting
         | UIState::ProfileSelect { .. } => {}
-        &UIState::ViewProfile {
-            active_pane,
-            service_selection,
-            wrap_output,
-            output_pos_horiz,
-            output_pos_vert,
-        } => {
-            match active_pane {
+        UIState::ViewProfile(view_profile) => {
+            match view_profile.active_pane {
                 ViewProfilePane::ServiceList => {
-                    client.ui = UIState::ViewProfile {
+                    client.ui = UIState::ViewProfile(ViewProfileState {
                         active_pane: ViewProfilePane::OutputPane,
-                        service_selection,
-                        wrap_output,
-                        output_pos_vert,
-                        output_pos_horiz,
-                    }
+                        ..*view_profile
+                    })
                 }
                 ViewProfilePane::OutputPane => {
-                    client.ui = UIState::ViewProfile {
+                    client.ui = UIState::ViewProfile(ViewProfileState {
                         active_pane: ViewProfilePane::ServiceList,
-                        service_selection,
-                        wrap_output,
-                        output_pos_vert,
-                        output_pos_horiz,
-                    }
+                        ..*view_profile
+                    })
                 }
             }
         }
@@ -280,15 +312,12 @@ fn process_service_action<F>(
     let mut client = client.lock().unwrap();
 
     match &client.ui {
-        UIState::ViewProfile {
-            service_selection,
-            active_pane,
-            ..
-        } if matches!(active_pane, ViewProfilePane::ServiceList) => {
+        UIState::ViewProfile(view_profile)
+        if matches!(view_profile.active_pane, ViewProfilePane::ServiceList) => {
             let service_name = client
                 .system_state.as_ref().unwrap()
                 .current_profile.as_ref().unwrap()
-                .services[*service_selection]
+                .services[view_profile.service_selection]
                 .name
                 .clone();
             client.actions_out.push_back(create_action(service_name));
@@ -301,20 +330,12 @@ fn process_toggle_output_wrap(client: Arc<Mutex<ClientState>>) {
     let mut client = client.lock().unwrap();
 
     match &client.ui {
-        &UIState::ViewProfile {
-            service_selection,
-            active_pane,
-            wrap_output,
-            output_pos_vert,
-            output_pos_horiz,
-        } => {
-            client.ui = UIState::ViewProfile {
-                service_selection,
-                active_pane,
-                wrap_output: !wrap_output,
-                output_pos_vert,
+        UIState::ViewProfile(view_profile) => {
+            client.ui = UIState::ViewProfile(ViewProfileState {
+                wrap_output: !view_profile.wrap_output,
                 output_pos_horiz: None,
-            }
+                ..*view_profile
+            })
         }
         _ => {}
     }

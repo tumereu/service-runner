@@ -1,19 +1,11 @@
-use crate::ui::state::ViewProfilePane::ServiceList;
-
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Debug)]
 pub enum UIState {
     Initializing,
     Exiting,
     ProfileSelect {
         selected_idx: usize,
     },
-    ViewProfile {
-        active_pane: ViewProfilePane,
-        service_selection: usize,
-        wrap_output: bool,
-        output_pos_vert: Option<u128>,
-        output_pos_horiz: Option<u64>
-    },
+    ViewProfile(ViewProfileState),
 }
 impl UIState {
     pub fn profile_select() -> UIState {
@@ -21,13 +13,13 @@ impl UIState {
     }
 
     pub fn view_profile() -> UIState {
-        UIState::ViewProfile {
-            active_pane: ServiceList,
+        UIState::ViewProfile(ViewProfileState {
+            active_pane: ViewProfilePane::ServiceList,
             service_selection: 0,
             wrap_output: false,
             output_pos_horiz: None,
             output_pos_vert: None,
-        }
+        })
     }
 }
 
@@ -35,4 +27,13 @@ impl UIState {
 pub enum ViewProfilePane {
     ServiceList,
     OutputPane,
+}
+
+#[derive(Debug, Clone)]
+pub struct ViewProfileState {
+    pub active_pane: ViewProfilePane,
+    pub service_selection: usize,
+    pub wrap_output: bool,
+    pub output_pos_vert: Option<u128>,
+    pub output_pos_horiz: Option<u64>
 }

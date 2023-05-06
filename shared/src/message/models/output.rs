@@ -34,12 +34,17 @@ impl OutputStore {
         deque.iter().last().unwrap()
     }
 
-    pub fn query_lines_from(&self, num_lines: usize, min_idx: Option<u128>) -> Vec<(&OutputKey, &OutputLine)> {
+    pub fn query_lines_from(
+        &self,
+        num_lines: usize,
+        min_idx: Option<u128>,
+        keys: Vec<&OutputKey>
+    ) -> Vec<(&OutputKey, &OutputLine)> {
         let min_idx = min_idx.unwrap_or(0);
         let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
-        let mut bucket_indices: HashMap<OutputKey, Option<usize>> = self
-            .outputs
+        let mut bucket_indices: HashMap<OutputKey, Option<usize>> = keys
             .iter()
+            .map(|key| (key.clone(), self.outputs.get(key).unwrap()))
             .map(|(key, lines)| {
                 if lines.len() == 0 {
                     // If the bucket has 0 lines, then there's nothing we could ever return
@@ -60,6 +65,7 @@ impl OutputStore {
             let next_bucket = self
                 .outputs
                 .iter()
+                .filter(|(key, _)| keys.contains(key))
                 .min_by_key(|(key, lines)| {
                     if let Some(cur_idx) = bucket_indices.get(key).unwrap() {
                         lines.get(*cur_idx).unwrap().index
@@ -87,12 +93,17 @@ impl OutputStore {
         result.into_iter().collect()
     }
 
-    pub fn query_lines_to(&self, num_lines: usize, max_idx: Option<u128>) -> Vec<(&OutputKey, &OutputLine)> {
+    pub fn query_lines_to(
+        &self,
+        num_lines: usize,
+        max_idx: Option<u128>,
+        keys: Vec<&OutputKey>
+    ) -> Vec<(&OutputKey, &OutputLine)> {
         let max_idx = max_idx.unwrap_or(self.current_idx);
         let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
-        let mut bucket_indices: HashMap<OutputKey, Option<usize>> = self
-            .outputs
+        let mut bucket_indices: HashMap<OutputKey, Option<usize>> = keys
             .iter()
+            .map(|key| (key.clone(), self.outputs.get(key).unwrap()))
             .map(|(key, lines)| {
                 if lines.len() == 0 {
                     // If the bucket has 0 lines, then there's nothing we could ever return
@@ -121,9 +132,9 @@ impl OutputStore {
         // Loop until the result vec is fully populated, or we run out of lines.
         while result.len() < num_lines && bucket_indices.iter().any(|(_, value)| value.is_some()) {
             // Figure out the bucket with the next line
-            let next_bucket = self
-                .outputs
+            let next_bucket = self.outputs
                 .iter()
+                .filter(|(key, _)| keys.contains(key))
                 .max_by_key(|(key, lines)| {
                     if let Some(cur_idx) = bucket_indices.get(key).unwrap() {
                         lines.get(*cur_idx).unwrap().index
@@ -181,43 +192,4 @@ pub enum OutputKind {
 pub struct OutputLine {
     pub value: String,
     pub index: u128,
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::message::models::{OutputKey, OutputKind, OutputStore};
-
-    #[test]
-    fn test_simple_store() {
-        let mut store = OutputStore::new();
-        store.add_output(&OutputKey {
-            name: "std".into(),
-            service_ref: "ser".into(),
-            kind: OutputKind::Run,
-        }, "First".into());
-        store.add_output(&OutputKey {
-            name: "std".into(),
-            service_ref: "ser".into(),
-            kind: OutputKind::Run,
-        }, "Second".into());
-        store.add_output(&OutputKey {
-            name: "std".into(),
-            service_ref: "de".into(),
-            kind: OutputKind::Run,
-        }, "Third".into());
-        store.add_output(&OutputKey {
-            name: "std".into(),
-            service_ref: "de".into(),
-            kind: OutputKind::Run,
-        }, "Fourth".into());
-        store.add_output(&OutputKey {
-            name: "std".into(),
-            service_ref: "ser".into(),
-            kind: OutputKind::Run,
-        }, "Fifth".into());
-
-        store.query_lines_from(4, Some(2)).iter().for_each(|(_, line)| {
-            println!("Line: {idx}: {text}", idx = line.index, text = line.value);
-        });
-    }
 }
