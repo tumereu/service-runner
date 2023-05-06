@@ -136,7 +136,7 @@ fn service_list(
 ) -> List {
     // TODO Theme?
     let active_color = Color::Rgb(0, 140, 0);
-    let secondary_active_color = Color::Rgb(0, 0, 140);
+    let secondary_active_color = Color::Rgb(0, 40, 180);
     let processing_color = Color::Rgb(230, 180, 0);
     let error_color = Color::Rgb(180, 0, 0);
     let inactive_color = Color::Gray;

@@ -5,7 +5,7 @@ use tui::layout::Rect;
 use tui::style::Color;
 use tui::Frame;
 
-use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
+use crate::ui::widgets::{Align, Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 
 #[derive(Debug, Default)]
 pub struct List {
@@ -13,10 +13,11 @@ pub struct List {
     pub selection: usize,
 }
 impl List {
-    pub fn simple_items(items: Vec<String>) -> Vec<Cell> {
+    pub fn simple_items(items: Vec<String>, align_horiz: Align) -> Vec<Cell> {
         items
             .into_iter()
             .map(|item| Cell {
+                align_horiz,
                 element: Text {
                     text: item,
                     ..Default::default()

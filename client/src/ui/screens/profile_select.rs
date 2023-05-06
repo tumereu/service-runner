@@ -24,7 +24,7 @@ where
             align_horiz: Align::Center,
             element: Cell {
                 align_vert: Align::Center,
-                align_horiz: Align::Center,
+                align_horiz: Align::Stretch,
                 border: Some((active_border_color, "Select profile".into())),
                 min_width: 16,
                 fill: false,
@@ -36,6 +36,7 @@ where
                             .iter()
                             .map(|prof| prof.name.clone())
                             .collect(),
+                        Align::Center
                     ),
                     selection: *selected_idx,
                 }.into_el(),

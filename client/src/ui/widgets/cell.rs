@@ -115,7 +115,7 @@ impl Cell {
     }
 }
 
-#[derive(Eq, PartialEq, Default, Debug)]
+#[derive(Eq, PartialEq, Default, Debug, Clone, Copy)]
 pub enum Align {
     #[default]
     Start,
