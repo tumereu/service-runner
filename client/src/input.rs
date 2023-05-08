@@ -41,35 +41,35 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 // Service interaction specific controls
                 // Restarting
                 KeyCode::Char('e') if shift => {
-                    process_service_action(client, |_| UpdateAllServiceActions(ServiceAction::Restart));
+                    process_global_action(client, UpdateAllServiceActions(ServiceAction::Restart));
                 },
                 KeyCode::Char('e') => {
                     process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Restart));
                 },
                 // Recompiling
                 KeyCode::Char('c') if shift => {
-                    process_service_action(client, |_| UpdateAllServiceActions(ServiceAction::Recompile));
+                    process_global_action(client, UpdateAllServiceActions(ServiceAction::Recompile));
                 },
                 KeyCode::Char('c') => {
                     process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Recompile));
                 },
                 // Cycling autocompile
                 KeyCode::Char('a') if shift => {
-                    process_service_action(client, |_| CycleAutoCompileAll);
+                    process_global_action(client, CycleAutoCompileAll);
                 },
                 KeyCode::Char('a') => {
                     process_service_action(client, |service| CycleAutoCompile(service));
                 }
                 // Toggling should_run
                 KeyCode::Char('r') if shift => {
-                    process_service_action(client, |_| ToggleRunAll);
+                    process_global_action(client, ToggleRunAll);
                 },
                 KeyCode::Char('r') => {
                     process_service_action(client, |service| ToggleRun(service));
                 }
                 // Toggling output
                 KeyCode::Char('o') if shift => {
-                    process_service_action(client, |_| ToggleOutputAll);
+                    process_global_action(client, ToggleOutputAll);
                 },
                 // Toggling output
                 KeyCode::Char('o') => {
@@ -84,10 +84,8 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                     let mut client = client.lock().unwrap();
                     client.status = ClientStatus::Exiting;
                 }
-                // Triggering pending compiles
-                KeyCode::Char('t') => {
-                    process_service_action(client, |_| TriggerPendingCompiles);
-                }
+                // Triggering pending compiles. This can be used even if the focus is on the output window
+                KeyCode::Char('t') => process_global_action(client, TriggerPendingCompiles),
                 // Scroll to start/end of the output
                 KeyCode::Char('g') => {
                     process_navigate_to_limit(
@@ -302,6 +300,20 @@ fn update_vert_index(current: usize, list_len: usize, dir: (i8, i8)) -> usize {
         min(list_len.saturating_sub(1), current.saturating_add(1))
     } else {
         current
+    }
+}
+
+fn process_global_action(
+    client: Arc<Mutex<ClientState>>,
+    action: Action
+) {
+    let mut client = client.lock().unwrap();
+
+    match &client.ui {
+        UIState::ViewProfile(view_profile) => {
+            client.actions_out.push_back(action);
+        },
+        _ => {}
     }
 }
 

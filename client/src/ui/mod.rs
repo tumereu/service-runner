@@ -20,6 +20,7 @@ pub fn render<B>(term: &mut Terminal<B>, state: Arc<Mutex<ClientState>>) -> std:
 where
     B: Backend,
 {
+    term.clear()?;
     term.draw(|f| {
         let mut state = state.lock().unwrap();
         let frame_size = f.size();

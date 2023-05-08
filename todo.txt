@@ -8,3 +8,6 @@
 - Parameterizable wait times for kill-signals for processes
 - categorize services
 - git checkout window
+- load .env file from directory?
+- different color A if file watching fails?
+- very long lines in output, if wrapping, will spill to the left side on the next line?
