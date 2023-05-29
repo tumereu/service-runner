@@ -53,6 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         render(&mut terminal, state.clone())?;
 
         if stream_thread.is_finished() {
+            dbg_println!("Connection thread finished, marking client for exit");
             state.lock().unwrap().status = ClientStatus::Exiting;
         }
 

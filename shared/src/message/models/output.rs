@@ -137,7 +137,7 @@ impl OutputStore {
                 .filter(|(key, _)| keys.contains(key))
                 .max_by_key(|(key, lines)| {
                     if let Some(cur_idx) = bucket_indices.get(key).unwrap() {
-                        lines.get(*cur_idx).unwrap().index
+                        lines.get(*cur_idx).unwrap().index + 1
                     } else {
                         0
                     }

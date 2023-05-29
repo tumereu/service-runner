@@ -5,6 +5,7 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use nix::libc::shutdown;
 use shared::dbg_println;
 
 use shared::message::{Action, Broadcast, MessageTransmitter};
@@ -53,10 +54,19 @@ pub fn handle_connection(mut stream: TcpStream, index: u32, server: Arc<Mutex<Se
     let handle = {
         let server = server.clone();
         thread::spawn(move || {
-            while server.lock().unwrap().get_state().status != Status::Exiting {
+            let mut stream_alive = true;
+
+            while server.lock().unwrap().get_state().status != Status::Exiting && stream_alive {
                 while stream.has_incoming(Duration::from_millis(10)).unwrap() {
-                    let incoming: Action = stream.receive().unwrap();
-                    server.lock().unwrap().actions_in.push_back(incoming);
+                    match stream.receive() {
+                        Ok(incoming) => {
+                            server.lock().unwrap().actions_in.push_back(incoming);
+                        }
+                        Err(error) => {
+                            dbg_println!("Failure when receiving an action: {error:?}");
+                            stream_alive = false;
+                        }
+                    }
                 }
                 while let Some(outgoing) = server
                     .lock()
@@ -67,7 +77,9 @@ pub fn handle_connection(mut stream: TcpStream, index: u32, server: Arc<Mutex<Se
                     .pop_front()
                 {
                     if let Err(error) = stream.send(outgoing) {
-                        dbg_println!("Error occurred when sending to a stream {error:?}")
+                        dbg_println!("Error occurred when sending to a stream {error:?}");
+                        stream_alive = false;
+                        break;
                     }
                 }
 
@@ -76,7 +88,9 @@ pub fn handle_connection(mut stream: TcpStream, index: u32, server: Arc<Mutex<Se
 
             server.lock().unwrap().broadcasts_out.remove(&index);
 
-            stream.shutdown(Shutdown::Both).unwrap();
+            if let Err(error) = stream.shutdown(Shutdown::Both) {
+                dbg_println!("Error in trying to shutdown a stream: {error:?}");
+            }
         })
     };
 
