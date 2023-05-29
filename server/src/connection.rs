@@ -5,6 +5,7 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use shared::dbg_println;
 
 use shared::message::{Action, Broadcast, MessageTransmitter};
 use shared::system_state::Status;
@@ -65,7 +66,9 @@ pub fn handle_connection(mut stream: TcpStream, index: u32, server: Arc<Mutex<Se
                     .unwrap()
                     .pop_front()
                 {
-                    stream.send(outgoing).unwrap();
+                    if let Err(error) = stream.send(outgoing) {
+                        dbg_println!("Error occurred when sending to a stream {error:?}")
+                    }
                 }
 
                 thread::sleep(Duration::from_millis(10));
