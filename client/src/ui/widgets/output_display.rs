@@ -54,7 +54,15 @@ impl OutputDisplay {
                                     })
                                     .map(|word| {
                                         LinePart {
-                                            text: word.to_string(),
+                                            text: word.chars().map(|char| {
+                                                // Replace all whitespace characters with standard spaces to prevent
+                                                // weird rendering issues
+                                                if char.is_whitespace() {
+                                                    ' '
+                                                } else {
+                                                    char
+                                                }
+                                            }).collect(),
                                             color: color.clone()
                                         }
                                     }).collect::<Vec<LinePart>>()
