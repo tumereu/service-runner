@@ -58,6 +58,7 @@ impl OutputDisplay {
                                                 // Replace all whitespace characters with standard spaces to prevent
                                                 // weird rendering issues
                                                 if char.is_whitespace() {
+                                                    // TODO replace tabs with multiple spaces?
                                                     ' '
                                                 } else {
                                                     char
