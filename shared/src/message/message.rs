@@ -14,6 +14,8 @@ pub enum Action {
     CycleAutoCompileAll,
     ToggleRun(String),
     ToggleRunAll,
+    ToggleDebug(String),
+    ToggleDebugAll,
     TriggerPendingCompiles,
     ToggleOutput(String),
     ToggleOutputAll

@@ -1,4 +1,3 @@
-- Optional debug-mode for runnable services
 - More fine-grained control over the autocompile triggering: should be possible to set the mode for each trigger
   separately, so that a service can be in "triggered" mode for file-changes, but "automatic" for dependency recompiles
 - Switch profile during runtime

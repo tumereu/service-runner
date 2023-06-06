@@ -7,6 +7,7 @@ use crate::message::models::{AutoCompileMode, Profile, Service};
 pub struct ServiceStatus {
     pub action: ServiceAction,
     pub should_run: bool,
+    pub debug: bool,
     pub compile_status: CompileStatus,
     pub run_status: RunStatus,
     pub show_output: bool,
@@ -17,6 +18,7 @@ impl ServiceStatus {
     pub fn from(_profile: &Profile, service: &Service) -> ServiceStatus {
         ServiceStatus {
             should_run: true,
+            debug: false,
             action: Recompile,
             auto_compile: service.autocompile.as_ref().map(|auto_compile| auto_compile.default_mode.clone()),
             compile_status: CompileStatus::None,

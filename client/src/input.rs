@@ -7,7 +7,7 @@ use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode, 
 
 use shared::message::models::{Profile, ServiceAction};
 use shared::message::Action;
-use shared::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleOutput, ToggleOutputAll, ToggleRun, ToggleRunAll, TriggerPendingCompiles, UpdateAllServiceActions, UpdateServiceAction};
+use shared::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleDebug, ToggleDebugAll, ToggleOutput, ToggleOutputAll, ToggleRun, ToggleRunAll, TriggerPendingCompiles, UpdateAllServiceActions, UpdateServiceAction};
 use shared::utils::get_active_outputs;
 
 use crate::ui::{UIState, ViewProfilePane, ViewProfileState};
@@ -66,6 +66,13 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 },
                 KeyCode::Char('r') => {
                     process_service_action(client, |service| ToggleRun(service));
+                }
+                // Toggling debuggin
+                KeyCode::Char('d') if shift => {
+                    process_global_action(client, ToggleDebugAll);
+                },
+                KeyCode::Char('d') => {
+                    process_service_action(client, |service| ToggleDebug(service));
                 }
                 // Toggling output
                 KeyCode::Char('o') if shift => {

@@ -186,7 +186,13 @@ fn service_list(
                             // Run status
                             Cell {
                                 element: Text {
-                                    text: if service.run.is_none() { "-" } else { "R" }.into(),
+                                    text: if service.run.is_none() {
+                                        "-"
+                                    } else if status.map(|status| status.debug).unwrap_or(false) {
+                                        "D"
+                                    } else {
+                                        "R"
+                                    }.into(),
                                     fg: if let Some(status) = status {
                                         match (&status.run_status, &status.action) {
                                             (_, _) if service.run.is_none() => inactive_color.clone(),

@@ -12,11 +12,12 @@ pub struct ExecutableEntry {
 }
 
 impl ExecutableEntry {
-    fn extend(self, other: PartialExecutableEntry) -> ExecutableEntry {
+    pub fn extend(&self, other: &PartialExecutableEntry) -> ExecutableEntry {
         ExecutableEntry {
-            executable: other.executable.unwrap_or(self.executable),
-            args: other.args.unwrap_or(self.args),
-            env: other.env.unwrap_or(self.env),
+            executable: other.executable.clone().unwrap_or_else(|| self.executable.clone()),
+            args: other.args.clone().unwrap_or_else(|| self.args.clone()),
+            // TODO combine maps
+            env: other.env.clone().unwrap_or_else(|| self.env.clone()),
         }
     }
 }

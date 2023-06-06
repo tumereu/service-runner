@@ -48,11 +48,16 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     }
                 })?;
 
+            let status = server.get_service_status(&runnable.name).unwrap();
             let run_config = runnable.run.as_ref().unwrap();
-            let exec_entry = &run_config.command;
-            let command = create_cmd(exec_entry, runnable.dir.as_ref());
+            let (command, exec_entry) = if status.debug {
+                let exec_entry = run_config.command.extend(&run_config.debug);
+                (create_cmd(&exec_entry, runnable.dir.as_ref()), format!("{exec_entry}"))
+            } else {
+                (create_cmd(&run_config.command, runnable.dir.as_ref()), format!("{entry}", entry = &run_config.command))
+            };
 
-            (runnable.name.clone(), command, format!("{exec_entry}"))
+            (runnable.name.clone(), command, exec_entry)
         };
 
         server.update_service_status(&service_name, |status| {

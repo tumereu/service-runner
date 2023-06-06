@@ -103,7 +103,7 @@ fn process_action(server: &mut ServerState, action: Action) {
             });
         },
         Action::ToggleRunAll => {
-            let has_non_running = server.iter_services()
+            let new_run_state = server.iter_services()
                 .map(|service| {
                     server.get_service_status(&service.name).as_ref()
                         .map(|status| status.should_run)
@@ -111,7 +111,32 @@ fn process_action(server: &mut ServerState, action: Action) {
                 .any(|cond| !cond);
 
             server.update_all_statuses(|_, status| {
-                status.should_run = has_non_running;
+                status.should_run = new_run_state;
+            })
+        },
+        Action::ToggleDebug(service_name) => {
+            server.update_service_status(&service_name, |status| {
+                status.debug = !status.debug;
+                status.action = match status.action {
+                    ServiceAction::Recompile => ServiceAction::Recompile,
+                    _ => ServiceAction::Restart
+                }
+            });
+        },
+        Action::ToggleDebugAll => {
+            let new_debug_state = server.iter_services()
+                .map(|service| {
+                    server.get_service_status(&service.name).as_ref()
+                        .map(|status| status.debug)
+                }).flatten()
+                .any(|cond| !cond);
+
+            server.update_all_statuses(|_, status| {
+                status.debug = new_debug_state;
+                status.action = match status.action {
+                    ServiceAction::Recompile => ServiceAction::Recompile,
+                    _ => ServiceAction::Restart
+                }
             })
         },
         Action::TriggerPendingCompiles => {
