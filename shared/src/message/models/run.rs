@@ -6,11 +6,12 @@ use crate::config::{
     ScriptedRunConfig as ConfigScriptedRunConfig,
     HealthCheckConfig as ConfigHealthCheckConfig
 };
-use crate::message::models::{Dependency, ExecutableEntry};
+use crate::message::models::{Dependency, ExecutableEntry, PartialExecutableEntry};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RunConfig {
     pub command: ExecutableEntry,
+    pub debug: PartialExecutableEntry,
     pub dependencies: Vec<Dependency>,
     pub health_check: Option<HealthCheckConfig>,
 }
@@ -18,6 +19,7 @@ impl From<ConfigScriptedRunConfig> for RunConfig {
     fn from(value: ConfigScriptedRunConfig) -> Self {
         RunConfig {
             command: value.command.into(),
+            debug: value.debug.into(),
             dependencies: value.dependencies.into_iter().map(Into::into).collect(),
             health_check: value.health_check.map(Into::into),
         }

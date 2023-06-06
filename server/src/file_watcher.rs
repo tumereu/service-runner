@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::os::linux::raw::stat;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -7,7 +6,6 @@ use std::time::{Duration, Instant};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use shared::message::models::{AutoCompileMode, AutoCompileTrigger, ServiceAction};
 use shared::system_state::Status;
-use itertools::Itertools;
 use shared::dbg_println;
 use crate::server_state::{FileWatcherState, ServerState};
 
@@ -15,7 +13,7 @@ pub fn start_file_watcher(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle
     thread::spawn(move || {
         while server.lock().unwrap().get_state().status != Status::Exiting {
             let rebuild_watchers = {
-                let mut server = server.lock().unwrap();
+                let server = server.lock().unwrap();
                 match (server.get_profile_name(), &server.file_watchers) {
                     (None, None) => false,
                     (None, Some(_)) => true,
@@ -56,7 +54,7 @@ fn setup_watchers(server: Arc<Mutex<ServerState>>) {
             })
             .map(|(service_name, work_dir, watch_paths)| {
                 dbg_println!("Creating a watcher for service {service_name} with paths {watch_paths:?}");
-                let mut watcher = {
+                let watcher = {
                     let server = server.clone();
                     let service_name = service_name.clone();
                     notify::recommended_watcher(move |res| {

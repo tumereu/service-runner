@@ -57,6 +57,8 @@ pub struct ScriptedCompileConfig {
 pub struct ScriptedRunConfig {
     pub command: ExecutableEntry,
     #[serde(default)]
+    pub debug: PartialExecutableEntry,
+    #[serde(default)]
     pub dependencies: Vec<Dependency>,
     #[serde(default)]
     pub health_check: Option<HealthCheckConfig>,
@@ -117,6 +119,16 @@ pub struct ExecutableEntry {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(deny_unknown_fields)]
+pub struct PartialExecutableEntry {
+    pub executable: Option<String>,
+    #[serde(default)]
+    pub args: Option<Vec<String>>,
+    #[serde(default)]
+    pub env: Option<HashMap<String, String>>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

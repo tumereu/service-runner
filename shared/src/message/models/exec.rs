@@ -1,4 +1,4 @@
-use crate::config::ExecutableEntry as ConfigExecutableEntry;
+use crate::config::{ExecutableEntry as ConfigExecutableEntry, PartialExecutableEntry as ConfigPartialExecutableEntry};
 use crate::write_escaped_str;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -10,6 +10,17 @@ pub struct ExecutableEntry {
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
 }
+
+impl ExecutableEntry {
+    fn extend(self, other: PartialExecutableEntry) -> ExecutableEntry {
+        ExecutableEntry {
+            executable: other.executable.unwrap_or(self.executable),
+            args: other.args.unwrap_or(self.args),
+            env: other.env.unwrap_or(self.env),
+        }
+    }
+}
+
 impl From<ConfigExecutableEntry> for ExecutableEntry {
     fn from(value: ConfigExecutableEntry) -> Self {
         ExecutableEntry {
@@ -19,6 +30,7 @@ impl From<ConfigExecutableEntry> for ExecutableEntry {
         }
     }
 }
+
 impl Display for ExecutableEntry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.executable)?;
@@ -42,5 +54,21 @@ impl Display for ExecutableEntry {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PartialExecutableEntry {
+    pub executable: Option<String>,
+    pub args: Option<Vec<String>>,
+    pub env: Option<HashMap<String, String>>,
+}
+impl From<ConfigPartialExecutableEntry> for PartialExecutableEntry {
+    fn from(value: ConfigPartialExecutableEntry) -> Self {
+        PartialExecutableEntry {
+            executable: value.executable,
+            args: value.args,
+            env: value.env,
+        }
     }
 }

@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::net::TcpListener;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex, MutexGuard};

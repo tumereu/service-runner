@@ -1,4 +1,3 @@
-use std::os::linux::raw::stat;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -85,8 +84,7 @@ fn process_action(server: &mut ServerState, action: Action) {
                         | (_, AutoCompileMode::DISABLED) => AutoCompileMode::DISABLED,
                         | (AutoCompileMode::TRIGGERED, _)
                         | (_, AutoCompileMode::TRIGGERED) => AutoCompileMode::TRIGGERED,
-                        | (AutoCompileMode::AUTOMATIC, _)
-                        | (_, AutoCompileMode::AUTOMATIC) => AutoCompileMode::AUTOMATIC
+                        | (AutoCompileMode::AUTOMATIC, _) => AutoCompileMode::AUTOMATIC
                     }
                 });
             server.update_all_statuses(|_, status| {
