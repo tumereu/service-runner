@@ -23,7 +23,7 @@ impl From<ConfigAutoCompileConfig> for AutoCompileConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AutoCompileMode {
     AUTOMATIC,
-    TRIGGERED,
+    CUSTOM,
     DISABLED,
 }
 impl From<ConfigAutoCompileMode> for AutoCompileMode {
@@ -31,7 +31,7 @@ impl From<ConfigAutoCompileMode> for AutoCompileMode {
         match value {
             ConfigAutoCompileMode::AUTOMATIC => AutoCompileMode::AUTOMATIC,
             ConfigAutoCompileMode::DISABLED => AutoCompileMode::DISABLED,
-            ConfigAutoCompileMode::TRIGGERED => AutoCompileMode::TRIGGERED,
+            ConfigAutoCompileMode::CUSTOM => AutoCompileMode::CUSTOM,
         }
     }
 }

@@ -73,7 +73,7 @@ fn setup_watchers(server: Arc<Mutex<ServerState>>) {
                                             })
                                     },
                                     // For triggered compile we just mark the service as having changes
-                                    Some(AutoCompileMode::TRIGGERED) => {
+                                    Some(AutoCompileMode::CUSTOM) => {
                                         server.update_service_status(&service_name, |status| {
                                             status.has_uncompiled_changes = true;
                                         });

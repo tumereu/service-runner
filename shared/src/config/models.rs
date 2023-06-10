@@ -143,7 +143,7 @@ pub enum AutoCompileMode {
     #[serde(rename = "automatic")]
     AUTOMATIC,
     #[serde(rename = "triggered")]
-    TRIGGERED,
+    CUSTOM,
     #[serde(rename = "disabled")]
     DISABLED,
 }

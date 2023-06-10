@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::fmt::format;
+use std::rc::Rc;
 
 use tui::backend::Backend;
 use tui::layout::Rect;
@@ -24,12 +26,16 @@ pub struct Cell {
     pub padding_bottom: u16,
     pub min_width: u16,
     pub min_height: u16,
+    pub store_bounds: Option<Rc<RefCell<Rect>>>,
 }
 impl Cell {
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
     where
         B: Backend,
     {
+        if let Some(store_bounds) = self.store_bounds {
+            store_bounds.replace(rect);
+        }
         if self.border.is_some() || self.bg.is_some() {
             let mut block = Block::default();
             if let Some(bg) = self.bg {

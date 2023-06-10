@@ -58,8 +58,8 @@ fn process_action(server: &mut ServerState, action: Action) {
                 status.auto_compile = match status.auto_compile {
                     None => None,
                     Some(AutoCompileMode::AUTOMATIC) => Some(AutoCompileMode::DISABLED),
-                    Some(AutoCompileMode::DISABLED) => Some(AutoCompileMode::TRIGGERED),
-                    Some(AutoCompileMode::TRIGGERED) => {
+                    Some(AutoCompileMode::DISABLED) => Some(AutoCompileMode::CUSTOM),
+                    Some(AutoCompileMode::CUSTOM) => {
                         // When changing from triggered to automatic, if there were pending changes then we should also
                         // trigger compilation
                         if status.has_uncompiled_changes {
@@ -82,16 +82,16 @@ fn process_action(server: &mut ServerState, action: Action) {
                     match (left, right) {
                         | (AutoCompileMode::DISABLED, _)
                         | (_, AutoCompileMode::DISABLED) => AutoCompileMode::DISABLED,
-                        | (AutoCompileMode::TRIGGERED, _)
-                        | (_, AutoCompileMode::TRIGGERED) => AutoCompileMode::TRIGGERED,
+                        | (AutoCompileMode::CUSTOM, _)
+                        | (_, AutoCompileMode::CUSTOM) => AutoCompileMode::CUSTOM,
                         | (AutoCompileMode::AUTOMATIC, _) => AutoCompileMode::AUTOMATIC
                     }
                 });
             server.update_all_statuses(|_, status| {
                 status.auto_compile = status.auto_compile.as_ref().map(|_| {
                     match lowest_status {
-                        AutoCompileMode::DISABLED => AutoCompileMode::TRIGGERED,
-                        AutoCompileMode::TRIGGERED => AutoCompileMode::AUTOMATIC,
+                        AutoCompileMode::DISABLED => AutoCompileMode::CUSTOM,
+                        AutoCompileMode::CUSTOM => AutoCompileMode::AUTOMATIC,
                         AutoCompileMode::AUTOMATIC => AutoCompileMode::DISABLED
                     }
                 });

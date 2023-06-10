@@ -157,7 +157,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                                         Some(AutoCompileMode::AUTOMATIC) => {
                                             status.action = ServiceAction::Recompile;
                                         },
-                                        Some(AutoCompileMode::TRIGGERED) => {
+                                        Some(AutoCompileMode::CUSTOM) => {
                                             status.has_uncompiled_changes = true;
                                         },
                                         _ => {}

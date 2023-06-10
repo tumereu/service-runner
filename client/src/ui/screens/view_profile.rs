@@ -273,10 +273,10 @@ fn service_list(
                                         match &status.auto_compile {
                                             None => inactive_color.clone(),
                                             Some(AutoCompileMode::AUTOMATIC) => active_color.clone(),
-                                            Some(AutoCompileMode::TRIGGERED) if status.has_uncompiled_changes => {
+                                            Some(AutoCompileMode::CUSTOM) if status.has_uncompiled_changes => {
                                                 processing_color.clone()
                                             },
-                                            Some(AutoCompileMode::TRIGGERED) => secondary_active_color.clone(),
+                                            Some(AutoCompileMode::CUSTOM) => secondary_active_color.clone(),
                                             Some(AutoCompileMode::DISABLED) => inactive_color.clone(),
                                         }
                                     } else {
