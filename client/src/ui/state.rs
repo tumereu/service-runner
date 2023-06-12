@@ -19,6 +19,7 @@ impl UIState {
             wrap_output: false,
             output_pos_horiz: None,
             output_pos_vert: None,
+            floating_pane: None,
         })
     }
 }
@@ -35,5 +36,13 @@ pub struct ViewProfileState {
     pub service_selection: usize,
     pub wrap_output: bool,
     pub output_pos_vert: Option<u128>,
-    pub output_pos_horiz: Option<u64>
+    pub output_pos_horiz: Option<u64>,
+    pub floating_pane: Option<ViewProfileFloatingPane>,
+}
+
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub enum ViewProfileFloatingPane {
+    ServiceAutocompleteDetails {
+        detail_list_selection: usize
+    }
 }

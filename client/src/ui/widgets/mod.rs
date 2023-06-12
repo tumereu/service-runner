@@ -53,6 +53,14 @@ where
     root.into().render(frame.size(), frame);
 }
 
+pub fn render_at_pos<B, R>(element: R, pos: (u16, u16), frame: &mut Frame<B>)
+    where
+        B: Backend,
+        R: Into<Renderable>,
+{
+    element.into().render_at_pos(pos, frame);
+}
+
 #[derive(Debug)]
 pub enum Renderable {
     Flow(Flow),
@@ -86,5 +94,19 @@ impl Renderable {
             Renderable::Spinner(spinner) => spinner.measure(),
             Renderable::OutputDisplay(display) => display.measure(),
         }
+    }
+
+    pub fn render_at_pos<B>(self, pos: (u16, u16), frame: &mut Frame<B>)
+    where
+        B: Backend,
+    {
+        let size = self.measure();
+        let width = min(size.width, frame.size().width.saturating_sub(pos.0));
+        let height = min(size.width, frame.size().width.saturating_sub(pos.0));
+
+        self.render(
+            Rect::new(pos.0, pos.1, width, height),
+            frame
+        );
     }
 }

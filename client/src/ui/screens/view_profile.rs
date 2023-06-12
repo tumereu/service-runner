@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -5,19 +6,21 @@ use std::fmt::format;
 use std::hash::{Hash, Hasher};
 use std::iter;
 use std::ops::Index;
+use std::rc::Rc;
 use once_cell::sync::Lazy;
 
 use tui::backend::Backend;
 use tui::style::Color;
 use tui::Frame;
+use tui::layout::Rect;
 
 use shared::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
 use shared::utils::get_active_outputs;
 
 use crate::client_state::ClientState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
-use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart};
-use crate::ui::UIState;
+use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, Renderable, render_at_pos};
+use crate::ui::{UIState, ViewProfileFloatingPane};
 
 const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     vec![
@@ -41,14 +44,15 @@ pub fn render_view_profile<B>(frame: &mut Frame<B>, state: &ClientState)
 where
     B: Backend,
 {
-    let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert) = match &state.ui {
+    let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) = match &state.ui {
         &UIState::ViewProfile(ViewProfileState {
             active_pane,
             service_selection,
             wrap_output,
             output_pos_horiz,
-            output_pos_vert
-        }) => (active_pane, service_selection, wrap_output, output_pos_horiz, output_pos_vert),
+            output_pos_vert,
+            floating_pane,
+        }) => (active_pane, service_selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane),
         any @ _ => panic!("Invalid UI state in render_view_profile: {any:?}"),
     };
 
@@ -70,6 +74,7 @@ where
 
     if let (Some(profile), Some(service_statuses)) = (profile, service_statuses) {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
+        let (service_list, selected_service_bounds) = service_list(profile, service_selection, service_statuses);
 
         render_root(
             Flow {
@@ -87,8 +92,7 @@ where
                             .into(),
                         min_width: side_panel_width,
                         align_horiz: Align::Stretch,
-                        element: service_list(profile, service_selection, service_statuses)
-                            .into_el(),
+                        element: service_list.into_el(),
                         ..Default::default()
                     },
                     // Output pane
@@ -126,6 +130,25 @@ where
             },
             frame,
         );
+
+        match floating_pane {
+            Some(ViewProfileFloatingPane::ServiceAutocompleteDetails { detail_list_selection }) => {
+                let selected_service_bounds = selected_service_bounds.borrow();
+                render_at_pos(
+                    Cell {
+                        border: (active_border_color, String::from("Autocomplete Details")).into(),
+                        ..Default::default()
+                    },
+                    // Render the floating pane after the selected service but on the same level
+                    (
+                        selected_service_bounds.x + selected_service_bounds.width,
+                        selected_service_bounds.y,
+                    ),
+                    frame,
+                );
+            },
+            _ => {}
+        }
     }
 }
 
@@ -133,21 +156,22 @@ fn service_list(
     profile: &Profile,
     selection: Option<usize>,
     service_statuses: &HashMap<String, ServiceStatus>,
-) -> List {
+) -> (List, Rc<RefCell<Rect>>) {
     // TODO Theme?
     let active_color = Color::Rgb(0, 140, 0);
     let secondary_active_color = Color::Rgb(0, 40, 180);
     let processing_color = Color::Rgb(230, 180, 0);
     let error_color = Color::Rgb(180, 0, 0);
     let inactive_color = Color::Gray;
+    let selected_service_bounds = Rc::new(RefCell::new(Rect::new(0, 0, 0, 0)));
 
-    List {
+    let list = List {
         selection: selection.unwrap_or(usize::MAX),
         items: profile
             .services
             .iter()
             .enumerate()
-            .map(|(_index, service)| {
+            .map(|(index, service)| {
                 let status = service_statuses.get(&service.name);
                 let show_output = status.map(|it| it.show_output).unwrap_or(false);
                 let is_processing = status
@@ -161,6 +185,11 @@ fn service_list(
 
                 Cell {
                     align_horiz: Align::Stretch,
+                    store_bounds: if index == selection.unwrap_or(usize::MAX) {
+                        Some(selected_service_bounds.clone())
+                    } else {
+                        None
+                    },
                     element: Flow {
                         direction: Dir::LeftRight,
                         cells: vec![
@@ -305,7 +334,9 @@ fn service_list(
             })
             .collect(),
         ..Default::default()
-    }
+    };
+
+    (list, selected_service_bounds)
 }
 
 fn output_pane(

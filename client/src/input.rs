@@ -10,7 +10,7 @@ use shared::message::Action;
 use shared::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleDebug, ToggleDebugAll, ToggleOutput, ToggleOutputAll, ToggleRun, ToggleRunAll, TriggerPendingCompiles, UpdateAllServiceActions, UpdateServiceAction};
 use shared::utils::get_active_outputs;
 
-use crate::ui::{UIState, ViewProfilePane, ViewProfileState};
+use crate::ui::{UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 use crate::{ClientState, ClientStatus};
 
 pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
@@ -53,21 +53,34 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 KeyCode::Char('c') => {
                     process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Recompile));
                 },
-                // Cycling autocompile
+
+                // Controlling autocompile
+                KeyCode::Char('a') if shift && ctrl => {
+                    process_autocomplete_details(client, true);
+                },
+                KeyCode::Char('a') if ctrl => {
+                    process_autocomplete_details(client, false);
+                },
                 KeyCode::Char('a') if shift => {
                     process_global_action(client, CycleAutoCompileAll);
                 },
                 KeyCode::Char('a') => {
                     process_service_action(client, |service| CycleAutoCompile(service));
                 }
-                // Toggling should_run
+
+                // Toggling should-run
                 KeyCode::Char('r') if shift => {
                     process_global_action(client, ToggleRunAll);
                 },
                 KeyCode::Char('r') => {
                     process_service_action(client, |service| ToggleRun(service));
                 }
-                // Toggling debuggin
+                // Detaching from a running service?
+                KeyCode::Char('d') if ctrl && !shift => {
+                    let mut client = client.lock().unwrap();
+                    client.status = ClientStatus::Exiting;
+                }
+                // Toggling debugging
                 KeyCode::Char('d') if shift => {
                     process_global_action(client, ToggleDebugAll);
                 },
@@ -86,10 +99,6 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
                 KeyCode::Char('q') if ctrl => {
                     let mut client = client.lock().unwrap();
                     client.actions_out.push_back(Action::Shutdown);
-                }
-                KeyCode::Char('d') if ctrl => {
-                    let mut client = client.lock().unwrap();
-                    client.status = ClientStatus::Exiting;
                 }
                 // Triggering pending compiles. This can be used even if the focus is on the output window
                 KeyCode::Char('t') => process_global_action(client, TriggerPendingCompiles),
@@ -111,6 +120,21 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn process_autocomplete_details(client: Arc<Mutex<ClientState>>, all: bool) {
+    let mut client = client.lock().unwrap();
+    match &mut client.ui {
+        UIState::ViewProfile(view_profile) if view_profile.active_pane == ViewProfilePane::ServiceList => {
+            match view_profile.floating_pane {
+                Some(ViewProfileFloatingPane::ServiceAutocompleteDetails { .. }) => view_profile.floating_pane = None,
+                _ => view_profile.floating_pane = ViewProfileFloatingPane::ServiceAutocompleteDetails {
+                    detail_list_selection: 0
+                }.into()
+            }
+        },
+        _ => {}
+    }
 }
 
 fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: bool) {
