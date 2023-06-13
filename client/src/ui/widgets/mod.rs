@@ -10,10 +10,12 @@ pub use list::*;
 pub use spinner::*;
 pub use text::*;
 pub use output_display::*;
+pub use toggle::*;
 
 mod cell;
 mod flow;
 mod list;
+mod toggle;
 mod spinner;
 mod text;
 mod output_display;
@@ -66,6 +68,7 @@ pub enum Renderable {
     Flow(Flow),
     Cell(Cell),
     List(List),
+    Toggle(Toggle),
     Text(Text),
     Spinner(Spinner),
     OutputDisplay(OutputDisplay),
@@ -79,6 +82,7 @@ impl Renderable {
             Renderable::Flow(flow) => flow.render(rect, frame),
             Renderable::Cell(cell) => cell.render(rect, frame),
             Renderable::List(list) => list.render(rect, frame),
+            Renderable::Toggle(toggle) => toggle.render(rect, frame),
             Renderable::Text(text) => text.render(rect, frame),
             Renderable::Spinner(spinner) => spinner.render(rect, frame),
             Renderable::OutputDisplay(display) => display.render(rect, frame),
@@ -90,6 +94,7 @@ impl Renderable {
             Renderable::Flow(flow) => flow.measure(),
             Renderable::Cell(cell) => cell.measure(),
             Renderable::List(list) => list.measure(),
+            Renderable::Toggle(toggle) => toggle.measure(),
             Renderable::Text(text) => text.measure(),
             Renderable::Spinner(spinner) => spinner.measure(),
             Renderable::OutputDisplay(display) => display.measure(),

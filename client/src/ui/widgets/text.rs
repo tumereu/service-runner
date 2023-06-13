@@ -20,6 +20,8 @@ impl Text {
         let mut style = Style::default();
         if let Some(fg) = self.fg {
             style = style.fg(fg);
+        } else {
+            style = style.fg(Color::Reset);
         }
 
         frame.render_widget(Paragraph::new(Span::styled(self.text.clone(), style)), rect);

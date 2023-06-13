@@ -40,6 +40,8 @@ impl Cell {
             let mut block = Block::default();
             if let Some(bg) = self.bg {
                 block = block.style(Style::default().bg(bg));
+            } else {
+                block = block.style(Style::default().bg(Color::Reset))
             }
             if let Some((color, title)) = &self.border {
                 block = block

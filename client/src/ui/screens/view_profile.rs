@@ -19,7 +19,7 @@ use shared::utils::get_active_outputs;
 
 use crate::client_state::ClientState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
-use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, Renderable, render_at_pos};
+use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, Renderable, render_at_pos, Toggle};
 use crate::ui::{UIState, ViewProfileFloatingPane};
 
 const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
@@ -137,6 +137,22 @@ where
                 render_at_pos(
                     Cell {
                         border: (active_border_color, String::from("Autocomplete Details")).into(),
+                        element: Flow {
+                            cells: vec![
+                                Cell {
+                                    element: Toggle {
+                                        options: vec![
+                                            String::from("Automatic"),
+                                            String::from("Disabled"),
+                                            String::from("Custom"),
+                                        ],
+                                        selection: 0
+                                    }.into_el(),
+                                    ..Default::default()
+                                }
+                            ],
+                            ..Default::default()
+                        }.into_el(),
                         ..Default::default()
                     },
                     // Render the floating pane after the selected service but on the same level
