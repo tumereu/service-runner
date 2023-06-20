@@ -31,6 +31,7 @@ pub enum Service {
         dir: String,
         compile: Option<ScriptedCompileConfig>,
         run: Option<ScriptedRunConfig>,
+        #[serde(default = "Vec::new")]
         reset: Vec<ExecutableEntry>,
         autocompile: Option<AutoCompileConfig>,
     },
