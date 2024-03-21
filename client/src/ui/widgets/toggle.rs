@@ -1,8 +1,8 @@
 use std::cmp::max;
-use tui::backend::Backend;
-use tui::Frame;
-use tui::layout::Rect;
-use tui::style::Color;
+use ratatui::backend::Backend;
+use ratatui::Frame;
+use ratatui::layout::Rect;
+use ratatui::style::Color;
 use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 
 #[derive(Debug, Default)]
@@ -11,9 +11,7 @@ pub struct Toggle {
     pub selection: usize,
 }
 impl Toggle {
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
-        where
-            B: Backend,
+    pub fn render(self, rect: Rect, frame: &mut Frame)
     {
         let items: Vec<Cell> = self
             .options

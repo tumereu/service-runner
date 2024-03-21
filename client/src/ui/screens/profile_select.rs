@@ -1,14 +1,12 @@
-use tui::backend::Backend;
-use tui::Frame;
-use tui::style::Color;
+use ratatui::backend::Backend;
+use ratatui::Frame;
+use ratatui::style::Color;
 
 use crate::client_state::ClientState;
 use crate::ui::widgets::{render_root, Align, Cell, IntoCell, List};
 use crate::ui::UIState;
 
-pub fn render_profile_select<B>(frame: &mut Frame<B>, state: &ClientState)
-where
-    B: Backend,
+pub fn render_profile_select(frame: &mut Frame, state: &ClientState)
 {
     let selected_idx = match &state.ui {
         UIState::ProfileSelect { selected_idx } => selected_idx,

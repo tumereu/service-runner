@@ -9,10 +9,10 @@ use std::ops::Index;
 use std::rc::Rc;
 use once_cell::sync::Lazy;
 
-use tui::backend::Backend;
-use tui::style::Color;
-use tui::Frame;
-use tui::layout::Rect;
+use ratatui::backend::Backend;
+use ratatui::style::Color;
+use ratatui::Frame;
+use ratatui::layout::Rect;
 
 use shared::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
 use shared::utils::get_active_outputs;
@@ -40,9 +40,7 @@ const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     ]
 });
 
-pub fn render_view_profile<B>(frame: &mut Frame<B>, state: &ClientState)
-where
-    B: Backend,
+pub fn render_view_profile(frame: &mut Frame, state: &ClientState)
 {
     let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) = match &state.ui {
         &UIState::ViewProfile(ViewProfileState {

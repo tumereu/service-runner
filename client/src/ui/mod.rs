@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
-use tui::backend::Backend;
-use tui::Terminal;
+use ratatui::backend::Backend;
+use ratatui::Terminal;
 
 use screens::*;
 pub use state::{UIState, ViewProfilePane, ViewProfileState, ViewProfileFloatingPane};

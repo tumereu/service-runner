@@ -3,12 +3,12 @@ use std::cmp::{max, min};
 use std::fmt::format;
 use std::rc::Rc;
 
-use tui::backend::Backend;
-use tui::layout::Rect;
-use tui::style::{Color, Style};
-use tui::text::Spans;
-use tui::widgets::{Block, Borders};
-use tui::Frame;
+use ratatui::backend::Backend;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Style};
+use ratatui::text::Span;
+use ratatui::widgets::{Block, Borders};
+use ratatui::Frame;
 
 use crate::ui::widgets::{Renderable, Size};
 
@@ -29,9 +29,7 @@ pub struct Cell {
     pub store_bounds: Option<Rc<RefCell<Rect>>>,
 }
 impl Cell {
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
-    where
-        B: Backend,
+    pub fn render(self, rect: Rect, frame: &mut Frame)
     {
         if let Some(store_bounds) = self.store_bounds {
             store_bounds.replace(rect);
@@ -47,7 +45,7 @@ impl Cell {
                 block = block
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(color.clone()))
-                    .title(Spans::from(title.to_string()));
+                    .title(Span::from(title.to_string()));
             }
             frame.render_widget(block, rect);
         }

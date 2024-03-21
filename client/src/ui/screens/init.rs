@@ -1,20 +1,10 @@
-use tui::backend::Backend;
-use tui::text::Spans;
-use tui::widgets::Paragraph;
-use tui::Frame;
+use ratatui::backend::Backend;
+use ratatui::Frame;
 
 use crate::client_state::ClientState;
 
-pub fn render_init<B>(frame: &mut Frame<B>, _state: &ClientState)
-where
-    B: Backend,
+pub fn render_init(frame: &mut Frame, _state: &ClientState)
 {
     let size = frame.size();
-    frame.render_widget(
-        Paragraph::new(vec![
-            Spans::from("Establishing connection to server"),
-            Spans::from("Please wait"),
-        ]),
-        size,
-    )
+    // TODO render a loading screen?
 }

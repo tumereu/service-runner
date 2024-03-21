@@ -1,11 +1,11 @@
 use std::fmt::{Debug, Formatter};
 use std::iter;
 use std::path::Path;
-use tui::backend::Backend;
-use tui::Frame;
-use tui::layout::Rect;
-use tui::style::Color;
-use tui::widgets::canvas::Line;
+use ratatui::backend::Backend;
+use ratatui::Frame;
+use ratatui::layout::Rect;
+use ratatui::style::Color;
+use ratatui::widgets::canvas::Line;
 use unicode_segmentation::UnicodeSegmentation;
 use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 
@@ -16,9 +16,7 @@ pub struct OutputDisplay {
     pub wrap: bool
 }
 impl OutputDisplay {
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
-        where B: Backend,
-    {
+    pub fn render(self, rect: Rect, frame: &mut Frame) {
         let mut lines: Vec<Vec<LinePart>> = self.lines.into_iter()
             .flat_map(|line| {
                 if self.wrap {

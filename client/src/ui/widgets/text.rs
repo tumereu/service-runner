@@ -1,9 +1,9 @@
-use tui::backend::Backend;
-use tui::layout::Rect;
-use tui::style::{Color, Style};
-use tui::text::Span;
-use tui::widgets::Paragraph;
-use tui::Frame;
+use ratatui::backend::Backend;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Style};
+use ratatui::text::Span;
+use ratatui::widgets::Paragraph;
+use ratatui::Frame;
 
 use crate::ui::widgets::{Renderable, Size};
 
@@ -13,9 +13,7 @@ pub struct Text {
     pub fg: Option<Color>,
 }
 impl Text {
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
-    where
-        B: Backend,
+    pub fn render(self, rect: Rect, frame: &mut Frame)
     {
         let mut style = Style::default();
         if let Some(fg) = self.fg {
