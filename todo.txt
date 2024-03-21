@@ -16,3 +16,6 @@
 - very long lines in output, if wrapping, will spill to the left side on the next line?
 - dump output to file -feature. Allow choosing which services, categories and how many lines or all.
 - Colorize/parse output based on regex rules to denote log levels?
+- log files for server and client. Remove all unwraps, log error instead.
+- Take ratatui and a tui-realm library into use?
+- (req: tui-realm): hideable charts at the top for CPU, memory, network usage?
