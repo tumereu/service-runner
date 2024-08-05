@@ -9,10 +9,9 @@ use crossterm::{
 use tui::{backend::CrosstermBackend, Terminal};
 
 use model::config::read_config;
-use utils::dbg_println;
+use log::{debug, info, LevelFilter};
 
 use crate::client_state::{ClientState, ClientStatus};
-use crate::connection::{connect_to_server, start_broadcast_processor};
 use crate::input::process_inputs;
 use crate::model::system_state::Status;
 use crate::runner::action_processor::start_action_processor;
@@ -22,14 +21,14 @@ use crate::runner::server_state::ServerState;
 use crate::runner::service_worker::start_service_worker;
 
 mod client_state;
-mod connection;
 mod input;
 mod ui;
 mod model;
 mod runner;
-pub mod utils;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    simple_logging::log_to_file("service_runner.log", LevelFilter::Debug)?;
+
     let config_dir: String = env::args()
         .collect::<Vec<String>>()
         .get(1)
@@ -40,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let num_profiles = state.lock().unwrap().config.profiles.len();
     let num_services = state.lock().unwrap().config.services.len();
 
-    dbg_println!(
+    info!(
         "Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)"
     );
 
@@ -53,8 +52,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     render(&mut terminal, state.clone())?;
-    let broadcast_thread = start_broadcast_processor(state.clone());
-    let stream_thread = connect_to_server(state.clone())?;
 
     let server = Arc::new(Mutex::new(ServerState::new()));
 
@@ -97,10 +94,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                         let thread_count = server.active_threads.len();
                         let threads = server.active_threads.iter()
-                            .map(|(name, _)| name)
+                            .map(|(name, _)| name.clone())
+                            .collect::<Vec<String>>()
                             .join(", ");
 
-                        dbg_println!("{status}. Active threads ({thread_count} total): {threads}");
+                        debug!("{status}. Active threads ({thread_count} total): {threads}");
                         last_print = Instant::now();
                     }
                 }
@@ -113,11 +111,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     loop {
         process_inputs(state.clone())?;
         render(&mut terminal, state.clone())?;
-
-        if stream_thread.is_finished() {
-            dbg_println!("Connection thread finished, marking client for exit");
-            state.lock().unwrap().status = ClientStatus::Exiting;
-        }
 
         if state.lock().unwrap().status == ClientStatus::Exiting {
             break;
@@ -136,9 +129,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         LeaveAlternateScreen,
     )?;
     terminal.show_cursor()?;
-
-    stream_thread.join().ok();
-    broadcast_thread.join().ok();
 
     Ok(())
 }

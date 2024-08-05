@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use shared::format_err;
-use shared::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger, AutoCompileMode};
+use crate::model::format_err;
+use crate::model::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger, AutoCompileMode};
 
 use crate::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::ServerState;

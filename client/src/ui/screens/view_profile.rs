@@ -14,8 +14,8 @@ use tui::style::Color;
 use tui::Frame;
 use tui::layout::Rect;
 
-use shared::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
-use shared::utils::get_active_outputs;
+use crate::model::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
+use crate::utils::get_active_outputs;
 
 use crate::client_state::ClientState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};

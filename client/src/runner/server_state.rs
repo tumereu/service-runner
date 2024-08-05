@@ -3,9 +3,9 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 use notify::RecommendedWatcher;
 
-use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
-use shared::message::{Action, Broadcast};
-use shared::system_state::SystemState;
+use crate::model::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
+use crate::model::message::{Action, Broadcast};
+use crate::model::system_state::SystemState;
 
 pub struct ServerState {
     pub created: Instant,

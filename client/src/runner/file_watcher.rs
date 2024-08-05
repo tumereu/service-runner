@@ -3,11 +3,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+use log::{debug, error, info};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use shared::message::models::{AutoCompileMode, AutoCompileTrigger, ServiceAction};
-use shared::system_state::Status;
-use shared::dbg_println;
-use crate::server_state::{FileWatcherState, ServerState};
+use crate::model::message::models::{AutoCompileMode, AutoCompileTrigger, ServiceAction};
+use crate::model::system_state::Status;
+use crate::runner::server_state::{FileWatcherState, ServerState};
 
 pub fn start_file_watcher(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
@@ -22,7 +22,7 @@ pub fn start_file_watcher(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle
                 }
             };
             if rebuild_watchers {
-                dbg_println!("Rebuilding file watchers due to a change in profile");
+                info!("Rebuilding file watchers due to a change in profile");
                 setup_watchers(server.clone());
             }
 
@@ -53,14 +53,14 @@ fn setup_watchers(server: Arc<Mutex<ServerState>>) {
                     })
             })
             .map(|(service_name, work_dir, watch_paths)| {
-                dbg_println!("Creating a watcher for service {service_name} with paths {watch_paths:?}");
+                info!("Creating a watcher for service {service_name} with paths {watch_paths:?}");
                 let watcher = {
                     let server = server.clone();
                     let service_name = service_name.clone();
                     notify::recommended_watcher(move |res| {
                         match res {
                             Ok(event) => {
-                                dbg_println!("Received filesystem event for service {service_name}: {event:?}");
+                                debug!("Received filesystem event for service {service_name}: {event:?}");
                                 let mut server = server.lock().unwrap();
                                 match server.get_service_status(&service_name).map(|status| status.auto_compile.clone()).flatten() {
                                     // For automatic compile, add the server into the events so that the recompile can
@@ -81,7 +81,7 @@ fn setup_watchers(server: Arc<Mutex<ServerState>>) {
                                     _ => {}
                                 }
                             }
-                            Err(err) => dbg_println!("Error in file watcher for service {service_name}: {err:?}"),
+                            Err(err) => error!("Error in file watcher for service {service_name}: {err:?}"),
                         }
                     })
                 };
@@ -98,7 +98,7 @@ fn setup_watchers(server: Arc<Mutex<ServerState>>) {
 
                         let watch_result = watcher.watch(&watch_path, RecursiveMode::Recursive);
                         if watch_result.is_err() {
-                            dbg_println!(
+                            error!(
                                 "Failure when trying to watch path {watch_path:?} for service {service_name}: {watch_result:?}"
                             );
                             successful = false;
@@ -112,7 +112,7 @@ fn setup_watchers(server: Arc<Mutex<ServerState>>) {
                         None
                     }
                 } else {
-                    dbg_println!("Failed to create a file watcher for {service_name}: {watcher:?}");
+                    error!("Failed to create a file watcher for {service_name}: {watcher:?}");
                     None
                 }
             }).flatten()

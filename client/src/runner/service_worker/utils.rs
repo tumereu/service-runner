@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::{io, thread};
 use std::ops::Neg;
 use std::time::{Duration, Instant};
+use log::{error, info};
 use nix::libc::stat;
-use create::utils::dbg_println;
 
 use crate::model::message::models::{ExecutableEntry, OutputKey, OutputKind};
 use crate::model::message::Broadcast;
@@ -175,9 +175,9 @@ where
         let mut handle = handle.lock().unwrap();
 
         fn signal_and_wait(handle: &mut MutexGuard<Child>, signal: Signal, timeout: Duration) {
-            dbg_println!("Sending {signal} to process group {pid}", pid = handle.id());
+            info!("Sending {signal} to process group {pid}", pid = handle.id());
             if let Err(err) = signal::kill(Pid::from_raw((handle.id() as i32).neg()), signal) {
-                dbg_println!("Failed to send {signal} to process: {err:?}")
+                error!("Failed to send {signal} to process: {err:?}")
             } else {
                 let signal_sent = Instant::now();
 
@@ -213,7 +213,7 @@ where
         // The process really should not be running anymore. But as a fallback, we use the kill()
         // function for handles
         if handle.try_wait().unwrap_or(None).is_none() {
-            dbg_println!("Terminating process {pid} forcefully", pid = handle.id());
+            info!("Terminating process {pid} forcefully", pid = handle.id());
             handle.kill().unwrap_or(());
         }
         // Obtain exit status and invoke callback

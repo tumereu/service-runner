@@ -8,10 +8,10 @@ use nix::libc::time;
 use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
 
-use shared::format_err;
-use shared::message::models::{CompileStatus, HealthCheck, HealthCheckConfig, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
+use crate::utils::format_err;
+use crate::model::message::models::{CompileStatus, HealthCheck, HealthCheckConfig, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
 
-use crate::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
+use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::ServerState;
 
 pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {

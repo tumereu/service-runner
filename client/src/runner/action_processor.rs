@@ -2,9 +2,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use shared::message::models::{AutoCompileMode, ServiceAction, ServiceStatus};
-use shared::message::Action;
-use shared::system_state::Status;
+use crate::model::message::models::{AutoCompileMode, ServiceAction, ServiceStatus};
+use crate::model::message::Action;
+use crate::model::system_state::Status;
 
 use crate::server_state::ServerState;
 

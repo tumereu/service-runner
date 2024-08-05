@@ -5,10 +5,10 @@ use std::time::Duration;
 
 use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode, KeyModifiers};
 
-use shared::message::models::{Profile, ServiceAction};
-use shared::message::Action;
-use shared::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleDebug, ToggleDebugAll, ToggleOutput, ToggleOutputAll, ToggleRun, ToggleRunAll, TriggerPendingCompiles, UpdateAllServiceActions, UpdateServiceAction};
-use shared::utils::get_active_outputs;
+use crate::model::message::models::{Profile, ServiceAction};
+use crate::model::message::Action;
+use crate::model::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleDebug, ToggleDebugAll, ToggleOutput, ToggleOutputAll, ToggleRun, ToggleRunAll, TriggerPendingCompiles, UpdateAllServiceActions, UpdateServiceAction};
+use crate::utils::get_active_outputs;
 
 use crate::ui::{UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 use crate::{ClientState, ClientStatus};

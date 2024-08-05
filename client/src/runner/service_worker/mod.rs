@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use shared::system_state::Status;
+use crate::model::system_state::Status;
 
 use crate::server_state::ServerState;
 
