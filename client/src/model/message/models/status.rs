@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::message::models::ServiceAction::Recompile;
-use crate::message::models::{AutoCompileMode, Profile, Service};
+use crate::model::message::models::ServiceAction::Recompile;
+use crate::model::message::models::{AutoCompileMode, Profile, Service};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServiceStatus {

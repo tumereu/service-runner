@@ -6,7 +6,7 @@ use crate::model::message::models::{AutoCompileMode, ServiceAction, ServiceStatu
 use crate::model::message::Action;
 use crate::model::system_state::Status;
 
-use crate::server_state::ServerState;
+use crate::runner::server_state::ServerState;
 
 pub fn start_action_processor(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {

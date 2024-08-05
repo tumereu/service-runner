@@ -1,12 +1,12 @@
 use std::convert::Into;
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 
-use crate::config::{
+use crate::model::config::{
     HealthCheck as ConfigHealthCheck, HttpMethod as ConfigHttpMethod,
     ScriptedRunConfig as ConfigScriptedRunConfig,
     HealthCheckConfig as ConfigHealthCheckConfig
 };
-use crate::message::models::{Dependency, ExecutableEntry, PartialExecutableEntry};
+use crate::model::message::models::{Dependency, ExecutableEntry, PartialExecutableEntry};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RunConfig {

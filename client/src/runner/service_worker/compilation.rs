@@ -1,11 +1,10 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use crate::model::format_err;
 use crate::model::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger, AutoCompileMode};
-
-use crate::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
+use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::ServerState;
+use crate::utils::format_err;
 
 pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     let (mut command, service_name, index) = {

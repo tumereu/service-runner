@@ -25,6 +25,7 @@ mod input;
 mod ui;
 mod model;
 mod runner;
+mod utils;
 
 fn main() -> Result<(), Box<dyn Error>> {
     simple_logging::log_to_file("service_runner.log", LevelFilter::Debug)?;

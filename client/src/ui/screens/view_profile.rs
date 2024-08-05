@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::fmt::format;
 use std::hash::{Hash, Hasher};
 use std::iter;
-use std::ops::Index;
 use std::rc::Rc;
 use once_cell::sync::Lazy;
 
@@ -14,8 +13,7 @@ use tui::style::Color;
 use tui::Frame;
 use tui::layout::Rect;
 
-use crate::model::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
-use crate::utils::get_active_outputs;
+use crate::model::message::models::{AutoCompileMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
 
 use crate::client_state::ClientState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};

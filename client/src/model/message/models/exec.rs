@@ -1,8 +1,8 @@
-use crate::config::{ExecutableEntry as ConfigExecutableEntry, PartialExecutableEntry as ConfigPartialExecutableEntry};
-use crate::write_escaped_str;
+use crate::model::config::{ExecutableEntry as ConfigExecutableEntry, PartialExecutableEntry as ConfigPartialExecutableEntry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use crate::utils::write_escaped_str;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExecutableEntry {

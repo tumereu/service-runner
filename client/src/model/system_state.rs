@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 
-use crate::message::models::{Profile, ServiceStatus};
+use crate::model::message::models::{Profile, ServiceStatus};
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct SystemState {

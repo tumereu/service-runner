@@ -1,8 +1,8 @@
 use std::convert::Into;
 use serde::{Deserialize, Serialize};
 
-use crate::config::ScriptedCompileConfig as ConfigScriptedCompileConfig;
-use crate::message::models::{Dependency, ExecutableEntry};
+use crate::model::config::ScriptedCompileConfig as ConfigScriptedCompileConfig;
+use crate::model::message::models::{Dependency, ExecutableEntry};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompileConfig {

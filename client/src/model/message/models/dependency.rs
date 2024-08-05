@@ -1,7 +1,7 @@
 use std::convert::Into;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{Dependency as ConfigDependency, RequiredState as ConfigRequiredState};
+use crate::model::config::{Dependency as ConfigDependency, RequiredState as ConfigRequiredState};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Dependency {

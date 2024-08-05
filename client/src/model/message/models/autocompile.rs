@@ -1,7 +1,7 @@
 use std::convert::Into;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{
+use crate::model::config::{
     AutoCompileConfig as ConfigAutoCompileConfig, AutoCompileMode as ConfigAutoCompileMode,
     AutoCompileTrigger as ConfigAutoCompileTrigger,
 };

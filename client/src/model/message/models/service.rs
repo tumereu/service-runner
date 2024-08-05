@@ -1,8 +1,8 @@
 use std::convert::Into;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Service as ConfigService;
-use crate::message::models::{AutoCompileConfig, CompileConfig, ExecutableEntry, RunConfig};
+use crate::model::config::Service as ConfigService;
+use crate::model::message::models::{AutoCompileConfig, CompileConfig, ExecutableEntry, RunConfig};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {

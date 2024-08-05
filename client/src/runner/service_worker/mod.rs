@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::model::system_state::Status;
 
-use crate::server_state::ServerState;
+use crate::runner::server_state::ServerState;
 
 mod compilation;
 mod run;

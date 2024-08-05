@@ -7,7 +7,7 @@ use Vec;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
-use crate::config::models::{Config, Profile, ServerConfig, Service};
+use crate::model::config::models::{Config, Profile, ServerConfig, Service};
 
 #[derive(Deserialize, Debug)]
 pub struct MainConfig {
