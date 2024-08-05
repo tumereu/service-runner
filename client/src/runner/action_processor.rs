@@ -1,8 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use itertools::Itertools;
-use shared::config::AutoCompileMode::AUTOMATIC;
 
 use shared::message::models::{AutoCompileMode, ServiceAction, ServiceStatus};
 use shared::message::Action;

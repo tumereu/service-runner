@@ -3,7 +3,7 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 use notify::RecommendedWatcher;
 
-use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, Profile, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
+use shared::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
 use shared::message::{Action, Broadcast};
 use shared::system_state::SystemState;
 
