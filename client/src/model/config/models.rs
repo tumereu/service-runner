@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use Vec;
 
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use serde_aux::field_attributes::bool_true;
 
 #[derive(Debug, Clone)]
@@ -22,7 +22,7 @@ pub struct ServerConfig {
     pub executable: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", deny_unknown_fields)]
 pub enum Service {
     #[serde(rename = "scripted")]
@@ -45,7 +45,7 @@ impl Service {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ScriptedCompileConfig {
     pub commands: Vec<ExecutableEntry>,
@@ -53,7 +53,7 @@ pub struct ScriptedCompileConfig {
     pub dependencies: Vec<Dependency>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ScriptedRunConfig {
     pub command: ExecutableEntry,
@@ -65,14 +65,14 @@ pub struct ScriptedRunConfig {
     pub health_check: Option<HealthCheckConfig>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Dependency {
     pub service: String,
     pub require: RequiredState,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub enum RequiredState {
     #[serde(rename = "compiled")]
@@ -81,14 +81,14 @@ pub enum RequiredState {
     Running,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct HealthCheckConfig {
     pub timeout_millis: u64,
     pub checks: Vec<HealthCheck>
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", deny_unknown_fields)]
 pub enum HealthCheck {
     #[serde(rename = "http")]
@@ -102,7 +102,7 @@ pub enum HealthCheck {
     Port { port: u16 },
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum HttpMethod {
     GET,
     POST,
@@ -112,7 +112,7 @@ pub enum HttpMethod {
     OPTIONS,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ExecutableEntry {
     pub executable: String,
@@ -122,7 +122,7 @@ pub struct ExecutableEntry {
     pub env: HashMap<String, String>,
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct PartialExecutableEntry {
     pub executable: Option<String>,
@@ -132,14 +132,14 @@ pub struct PartialExecutableEntry {
     pub env: Option<HashMap<String, String>>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct AutoCompileConfig {
     pub mode: AutoCompileMode,
     pub triggers: Vec<AutoCompileTrigger>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AutoCompileMode {
     #[serde(rename = "automatic")]
     AUTOMATIC,
@@ -149,7 +149,7 @@ pub enum AutoCompileMode {
     DISABLED,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", deny_unknown_fields)]
 pub enum AutoCompileTrigger {
     #[serde(rename = "recompiled-service")]
@@ -158,7 +158,7 @@ pub enum AutoCompileTrigger {
     ModifiedFile { paths: Vec<String> },
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
     pub name: String,
@@ -172,7 +172,7 @@ impl Profile {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ServiceRef {
     pub name: String,

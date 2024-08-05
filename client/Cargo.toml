@@ -21,6 +21,7 @@ unicode-segmentation = "1.10.1"
 serde = "1.0.204"
 serde-aux = "4.5.0"
 serde_derive = "1.0.204"
+serde_path_to_error = "0.1.16"
 toml = "0.8.19"
 
 log = "0.4.22"

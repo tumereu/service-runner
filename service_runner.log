@@ -1,0 +1,11 @@
+[00:00:00.000] (7fefdcb058c0) INFO   Reading configuration froms directory config-local
+[00:00:00.000] (7fefdcb058c0) INFO   Reading configuration file config-local
+[00:00:00.000] (7fefdcb058c0) INFO   Reading configuration file config.toml
+[00:00:00.000] (7fefdcb058c0) INFO   Reading configuration file profiles
+[00:00:00.000] (7fefdcb058c0) INFO   Reading configuration file other.profile.toml
+[00:00:00.000] (7fefdcb058c0) INFO   Reading configuration file example.profile.toml
+[00:00:00.000] (7fefdcb058c0) INFO   Reading configuration file services
+[00:00:00.000] (7fefdcb058c0) INFO   Reading configuration file other.service.toml
+[00:00:00.001] (7fefdcb058c0) INFO   Reading configuration file sample.service.toml
+[00:00:00.001] (7fefdcb058c0) INFO   Reading configuration file dependency.service.toml
+[00:00:00.001] (7fefdcb058c0) INFO   Loaded configuration with 2 profile(s) and 3 service(s)
