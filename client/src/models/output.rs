@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::convert::Into;
 
 use serde::{Deserialize, Serialize};
-use crate::model::system_state::SystemState;
+use crate::system_state::SystemState;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OutputStore {
@@ -195,6 +195,7 @@ pub struct OutputLine {
     pub index: u128,
 }
 
+// TODO move elsewhere?
 pub fn get_active_outputs<'a>(store: &'a OutputStore, state: &'a Option<SystemState>) -> Vec<&'a OutputKey> {
     store.outputs.iter()
         .map(|(key, _)| key)

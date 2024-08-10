@@ -1,71 +1,61 @@
 use std::collections::{HashMap, VecDeque};
 use std::thread::JoinHandle;
-use std::time::Instant;
-use notify::RecommendedWatcher;
+use crate::config::{Config, ProfileDefinition, ServiceDefinition};
+use crate::models::{Action, CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, ServiceAction, ServiceStatus};
+use crate::runner::file_watcher_state::FileWatcherState;
+use crate::ui::UIState;
 
-use crate::model::message::models::{CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
-use crate::model::message::{Action, Broadcast};
-use crate::model::system_state::SystemState;
-
-pub struct ServerState {
-    pub created: Instant,
-    pub actions_in: VecDeque<Action>,
-    pub broadcasts_out: HashMap<u32, VecDeque<Broadcast>>,
-    system_state: SystemState,
+pub struct SystemState {
+    pub current_profile: Option<ProfileDefinition>,
+    pub service_statuses: HashMap<String, ServiceStatus>,
+    pub actions_out: VecDeque<Action>,
     pub output_store: OutputStore,
+    pub ui: UIState,
+    pub config: Config,
+    pub should_exit: bool,
     pub active_threads: Vec<(String, JoinHandle<()>)>,
     pub file_watchers: Option<FileWatcherState>
 }
 
-pub struct FileWatcherState {
-    pub profile_name: String,
-    pub watchers: Vec<RecommendedWatcher>,
-    pub latest_events: HashMap<String, Instant>,
-    pub latest_recompiles: HashMap<String, Instant>,
-}
-
-impl ServerState {
-    pub fn new() -> ServerState {
-        ServerState {
-            created: Instant::now(),
-            actions_in: VecDeque::new(),
-            broadcasts_out: HashMap::new(),
-            system_state: SystemState::new(),
+impl SystemState {
+    pub fn new(config: Config) -> SystemState {
+        SystemState {
+            should_exit: false,
+            current_profile: None,
+            service_statuses: HashMap::new(),
+            actions_out: VecDeque::new(),
+            ui: UIState::new(),
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
             file_watchers: None,
+            config,
         }
     }
 
     pub fn get_profile_name(&self) -> Option<&str> {
-        self.system_state.current_profile.as_ref().map(|profile| profile.name.as_str())
+        self.current_profile.as_ref().map(|profile| profile.name.as_str())
     }
 
-    pub fn get_state(&self) -> &SystemState {
-        &self.system_state
-    }
-
-    pub fn get_service(&self, service_name: &str) -> Option<&Service> {
-        self.system_state
-            .current_profile
+    pub fn get_service(&self, service_name: &str) -> Option<&ServiceDefinition> {
+        self.current_profile
             .as_ref()
             .map(|profile| {
                 profile
                     .services
                     .iter()
-                    .find(|service| service.name == service_name)
+                    .find(|service| service.name() == service_name)
             })
             .flatten()
     }
 
-    pub fn iter_services(&self) -> impl Iterator<Item = &Service> {
-        self.system_state.current_profile
+    pub fn iter_services(&self) -> impl Iterator<Item = &ServiceDefinition> {
+        self.current_profile
             .iter()
             .flat_map(|profile| profile.services.iter())
     }
 
     pub fn get_service_status(&self, service_name: &str) -> Option<&ServiceStatus> {
-        self.system_state.service_statuses.get(service_name)
+        self.service_statuses.get(service_name)
     }
 
     pub fn is_satisfied(&self, dep: &Dependency) -> bool {
@@ -100,13 +90,12 @@ impl ServerState {
             .unwrap_or(true)
     }
 
+    /// TODO is this necessary anymore?
     pub fn update_state<F>(&mut self, update: F)
     where
         F: FnOnce(&mut SystemState),
     {
-        update(&mut self.system_state);
-        let broadcast = Broadcast::State(self.system_state.clone());
-        self.broadcast_all(broadcast);
+        update(&mut self);
     }
 
     pub fn update_service_status<F>(&mut self, service: &str, update: F)
@@ -120,42 +109,32 @@ impl ServerState {
     }
 
     pub fn update_all_statuses<F>(&mut self, update: F)
-        where
-            F: Fn(&Service, &mut ServiceStatus),
+    where
+        F: Fn(&ServiceDefinition, &mut ServiceStatus),
     {
         self.update_state(move |state| {
             state.current_profile.as_ref()
                 .iter()
                 .flat_map(|profile| &profile.services)
                 .for_each(|service| {
-                    let status = state.service_statuses.get_mut(&service.name).unwrap();
-                    update(service, status);
+                    match service {
+                        ServiceDefinition::Scripted { name, compile, run, .. } => {
+                            let status = state.service_statuses.get_mut(name).unwrap();
+                            update(service, status);
 
-                    // Remove impossible configurations
-                    if status.action == ServiceAction::Recompile && service.compile.is_none() {
-                        status.action = ServiceAction::None;
-                    } else if status.action == ServiceAction::Restart && service.run.is_none() {
-                        status.action = ServiceAction::None;
+                            // Remove impossible configurations
+                            if status.action == ServiceAction::Recompile && compile.is_none() {
+                                status.action = ServiceAction::None;
+                            } else if status.action == ServiceAction::Restart && run.is_none() {
+                                status.action = ServiceAction::None;
+                            }
+                        }
                     }
                 });
         });
     }
 
-    pub fn broadcast_all(&mut self, broadcast: Broadcast) {
-        self.broadcasts_out.iter_mut().for_each(|(_, queue)| {
-            queue.push_back(broadcast.clone());
-        });
-    }
-
-    pub fn broadcast_one(&mut self, client: u32, broadcast: Broadcast) {
-        let queue = self.broadcasts_out.get_mut(&client);
-        if let Some(queue) = queue {
-            queue.push_back(broadcast);
-        }
-    }
-
     pub fn add_output(&mut self, key: &OutputKey, line: String) {
-        let line = self.output_store.add_output(key, line).clone();
-        self.broadcast_all(Broadcast::OutputLine(key.clone(), line));
+        self.output_store.add_output(key, line).clone();
     }
 }

@@ -7,11 +7,11 @@ use std::time::{Duration, Instant};
 use log::{error, info};
 use nix::libc::stat;
 
-use crate::model::message::models::{ExecutableEntry, OutputKey, OutputKind};
-use crate::model::message::Broadcast;
-use crate::model::system_state::Status;
+use crate::models::action::models::{ExecutableEntry, OutputKey, OutputKind};
+use crate::models::action::Broadcast;
+use crate::models::runner_state::Status;
 
-use crate::runner::server_state::ServerState;
+use crate::runner::file_watcher_state::ServerState;
 
 pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
 where

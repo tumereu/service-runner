@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::model::message::models::ServiceAction::Recompile;
-use crate::model::message::models::{AutoCompileMode, Profile, Service};
+use crate::models::{AutoCompileMode, Profile, Service};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServiceStatus {
@@ -19,7 +18,7 @@ impl ServiceStatus {
         ServiceStatus {
             should_run: true,
             debug: false,
-            action: Recompile,
+            action: ServiceAction::Recompile,
             auto_compile: service.autocompile.as_ref().map(|auto_compile| auto_compile.default_mode.clone()),
             compile_status: CompileStatus::None,
             run_status: RunStatus::Stopped,

@@ -5,13 +5,22 @@ use std::thread;
 use std::time::{Duration, Instant};
 use log::{debug, error, info};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use crate::model::message::models::{AutoCompileMode, AutoCompileTrigger, ServiceAction};
-use crate::model::system_state::Status;
-use crate::runner::server_state::{FileWatcherState, ServerState};
+use crate::models::action::models::{AutoCompileMode, AutoCompileTrigger, ServiceAction};
+use crate::models::runner_state::Status;
+use crate::runner::file_watcher_state::{FileWatcherState, ServerState};
+use crate::system_state::SystemState;
 
-pub fn start_file_watcher(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
+
+pub struct FileWatcherState {
+    pub profile_name: String,
+    pub watchers: Vec<RecommendedWatcher>,
+    pub latest_events: HashMap<String, Instant>,
+    pub latest_recompiles: HashMap<String, Instant>,
+}
+
+pub fn start_file_watcher(server: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        while server.lock().unwrap().get_state().status != Status::Exiting {
+        while server.lock().unwrap().get_runner_state() {
             let rebuild_watchers = {
                 let server = server.lock().unwrap();
                 match (server.get_profile_name(), &server.file_watchers) {

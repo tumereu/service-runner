@@ -2,24 +2,23 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crate::model::system_state::Status;
-
-use crate::runner::server_state::ServerState;
+use crate::system_state::SystemState;
 
 mod compilation;
 mod run;
 mod utils;
 
-pub fn start_service_worker(server: Arc<Mutex<ServerState>>) -> thread::JoinHandle<()> {
+pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        while server.lock().unwrap().get_state().status != Status::Exiting {
-            work_services(server.clone());
+        // TODO signals or something?
+        while !state.lock().unwrap().should_exit {
+            work_services(state.clone());
             thread::sleep(Duration::from_millis(10))
         }
     })
 }
 
-fn work_services(server: Arc<Mutex<ServerState>>) {
-    compilation::handle_compilation(server.clone());
-    run::handle_running(server.clone());
+fn work_services(state: Arc<Mutex<SystemState>>) {
+    compilation::handle_compilation(state.clone());
+    run::handle_running(state.clone());
 }

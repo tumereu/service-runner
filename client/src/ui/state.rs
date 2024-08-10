@@ -1,19 +1,35 @@
+use crate::ui::CurrentScreen::ProfileSelect;
+
 #[derive(Debug)]
-pub enum UIState {
-    Initializing,
-    Exiting,
+pub struct UIState {
+    pub last_frame_size: (u16, u16),
+    pub screen: CurrentScreen
+}
+impl UIState {
+    pub fn new() -> UIState {
+        UIState {
+            last_frame_size: (0, 0),
+            screen: ProfileSelect {
+                selected_idx: 0
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum CurrentScreen {
     ProfileSelect {
         selected_idx: usize,
     },
     ViewProfile(ViewProfileState),
 }
-impl UIState {
-    pub fn profile_select() -> UIState {
-        UIState::ProfileSelect { selected_idx: 0 }
+impl CurrentScreen {
+    pub fn profile_select() -> CurrentScreen {
+        CurrentScreen::ProfileSelect { selected_idx: 0 }
     }
 
-    pub fn view_profile() -> UIState {
-        UIState::ViewProfile(ViewProfileState {
+    pub fn view_profile() -> CurrentScreen {
+        CurrentScreen::ViewProfile(ViewProfileState {
             active_pane: ViewProfilePane::ServiceList,
             service_selection: 0,
             wrap_output: false,

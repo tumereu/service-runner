@@ -13,12 +13,12 @@ use tui::style::Color;
 use tui::Frame;
 use tui::layout::Rect;
 
-use crate::model::message::models::{AutoCompileMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
+use crate::models::action::models::{AutoCompileMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
 
-use crate::client_state::ClientState;
+use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
 use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, Renderable, render_at_pos, Toggle};
-use crate::ui::{UIState, ViewProfileFloatingPane};
+use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
 
 const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     vec![
@@ -38,12 +38,12 @@ const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     ]
 });
 
-pub fn render_view_profile<B>(frame: &mut Frame<B>, state: &ClientState)
+pub fn render_view_profile<B>(frame: &mut Frame<B>, state: &SystemState)
 where
     B: Backend,
 {
     let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) = match &state.ui {
-        &UIState::ViewProfile(ViewProfileState {
+        &CurrentScreen::ViewProfile(ViewProfileState {
             active_pane,
             service_selection,
             wrap_output,
@@ -55,11 +55,11 @@ where
     };
 
     let profile = state
-        .system_state
+        .runner_state
         .as_ref()
         .map(|it| it.current_profile.as_ref())
         .flatten();
-    let service_statuses = state.system_state.as_ref().map(|it| &it.service_statuses);
+    let service_statuses = state.runner_state.as_ref().map(|it| &it.service_statuses);
 
     // TODO move into a theme?
     let active_border_color = Color::Rgb(180, 180, 0);
@@ -359,7 +359,7 @@ fn output_pane(
     pos_horiz: Option<u64>,
     pos_vert: Option<u128>,
     profile: &Profile,
-    state: &ClientState,
+    state: &SystemState,
 ) -> Flow {
     Flow {
         direction: Dir::UpDown,
@@ -375,7 +375,7 @@ fn output_pane(
                         .query_lines_to(
                             height,
                             pos_vert,
-                            get_active_outputs(&state.output_store, &state.system_state)
+                            get_active_outputs(&state.output_store, &state.runner_state)
                         )
                         .into_iter()
                         .map(|(key, line)| {

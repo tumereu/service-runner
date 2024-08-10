@@ -1,7 +1,7 @@
 use std::convert::Into;
 use serde::{Deserialize, Serialize};
 
-use crate::model::config::{
+use crate::config::{
     AutoCompileConfig as ConfigAutoCompileConfig, AutoCompileMode as ConfigAutoCompileMode,
     AutoCompileTrigger as ConfigAutoCompileTrigger,
 };
@@ -22,16 +22,16 @@ impl From<ConfigAutoCompileConfig> for AutoCompileConfig {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AutoCompileMode {
-    AUTOMATIC,
-    CUSTOM,
-    DISABLED,
+    Automatic,
+    Custom,
+    Disabled,
 }
 impl From<ConfigAutoCompileMode> for AutoCompileMode {
     fn from(value: ConfigAutoCompileMode) -> Self {
         match value {
-            ConfigAutoCompileMode::AUTOMATIC => AutoCompileMode::AUTOMATIC,
-            ConfigAutoCompileMode::DISABLED => AutoCompileMode::DISABLED,
-            ConfigAutoCompileMode::CUSTOM => AutoCompileMode::CUSTOM,
+            ConfigAutoCompileMode::Automatic => AutoCompileMode::Automatic,
+            ConfigAutoCompileMode::Disabled => AutoCompileMode::Disabled,
+            ConfigAutoCompileMode::Custom => AutoCompileMode::Custom,
         }
     }
 }

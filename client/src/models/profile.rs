@@ -2,8 +2,8 @@ use std::convert::Into;
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::config::{Profile as ConfigProfile, Service as ConfigService};
-use crate::model::message::models::Service;
+use crate::config::{ProfileDefinition as ConfigProfile, ServiceDefinition as ConfigService};
+use crate::models::Service;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Profile {

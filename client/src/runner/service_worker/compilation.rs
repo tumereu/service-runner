@@ -1,18 +1,15 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-
-use crate::model::message::models::{CompileStatus, OutputKey, OutputKind, ServiceAction, AutoCompileTrigger, AutoCompileMode};
-use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
-use crate::ServerState;
+use crate::models::CompileStatus;
+use crate::system_state::SystemState;
 use crate::utils::format_err;
 
-pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
+pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
     let (mut command, service_name, index) = {
-        let mut server = server_arc.lock().unwrap();
+        let mut state = state_arc.lock().unwrap();
 
         // Do not spawn new compilations if any are any currently active.
-        if server
-            .get_state()
+        if state
             .service_statuses
             .values()
             .any(|status| matches!(status.compile_status, CompileStatus::Compiling(_)))
@@ -21,7 +18,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         }
 
         let (service_name, command, exec_display, index) = {
-            let profile = server.get_state().current_profile.as_ref()?;
+            let profile = state.current_profile.as_ref()?;
             let (compilable, index) = profile
                 .services
                 .iter()
@@ -34,11 +31,10 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         .unwrap()
                         .dependencies
                         .iter()
-                        .all(|dep| server.is_satisfied(dep))
+                        .all(|dep| state.is_satisfied(dep))
                 })
                 .flat_map(|service| {
-                    let status = server
-                        .get_state()
+                    let status = state
                         .service_statuses
                         .get(&service.name)
                         .unwrap();
@@ -78,7 +74,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             )
         };
 
-        server.add_output(
+        state.add_output(
             &OutputKey {
                 name: OutputKey::CTL.into(),
                 service_ref: service_name.clone(),
@@ -88,13 +84,13 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
         );
 
         // Update the status of the service to be compiling and reset its action
-        server.update_service_status(&service_name, |status| {
+        state.update_service_status(&service_name, |status| {
             status.compile_status = CompileStatus::Compiling(index);
             status.action = ServiceAction::None;
             status.has_uncompiled_changes = false;
         });
         // Register the time that the compilation was started
-        server.file_watchers.iter_mut()
+        state.file_watchers.iter_mut()
             .for_each(|watcher_state| {
                 watcher_state.latest_recompiles.insert(service_name.clone(), Instant::now());
             });
@@ -105,7 +101,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
     match command.spawn() {
         Ok(handle) => {
             ProcessHandler {
-                server: server_arc.clone(),
+                server: state_arc.clone(),
                 handle: Arc::new(Mutex::new(handle)),
                 service_name: service_name.clone(),
                 output: OutputKind::Compile,
@@ -183,7 +179,7 @@ pub fn handle_compilation(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             .launch();
         }
         Err(error) => {
-            let mut server = server_arc.lock().unwrap();
+            let mut server = state_arc.lock().unwrap();
             server.update_service_status(&service_name, |status| {
                 status.compile_status = CompileStatus::Failed;
             });

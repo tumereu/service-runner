@@ -7,8 +7,8 @@ use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
-use crate::model::config::models::{Config, Profile, ServerConfig, Service};
-use crate::model::config::ScriptedCompileConfig;
+use crate::config::models::{Config, ProfileDefinition, ServerConfig, ServiceDefinition};
+use crate::config::ScriptedCompileConfig;
 
 #[derive(Deserialize, Debug)]
 pub struct MainConfig {
@@ -42,8 +42,8 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
     let main_file = format!("{dir}/config.toml");
     let main_config =
         read_main_config(&main_file).map_err(|err| ConfigParsingError::new(err, &main_file))?;
-    let mut services: Vec<Service> = Vec::new();
-    let mut profiles: Vec<Profile> = Vec::new();
+    let mut services: Vec<ServiceDefinition> = Vec::new();
+    let mut profiles: Vec<ProfileDefinition> = Vec::new();
 
     for entry in WalkDir::new(dir)
         .follow_links(true)
@@ -80,7 +80,7 @@ pub fn read_main_config(path: &str) -> Result<MainConfig, Box<dyn Error>> {
     )
 }
 
-pub fn read_service(path: &Path) -> Result<Service, Box<dyn Error>> {
+pub fn read_service(path: &Path) -> Result<ServiceDefinition, Box<dyn Error>> {
     Ok(
         serde_path_to_error::deserialize(
             toml::Deserializer::new(&read_to_string(path)?)
@@ -88,6 +88,6 @@ pub fn read_service(path: &Path) -> Result<Service, Box<dyn Error>> {
     )
 }
 
-pub fn read_profile(path: &Path) -> Result<Profile, Box<dyn Error>> {
+pub fn read_profile(path: &Path) -> Result<ProfileDefinition, Box<dyn Error>> {
     Ok(toml::from_str(&read_to_string(path)?)?)
 }

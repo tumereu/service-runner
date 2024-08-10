@@ -2,47 +2,25 @@ use std::collections::HashMap;
 use Vec;
 
 use serde_derive::{Deserialize, Serialize};
-use serde_aux::field_attributes::bool_true;
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub server: ServerConfig,
     pub conf_dir: String,
-    pub services: Vec<Service>,
-    pub profiles: Vec<Profile>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct ServerConfig {
-    pub port: u16,
-    #[serde(default = "bool_true")]
-    pub daemon: bool,
-    #[serde(default = "default_server_executable")]
-    pub executable: String,
+    pub services: Vec<ServiceDefinition>,
+    pub profiles: Vec<ProfileDefinition>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", deny_unknown_fields)]
-pub enum Service {
-    #[serde(rename = "scripted")]
-    Scripted {
-        name: String,
-        dir: String,
-        compile: Option<ScriptedCompileConfig>,
-        run: Option<ScriptedRunConfig>,
-        #[serde(default = "Vec::new")]
-        reset: Vec<ExecutableEntry>,
-        autocompile: Option<AutoCompileConfig>,
-    },
-}
-
-impl Service {
-    pub fn name(&self) -> &String {
-        match self {
-            Service::Scripted { name, .. } => &name,
-        }
-    }
+#[serde(deny_unknown_fields)]
+pub struct ServiceDefinition {
+    pub name: String,
+    pub dir: String,
+    pub compile: Option<ScriptedCompileConfig>,
+    pub run: Option<ScriptedRunConfig>,
+    #[serde(default = "Vec::new")]
+    pub reset: Vec<ExecutableEntry>,
+    // TODO rework into generic "triggers" entry
+    pub autocompile: Option<AutoCompileConfig>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,7 +28,7 @@ impl Service {
 pub struct ScriptedCompileConfig {
     pub commands: Vec<ExecutableEntry>,
     #[serde(default)]
-    pub dependencies: Vec<Dependency>,
+    pub dependencies: Vec<DependencyEntry>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -60,14 +38,14 @@ pub struct ScriptedRunConfig {
     #[serde(default)]
     pub debug: PartialExecutableEntry,
     #[serde(default)]
-    pub dependencies: Vec<Dependency>,
+    pub dependencies: Vec<DependencyEntry>,
     #[serde(default)]
     pub health_check: Option<HealthCheckConfig>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct Dependency {
+pub struct DependencyEntry {
     pub service: String,
     pub require: RequiredState,
 }
@@ -142,11 +120,11 @@ pub struct AutoCompileConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AutoCompileMode {
     #[serde(rename = "automatic")]
-    AUTOMATIC,
+    Automatic,
     #[serde(rename = "triggered")]
-    CUSTOM,
+    Custom,
     #[serde(rename = "disabled")]
-    DISABLED,
+    Disabled,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -160,12 +138,12 @@ pub enum AutoCompileTrigger {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct Profile {
+pub struct ProfileDefinition {
     pub name: String,
-    pub services: Vec<ServiceRef>,
+    pub services: Vec<ServiceDefinition>,
 }
-impl Profile {
-    pub fn includes(&self, service: &Service) -> bool {
+impl ProfileDefinition {
+    pub fn includes(&self, service: &ServiceDefinition) -> bool {
         self.services
             .iter()
             .any(|reference| reference.references(service))
@@ -179,7 +157,7 @@ pub struct ServiceRef {
 }
 
 impl ServiceRef {
-    pub fn references(&self, service: &Service) -> bool {
+    pub fn references(&self, service: &ServiceDefinition) -> bool {
         service.name() == &self.name
     }
 }

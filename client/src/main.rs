@@ -8,24 +8,24 @@ use crossterm::{
 };
 use tui::{backend::CrosstermBackend, Terminal};
 
-use model::config::read_config;
+use config::read_config;
 use log::{debug, info, LevelFilter};
 
-use crate::client_state::{ClientState, ClientStatus};
+use crate::system_state::{ClientStatus, SystemState};
 use crate::input::process_inputs;
-use crate::model::system_state::Status;
-use crate::runner::action_processor::start_action_processor;
+use crate::runner::process_action::start_action_processor;
 use crate::runner::file_watcher::start_file_watcher;
 use crate::ui::render;
-use crate::runner::server_state::ServerState;
+use crate::runner::file_watcher_state::ServerState;
 use crate::runner::service_worker::start_service_worker;
 
-mod client_state;
+mod system_state;
 mod input;
 mod ui;
-mod model;
+mod models;
 mod runner;
 mod utils;
+pub mod config;
 
 fn main() -> Result<(), Box<dyn Error>> {
     simple_logging::log_to_file("service_runner.log", LevelFilter::Debug)?;
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or("Specify the configuration directory in order to run the app")?
         .clone();
 
-    let state = Arc::new(Mutex::new(ClientState::new(read_config(&config_dir)?)));
+    let state = Arc::new(Mutex::new(SystemState::new(read_config(&config_dir)?)));
     let num_profiles = state.lock().unwrap().config.profiles.len();
     let num_services = state.lock().unwrap().config.services.len();
 

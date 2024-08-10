@@ -9,7 +9,7 @@ use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
 
 use crate::utils::format_err;
-use crate::model::message::models::{CompileStatus, HealthCheck, HealthCheckConfig, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
+use crate::models::action::models::{CompileStatus, HealthCheck, HealthCheckConfig, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
 
 use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::ServerState;

@@ -1,12 +1,12 @@
 use std::convert::Into;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::model::config::{
+use crate::config::{
     HealthCheck as ConfigHealthCheck, HttpMethod as ConfigHttpMethod,
     ScriptedRunConfig as ConfigScriptedRunConfig,
     HealthCheckConfig as ConfigHealthCheckConfig
 };
-use crate::model::message::models::{Dependency, ExecutableEntry, PartialExecutableEntry};
+use crate::models::{Dependency, ExecutableEntry, PartialExecutableEntry};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RunConfig {
@@ -50,7 +50,7 @@ pub enum HealthCheck {
         timeout_millis: u64,
         status: u16,
     },
-    /// A health check in the form of an open port. The check is considered OK if the given [port] is is listening in
+    /// A health check in the form of an open port. The check is considered OK if the given [port] is listening in
     /// the OS.
     Port { port: u16 },
 }

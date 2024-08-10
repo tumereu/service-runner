@@ -1,5 +1,4 @@
-use crate::model::message::models::{OutputKey, OutputLine, OutputStore, Profile, ServiceAction};
-use crate::model::system_state::SystemState;
+use crate::models::{Profile, ServiceAction};
 
 pub enum Action {
     Tick,
@@ -19,18 +18,6 @@ pub enum Action {
 }
 impl AsRef<Action> for Action {
     fn as_ref(&self) -> &Action {
-        self
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum Broadcast {
-    State(SystemState),
-    OutputLine(OutputKey, OutputLine),
-    OutputSync(OutputStore),
-}
-impl AsRef<Broadcast> for Broadcast {
-    fn as_ref(&self) -> &Broadcast {
         self
     }
 }
