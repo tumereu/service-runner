@@ -1,6 +1,6 @@
-use std::sync::{Arc, Mutex};
 use crate::models::{Action, ServiceAction, ServiceStatus, AutoCompileMode};
 use crate::system_state::SystemState;
+use crate::ui::CurrentScreen;
 
 pub fn process_action(system: &mut SystemState, action: Action) {
     match action {
@@ -16,6 +16,7 @@ pub fn process_action(system: &mut SystemState, action: Action) {
                     .map(|service| (service.name.clone(), ServiceStatus::from(&profile, service)))
                     .collect();
                 state.current_profile = Some(profile);
+                state.ui.screen = CurrentScreen::view_profile();
             });
         },
         Action::UpdateServiceAction(service_name, action) => {
