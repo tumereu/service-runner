@@ -7,11 +7,9 @@ use std::time::{Duration, Instant};
 use log::{error, info};
 use nix::libc::stat;
 
-use crate::models::action::models::{ExecutableEntry, OutputKey, OutputKind};
-use crate::models::action::Broadcast;
-use crate::models::runner_state::Status;
+use crate::models::{ExecutableEntry, OutputKey, OutputKind};
 
-use crate::runner::file_watcher_state::ServerState;
+use crate::system_state::SystemState;
 
 pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
 where
@@ -41,9 +39,9 @@ where
 pub struct ProcessHandler<F, G>
 where
     F: FnOnce(OnFinishParams) + Send + 'static,
-    G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
+    G: Fn((Arc<Mutex<SystemState>>, &str)) -> bool + Send + 'static,
 {
-    pub server: Arc<Mutex<ServerState>>,
+    pub state: Arc<Mutex<SystemState>>,
     pub handle: Arc<Mutex<Child>>,
     pub service_name: String,
     pub output: OutputKind,
@@ -54,11 +52,11 @@ where
 impl<F, G> ProcessHandler<F, G>
 where
     F: FnOnce(OnFinishParams) + Send + 'static,
-    G: Fn((Arc<Mutex<ServerState>>, &str)) -> bool + Send + 'static,
+    G: Fn((Arc<Mutex<SystemState>>, &str)) -> bool + Send + 'static,
 {
     pub fn launch(self) {
         let ProcessHandler {
-            server,
+            state: server,
             handle,
             service_name,
             output,
@@ -74,7 +72,7 @@ where
                     let server = server.clone();
                     let service_name = service_name.clone();
                     thread::spawn(move || {
-                        // Wait as long as the server and the process are both running, or until an early-exit condition
+                        // Wait as long as the system and process are both running, or until an early-exit condition
                         // is fulfilled.
                         let mut killed = false;
                         loop {
@@ -85,7 +83,7 @@ where
                             if handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
                                 break;
                             }
-                            if server.lock().unwrap().get_state().status == Status::Exiting {
+                            if server.lock().unwrap().should_exit {
                                 break;
                             }
                             thread::sleep(Duration::from_millis(10));
@@ -94,7 +92,7 @@ where
                         let success = status.as_ref().map_or(false, |status| status.success());
                         on_finish(
                             OnFinishParams {
-                                server,
+                                state: server,
                                 service_name: &service_name,
                                 success,
                                 exit_code: status.map(|status| status.code().unwrap_or(0)).unwrap_or(0),
@@ -157,14 +155,8 @@ where
             .append(&mut new_threads);
     }
 
-    fn process_output_line(state: Arc<Mutex<ServerState>>, key: &OutputKey, output: String) {
-        let mut server = state.lock().unwrap();
-
-        // Store the line locally so that it can be sent to clients that connect later
-        let line = server.output_store.add_output(&key, output).clone();
-
-        // But also broadcast the line to all clients
-        server.broadcast_all(Broadcast::OutputLine(key.clone(), line));
+    fn process_output_line(state: Arc<Mutex<SystemState>>, key: &OutputKey, output: String) {
+        state.lock().unwrap().output_store.add_output(&key, output);
     }
 
     #[cfg(target_os = "linux")]
@@ -232,7 +224,7 @@ where
 }
 
 pub struct OnFinishParams<'a> {
-    pub server: Arc<Mutex<ServerState>>,
+    pub state: Arc<Mutex<SystemState>>,
     pub service_name: &'a str,
     pub success: bool,
     pub exit_code: i32,

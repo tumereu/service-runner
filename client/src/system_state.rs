@@ -1,12 +1,12 @@
 use std::collections::{HashMap, VecDeque};
 use std::thread::JoinHandle;
-use crate::config::{Config, ProfileDefinition, ServiceDefinition};
-use crate::models::{Action, CompileStatus, Dependency, OutputKey, OutputStore, RequiredState, RunStatus, ServiceAction, ServiceStatus};
-use crate::runner::file_watcher_state::FileWatcherState;
+use crate::config::Config;
+use crate::models::{Action, CompileStatus, Dependency, OutputKey, OutputStore, Profile, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
+use crate::runner::file_watcher::FileWatcherState;
 use crate::ui::UIState;
 
 pub struct SystemState {
-    pub current_profile: Option<ProfileDefinition>,
+    pub current_profile: Option<Profile>,
     pub service_statuses: HashMap<String, ServiceStatus>,
     pub actions_out: VecDeque<Action>,
     pub output_store: OutputStore,
@@ -36,7 +36,7 @@ impl SystemState {
         self.current_profile.as_ref().map(|profile| profile.name.as_str())
     }
 
-    pub fn get_service(&self, service_name: &str) -> Option<&ServiceDefinition> {
+    pub fn get_service(&self, service_name: &str) -> Option<&Service> {
         self.current_profile
             .as_ref()
             .map(|profile| {
@@ -48,7 +48,7 @@ impl SystemState {
             .flatten()
     }
 
-    pub fn iter_services(&self) -> impl Iterator<Item = &ServiceDefinition> {
+    pub fn iter_services(&self) -> impl Iterator<Item = &Service> {
         self.current_profile
             .iter()
             .flat_map(|profile| profile.services.iter())
@@ -110,26 +110,22 @@ impl SystemState {
 
     pub fn update_all_statuses<F>(&mut self, update: F)
     where
-        F: Fn(&ServiceDefinition, &mut ServiceStatus),
+        F: Fn(&Service, &mut ServiceStatus),
     {
         self.update_state(move |state| {
             state.current_profile.as_ref()
                 .iter()
                 .flat_map(|profile| &profile.services)
                 .for_each(|service| {
-                    match service {
-                        ServiceDefinition::Scripted { name, compile, run, .. } => {
-                            let status = state.service_statuses.get_mut(name).unwrap();
-                            update(service, status);
+                        let status = state.service_statuses.get_mut(&service.name).unwrap();
+                        update(&service, status);
 
-                            // Remove impossible configurations
-                            if status.action == ServiceAction::Recompile && compile.is_none() {
-                                status.action = ServiceAction::None;
-                            } else if status.action == ServiceAction::Restart && run.is_none() {
-                                status.action = ServiceAction::None;
-                            }
+                        // Remove impossible configurations
+                        if status.action == ServiceAction::Recompile && service.compile.is_none() {
+                            status.action = ServiceAction::None;
+                        } else if status.action == ServiceAction::Restart && service.run.is_none() {
+                            status.action = ServiceAction::None;
                         }
-                    }
                 });
         });
     }

@@ -1,25 +1,23 @@
 use std::net::TcpListener;
-use std::ops::Deref;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant};
-use nix::libc::time;
 
 use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
 
 use crate::utils::format_err;
-use crate::models::action::models::{CompileStatus, HealthCheck, HealthCheckConfig, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
+use crate::models::{CompileStatus, HealthCheck, HealthCheckConfig, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
 
 use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
-use crate::ServerState;
+use crate::system_state::SystemState;
 
-pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
+pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
     let (mut command, service_name) = {
-        let mut server = server_arc.lock().unwrap();
+        let mut state = state_arc.lock().unwrap();
 
         let (service_name, command, exec_display) = {
-            let profile = server.get_state().current_profile.as_ref()?;
+            let profile = state.current_profile.as_ref()?;
             let runnable = profile
                 .services
                 .iter()
@@ -31,10 +29,10 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                         .unwrap()
                         .dependencies
                         .iter()
-                        .all(|dep| server.is_satisfied(dep))
+                        .all(|dep| state.is_satisfied(dep))
                 })
                 .find(|service| {
-                    let status = server.get_service_status(&service.name).unwrap();
+                    let status = state.get_service_status(&service.name).unwrap();
 
                     match (&status.compile_status, &status.run_status) {
                         (_, RunStatus::Running | RunStatus::Healthy) => false,
@@ -48,7 +46,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
                     }
                 })?;
 
-            let status = server.get_service_status(&runnable.name).unwrap();
+            let status = state.get_service_status(&runnable.name).unwrap();
             let run_config = runnable.run.as_ref().unwrap();
             let (command, exec_entry) = if status.debug {
                 let exec_entry = run_config.command.extend(&run_config.debug);
@@ -60,12 +58,12 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             (runnable.name.clone(), command, exec_entry)
         };
 
-        server.update_service_status(&service_name, |status| {
+        state.update_service_status(&service_name, |status| {
             status.run_status = RunStatus::Running;
             status.action = ServiceAction::None;
         });
 
-        server.add_ctrl_output(
+        state.add_ctrl_output(
             &service_name,
             format!("Exec: {exec_display}")
         );
@@ -79,7 +77,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
 
             let health_check_thread = {
                 let handle = handle.clone();
-                let server = server_arc.clone();
+                let server = state_arc.clone();
                 let service_name = service_name.clone();
 
                 thread::spawn(move || {
@@ -229,18 +227,18 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             };
 
             // Register the health check thread into active threads
-            server_arc
+            state_arc
                 .lock()
                 .unwrap()
                 .active_threads
                 .push((format!("{service_name}-health-check"), health_check_thread));
 
             ProcessHandler {
-                server: server_arc.clone(),
+                state: state_arc.clone(),
                 handle,
                 service_name: service_name.clone(),
                 output: OutputKind::Run,
-                on_finish: move |OnFinishParams { server, service_name, killed, .. }| {
+                on_finish: move |OnFinishParams { state: server, service_name, killed, .. }| {
                     let mut server = server.lock().unwrap();
                     // Mark the service as no longer running when it exits
                     // TODO message
@@ -277,7 +275,7 @@ pub fn handle_running(server_arc: Arc<Mutex<ServerState>>) -> Option<()> {
             .launch();
         }
         Err(error) => {
-            let mut server = server_arc.lock().unwrap();
+            let mut server = state_arc.lock().unwrap();
             server.update_state(|state| {
                 state
                     .service_statuses
@@ -297,7 +295,7 @@ trait CtrlOutputWriter {
     fn add_ctrl_output(&mut self, service_name: &str, str: String);
 }
 
-impl CtrlOutputWriter for MutexGuard<'_, ServerState> {
+impl CtrlOutputWriter for MutexGuard<'_, SystemState> {
     fn add_ctrl_output(&mut self, service_name: &str, str: String) {
         self.add_output(
             &OutputKey {

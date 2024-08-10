@@ -1,5 +1,4 @@
-use crate::config::AutoCompileMode;
-use crate::models::{Action, ServiceAction, ServiceStatus};
+use crate::models::{Action, ServiceAction, ServiceStatus, AutoCompileMode};
 use crate::system_state::SystemState;
 
 fn process_action(state: &mut SystemState, action: Action) {
