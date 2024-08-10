@@ -6,22 +6,15 @@ use Vec;
 use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
+use serde_path_to_error::Error as SerdePathError;
 
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
 use crate::config::{ScriptedCompileConfig, Settings};
 
 #[derive(Debug)]
 pub struct ConfigParsingError {
-    inner: Box<dyn Error>,
-    filename: String,
-}
-impl ConfigParsingError {
-    pub fn new(inner: Box<dyn Error>, filename: &str) -> ConfigParsingError {
-        ConfigParsingError {
-            inner,
-            filename: filename.to_string(),
-        }
-    }
+    pub filename: String,
+    pub user_message: String,
 }
 impl Display for ConfigParsingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -35,7 +28,7 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
     info!("Reading configuration froms directory {dir}");
 
     let main_file = format!("{dir}/settings.toml");
-    let settings = read_settings(&main_file).map_err(|err| ConfigParsingError::new(err, &main_file))?;
+    let settings: Settings = read_toml(Path::new(&main_file))?;
     let mut services: Vec<ServiceDefinition> = Vec::new();
     let mut profiles: Vec<ProfileDefinition> = Vec::new();
 
@@ -50,11 +43,9 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
         info!("Reading configuration file {filename}");
 
         if filename.ends_with(".service.toml") {
-            services
-                .push(read_service(&path).map_err(|err| ConfigParsingError::new(err, filename))?)
+            services.push(read_toml(&path)?);
         } else if filename.ends_with(".profile.toml") {
-            profiles
-                .push(read_profile(&path).map_err(|err| ConfigParsingError::new(err, filename))?)
+            profiles.push(read_toml(&path)?)
         }
     }
 
@@ -66,22 +57,24 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
     })
 }
 
-pub fn read_settings(path: &str) -> Result<Settings, Box<dyn Error>> {
-    Ok(
-        serde_path_to_error::deserialize(
-            toml::Deserializer::new(&read_to_string(path)?)
-        )?
-    )
-}
+fn read_toml<'a, T : Deserialize<'a>>(path: &Path) -> Result<T, ConfigParsingError> {
+    // TODO different config parsing error
+    let file_content = read_to_string(path).unwrap();
 
-pub fn read_service(path: &Path) -> Result<ServiceDefinition, Box<dyn Error>> {
-    Ok(
-        serde_path_to_error::deserialize(
-            toml::Deserializer::new(&read_to_string(path)?)
-        )?
-    )
-}
+    let result = serde_path_to_error::deserialize(
+        toml::Deserializer::new(&file_content)
+    );
 
-pub fn read_profile(path: &Path) -> Result<ProfileDefinition, Box<dyn Error>> {
-    Ok(toml::from_str(&read_to_string(path)?)?)
+    match result {
+        Ok(value) => Ok(value),
+        Err(error) => {
+            let error_path = error.path().to_string();
+            let message = error.inner().message();
+
+            Err(ConfigParsingError {
+                filename: path.to_str().unwrap().to_string(),
+                user_message: format!("Error in parsing at path {error_path}: {message}"),
+            })
+        }
+    }
 }

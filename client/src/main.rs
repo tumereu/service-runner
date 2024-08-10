@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::{env, error::Error, io::stdout, thread, time::Duration};
+use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 use std::time::Instant;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -33,8 +33,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         .get(1)
         .ok_or("Specify the configuration directory in order to run the app")?
         .clone();
+    let config = read_config(&config_dir);
 
-    let state_arc = Arc::new(Mutex::new(SystemState::new(read_config(&config_dir)?)));
+    if let Err(error) = &config {
+        let filename = &error.filename;
+        let message = &error.user_message;
+
+        println!("Error: failed to parse configuration file {filename}: {message}");
+        process::exit(1);
+    }
+
+    let state_arc = Arc::new(Mutex::new(SystemState::new(config.unwrap())));
     let num_profiles = state_arc.lock().unwrap().config.profiles.len();
     let num_services = state_arc.lock().unwrap().config.services.len();
 
