@@ -1,14 +1,15 @@
+use std::sync::{Arc, Mutex};
 use crate::models::{Action, ServiceAction, ServiceStatus, AutoCompileMode};
 use crate::system_state::SystemState;
 
-fn process_action(state: &mut SystemState, action: Action) {
+pub fn process_action(system: &mut SystemState, action: Action) {
     match action {
         Action::Tick => {},
         Action::Shutdown => {
-            state.should_exit = true;
+            system.should_exit = true;
         },
         Action::ActivateProfile(profile) => {
-            state.update_state(|state| {
+            system.update_state(|state| {
                 state.service_statuses = profile
                     .services
                     .iter()
@@ -18,17 +19,17 @@ fn process_action(state: &mut SystemState, action: Action) {
             });
         },
         Action::UpdateServiceAction(service_name, action) => {
-            state.update_service_status(&service_name, |status| {
+            system.update_service_status(&service_name, |status| {
                 status.action = action;
             });
         },
         Action::UpdateAllServiceActions(action) => {
-            state.update_all_statuses(|_, status| {
+            system.update_all_statuses(|_, status| {
                 status.action = action.clone();
             })
         },
         Action::CycleAutoCompile(service_name) => {
-            state.update_service_status(&service_name, |status| {
+            system.update_service_status(&service_name, |status| {
                 status.auto_compile = match status.auto_compile {
                     None => None,
                     Some(AutoCompileMode::Automatic) => Some(AutoCompileMode::Disabled),
@@ -45,9 +46,9 @@ fn process_action(state: &mut SystemState, action: Action) {
             })
         },
         Action::CycleAutoCompileAll => {
-            let lowest_status: AutoCompileMode = state.iter_services()
+            let lowest_status: AutoCompileMode = system.iter_services()
                 .map(|service| {
-                    state.get_service_status(&service.name()).as_ref()
+                    system.get_service_status(&service.name).as_ref()
                         .map(|status| status.auto_compile.as_ref())
                         .flatten()
                 })
@@ -61,7 +62,7 @@ fn process_action(state: &mut SystemState, action: Action) {
                         | (AutoCompileMode::Automatic, _) => AutoCompileMode::Automatic
                     }
                 });
-            state.update_all_statuses(|_, status| {
+            system.update_all_statuses(|_, status| {
                 status.auto_compile = status.auto_compile.as_ref().map(|_| {
                     match lowest_status {
                         AutoCompileMode::Disabled => AutoCompileMode::Custom,
@@ -72,24 +73,24 @@ fn process_action(state: &mut SystemState, action: Action) {
             })
         },
         Action::ToggleRun(service_name) => {
-            state.update_service_status(&service_name, |status| {
+            system.update_service_status(&service_name, |status| {
                 status.should_run = !status.should_run;
             });
         },
         Action::ToggleRunAll => {
-            let new_run_state = state.iter_services()
+            let new_run_state = system.iter_services()
                 .map(|service| {
-                    state.get_service_status(&service.name()).as_ref()
+                    system.get_service_status(&service.name).as_ref()
                         .map(|status| status.should_run)
                 }).flatten()
                 .any(|cond| !cond);
 
-            state.update_all_statuses(|_, status| {
+            system.update_all_statuses(|_, status| {
                 status.should_run = new_run_state;
             })
         },
         Action::ToggleDebug(service_name) => {
-            state.update_service_status(&service_name, |status| {
+            system.update_service_status(&service_name, |status| {
                 status.debug = !status.debug;
                 status.action = match status.action {
                     ServiceAction::Recompile => ServiceAction::Recompile,
@@ -98,14 +99,14 @@ fn process_action(state: &mut SystemState, action: Action) {
             });
         },
         Action::ToggleDebugAll => {
-            let new_debug_state = state.iter_services()
+            let new_debug_state = system.iter_services()
                 .map(|service| {
-                    state.get_service_status(&service.name()).as_ref()
+                    system.get_service_status(&service.name).as_ref()
                         .map(|status| status.debug)
                 }).flatten()
                 .any(|cond| !cond);
 
-            state.update_all_statuses(|_, status| {
+            system.update_all_statuses(|_, status| {
                 status.debug = new_debug_state;
                 status.action = match status.action {
                     ServiceAction::Recompile => ServiceAction::Recompile,
@@ -114,7 +115,7 @@ fn process_action(state: &mut SystemState, action: Action) {
             })
         },
         Action::TriggerPendingCompiles => {
-            state.update_all_statuses(|_, status| {
+            system.update_all_statuses(|_, status| {
                 if status.has_uncompiled_changes {
                     status.has_uncompiled_changes = false;
                     status.action = ServiceAction::Recompile;
@@ -122,19 +123,19 @@ fn process_action(state: &mut SystemState, action: Action) {
             })
         },
         Action::ToggleOutput(service_name) => {
-            state.update_service_status(&service_name, |status| {
+            system.update_service_status(&service_name, |status| {
                 status.show_output = !status.show_output;
             });
         },
         Action::ToggleOutputAll => {
-            let has_disabled = state.iter_services()
+            let has_disabled = system.iter_services()
                 .map(|service| {
-                    state.get_service_status(&service.name()).as_ref()
+                    system.get_service_status(&service.name).as_ref()
                         .map(|status| status.show_output)
                 }).flatten()
                 .any(|cond| !cond);
 
-            state.update_all_statuses(|_, status| {
+            system.update_all_statuses(|_, status| {
                 status.show_output = has_disabled;
             })
         }

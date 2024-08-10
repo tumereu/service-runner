@@ -253,7 +253,6 @@ pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                 exit_early: move |(server, service_name)| {
                     let server = server.lock().unwrap();
                     let status = &server
-                        .get_state()
                         .service_statuses
                         .get(service_name)
                         .unwrap();

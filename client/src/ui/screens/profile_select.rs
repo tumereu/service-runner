@@ -10,7 +10,7 @@ pub fn render_profile_select<B>(frame: &mut Frame<B>, state: &SystemState)
 where
     B: Backend,
 {
-    let selected_idx = match &state.ui {
+    let selected_idx = match &state.ui.screen {
         CurrentScreen::ProfileSelect { selected_idx } => selected_idx,
         any @ _ => panic!("Invalid UI state in render_profile_select: {any:?}"),
     };

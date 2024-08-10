@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::cmp::{max, min};
-use std::fmt::format;
 use std::rc::Rc;
 
 use tui::backend::Backend;

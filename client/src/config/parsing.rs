@@ -7,13 +7,8 @@ use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
-use crate::config::models::{Config, ProfileDefinition, ServerConfig, ServiceDefinition};
-use crate::config::ScriptedCompileConfig;
-
-#[derive(Deserialize, Debug)]
-pub struct MainConfig {
-    pub server: ServerConfig,
-}
+use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
+use crate::config::{ScriptedCompileConfig, Settings};
 
 #[derive(Debug)]
 pub struct ConfigParsingError {
@@ -39,9 +34,8 @@ impl Error for ConfigParsingError {}
 pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
     info!("Reading configuration froms directory {dir}");
 
-    let main_file = format!("{dir}/config.toml");
-    let main_config =
-        read_main_config(&main_file).map_err(|err| ConfigParsingError::new(err, &main_file))?;
+    let main_file = format!("{dir}/settings.toml");
+    let settings = read_settings(&main_file).map_err(|err| ConfigParsingError::new(err, &main_file))?;
     let mut services: Vec<ServiceDefinition> = Vec::new();
     let mut profiles: Vec<ProfileDefinition> = Vec::new();
 
@@ -65,14 +59,14 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
     }
 
     Ok(Config {
-        server: main_config.server,
+        settings,
         conf_dir: dir.into(),
         services,
         profiles,
     })
 }
 
-pub fn read_main_config(path: &str) -> Result<MainConfig, Box<dyn Error>> {
+pub fn read_settings(path: &str) -> Result<Settings, Box<dyn Error>> {
     Ok(
         serde_path_to_error::deserialize(
             toml::Deserializer::new(&read_to_string(path)?)

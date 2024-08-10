@@ -16,8 +16,6 @@ macro_rules! write_escaped_str {
 
 macro_rules! format_err {
     ($msg:expr, $err:expr) => {{
-        use ::std::error::Error;
-
         let mut error_opt: ::std::option::Option<&dyn ::std::error::Error> =
             ::std::option::Option::Some(&$err);
         let mut message: ::std::string::String = $msg.into();

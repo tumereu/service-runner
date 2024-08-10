@@ -3,9 +3,15 @@ use Vec;
 
 use serde_derive::{Deserialize, Serialize};
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct Settings {
+    // TODO add theming etc. here
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub conf_dir: String,
+    pub settings: Settings,
     pub services: Vec<ServiceDefinition>,
     pub profiles: Vec<ProfileDefinition>,
 }
@@ -140,13 +146,13 @@ pub enum AutoCompileTrigger {
 #[serde(deny_unknown_fields)]
 pub struct ProfileDefinition {
     pub name: String,
-    pub services: Vec<ServiceDefinition>,
+    pub services: Vec<ServiceRef>,
 }
 impl ProfileDefinition {
     pub fn includes(&self, service: &ServiceDefinition) -> bool {
         self.services
             .iter()
-            .any(|reference| reference.references(service))
+            .any(|element| element.name == service.name)
     }
 }
 
@@ -158,7 +164,7 @@ pub struct ServiceRef {
 
 impl ServiceRef {
     pub fn references(&self, service: &ServiceDefinition) -> bool {
-        service.name() == &self.name
+        &service.name == &self.name
     }
 }
 

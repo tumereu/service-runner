@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::fmt::format;
 use std::hash::{Hash, Hasher};
 use std::iter;
 use std::rc::Rc;
@@ -13,7 +12,7 @@ use tui::style::Color;
 use tui::Frame;
 use tui::layout::Rect;
 
-use crate::models::action::models::{AutoCompileMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
+use crate::models::{AutoCompileMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
 
 use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
@@ -42,7 +41,7 @@ pub fn render_view_profile<B>(frame: &mut Frame<B>, state: &SystemState)
 where
     B: Backend,
 {
-    let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) = match &state.ui {
+    let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) = match &state.ui.screen {
         &CurrentScreen::ViewProfile(ViewProfileState {
             active_pane,
             service_selection,
@@ -54,12 +53,8 @@ where
         any @ _ => panic!("Invalid UI state in render_view_profile: {any:?}"),
     };
 
-    let profile = state
-        .runner_state
-        .as_ref()
-        .map(|it| it.current_profile.as_ref())
-        .flatten();
-    let service_statuses = state.runner_state.as_ref().map(|it| &it.service_statuses);
+    let profile = &state.current_profile;
+    let service_statuses = &state.service_statuses;
 
     // TODO move into a theme?
     let active_border_color = Color::Rgb(180, 180, 0);
@@ -70,7 +65,7 @@ where
         _ => None,
     };
 
-    if let (Some(profile), Some(service_statuses)) = (profile, service_statuses) {
+    if let Some(profile) = profile {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
         let (service_list, selected_service_bounds) = service_list(profile, service_selection, service_statuses);
 
@@ -315,12 +310,12 @@ fn service_list(
                                     fg: if let Some(status) = status {
                                         match &status.auto_compile {
                                             None => inactive_color.clone(),
-                                            Some(AutoCompileMode::AUTOMATIC) => active_color.clone(),
-                                            Some(AutoCompileMode::CUSTOM) if status.has_uncompiled_changes => {
+                                            Some(AutoCompileMode::Automatic) => active_color.clone(),
+                                            Some(AutoCompileMode::Custom) if status.has_uncompiled_changes => {
                                                 processing_color.clone()
                                             },
-                                            Some(AutoCompileMode::CUSTOM) => secondary_active_color.clone(),
-                                            Some(AutoCompileMode::DISABLED) => inactive_color.clone(),
+                                            Some(AutoCompileMode::Custom) => secondary_active_color.clone(),
+                                            Some(AutoCompileMode::Disabled) => inactive_color.clone(),
                                         }
                                     } else {
                                         inactive_color.clone()
@@ -375,7 +370,7 @@ fn output_pane(
                         .query_lines_to(
                             height,
                             pos_vert,
-                            get_active_outputs(&state.output_store, &state.runner_state)
+                            &get_active_outputs(&state.output_store, &state)
                         )
                         .into_iter()
                         .map(|(key, line)| {
@@ -440,7 +435,6 @@ fn output_pane(
         ..Default::default()
     }
 }
-
 
 fn hashed_color(text: &str) -> Color {
     // Hash the service name to obtain a color for it

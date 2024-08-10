@@ -1,14 +1,13 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap};
 use std::thread::JoinHandle;
 use crate::config::Config;
-use crate::models::{Action, CompileStatus, Dependency, OutputKey, OutputStore, Profile, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
+use crate::models::{CompileStatus, Dependency, OutputKey, OutputStore, Profile, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
 use crate::runner::file_watcher::FileWatcherState;
 use crate::ui::UIState;
 
 pub struct SystemState {
     pub current_profile: Option<Profile>,
     pub service_statuses: HashMap<String, ServiceStatus>,
-    pub actions_out: VecDeque<Action>,
     pub output_store: OutputStore,
     pub ui: UIState,
     pub config: Config,
@@ -23,7 +22,6 @@ impl SystemState {
             should_exit: false,
             current_profile: None,
             service_statuses: HashMap::new(),
-            actions_out: VecDeque::new(),
             ui: UIState::new(),
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
@@ -43,7 +41,7 @@ impl SystemState {
                 profile
                     .services
                     .iter()
-                    .find(|service| service.name() == service_name)
+                    .find(|service| service.name == service_name)
             })
             .flatten()
     }
@@ -95,7 +93,7 @@ impl SystemState {
     where
         F: FnOnce(&mut SystemState),
     {
-        update(&mut self);
+        update(self);
     }
 
     pub fn update_service_status<F>(&mut self, service: &str, update: F)

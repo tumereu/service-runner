@@ -1,6 +1,4 @@
 use tui::backend::Backend;
-use tui::text::Spans;
-use tui::widgets::Paragraph;
 use tui::Frame;
 
 use crate::system_state::SystemState;

@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use crate::models::CompileStatus;
+use crate::models::{AutoCompileMode, AutoCompileTrigger, CompileStatus, OutputKey, OutputKind, ServiceAction};
+use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::system_state::SystemState;
 use crate::utils::format_err;
 
@@ -101,13 +102,13 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
     match command.spawn() {
         Ok(handle) => {
             ProcessHandler {
-                server: state_arc.clone(),
+                state: state_arc.clone(),
                 handle: Arc::new(Mutex::new(handle)),
                 service_name: service_name.clone(),
                 output: OutputKind::Compile,
                 exit_early: |_| false,
-                on_finish: move |OnFinishParams { server, service_name, success, exit_code, .. }| {
-                    let mut server = server.lock().unwrap();
+                on_finish: move |OnFinishParams { state, service_name, success, exit_code, .. }| {
+                    let mut server = state.lock().unwrap();
                     if success {
                         let num_steps = server
                             .get_service(service_name)
@@ -149,10 +150,10 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                             .for_each(|service| {
                                 server.update_service_status(&service, |status| {
                                     match status.auto_compile {
-                                        Some(AutoCompileMode::AUTOMATIC) => {
+                                        Some(AutoCompileMode::Automatic) => {
                                             status.action = ServiceAction::Recompile;
                                         },
-                                        Some(AutoCompileMode::CUSTOM) => {
+                                        Some(AutoCompileMode::Custom) => {
                                             status.has_uncompiled_changes = true;
                                         },
                                         _ => {}

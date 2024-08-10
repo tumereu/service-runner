@@ -11,12 +11,10 @@ use tui::{backend::CrosstermBackend, Terminal};
 use config::read_config;
 use log::{debug, info, LevelFilter};
 
-use crate::system_state::{ClientStatus, SystemState};
+use crate::system_state::{SystemState};
 use crate::input::process_inputs;
-use crate::runner::process_action::start_action_processor;
 use crate::runner::file_watcher::start_file_watcher;
 use crate::ui::render;
-use crate::runner::file_watcher_state::ServerState;
 use crate::runner::service_worker::start_service_worker;
 
 mod system_state;
@@ -36,9 +34,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or("Specify the configuration directory in order to run the app")?
         .clone();
 
-    let state = Arc::new(Mutex::new(SystemState::new(read_config(&config_dir)?)));
-    let num_profiles = state.lock().unwrap().config.profiles.len();
-    let num_services = state.lock().unwrap().config.services.len();
+    let state_arc = Arc::new(Mutex::new(SystemState::new(read_config(&config_dir)?)));
+    let num_profiles = state_arc.lock().unwrap().config.profiles.len();
+    let num_services = state_arc.lock().unwrap().config.services.len();
 
     info!(
         "Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)"
@@ -52,49 +50,44 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    render(&mut terminal, state.clone())?;
-
-    let server = Arc::new(Mutex::new(ServerState::new()));
+    render(&mut terminal, state_arc.clone())?;
 
     let mut handles = vec![
-        ("action-processor".into(), start_action_processor(server.clone())),
-        ("service-worker".into(), start_service_worker(server.clone())),
-        ("file-watcher".into(), start_file_watcher(server.clone())),
+        ("service-worker".into(), start_service_worker(state_arc.clone())),
+        ("file-watcher".into(), start_file_watcher(state_arc.clone())),
     ];
 
-    server.lock().unwrap().active_threads.append(&mut handles);
+    state_arc.lock().unwrap().active_threads.append(&mut handles);
 
     let join_threads = {
-        let server = server.clone();
+        let state_arc = state_arc.clone();
         thread::spawn(move || {
             let mut last_print = Instant::now();
 
             loop {
                 {
-                    let mut server = server.lock().unwrap();
-                    if server.get_state().status == Status::Exiting
-                        && server.active_threads.len() == 0
-                    {
+                    let mut state = state_arc.lock().unwrap();
+                    if state.should_exit && state.active_threads.len() == 0 {
                         break;
                     }
 
-                    server.active_threads.retain(|(_, thread)| !thread.is_finished());
+                    state.active_threads.retain(|(_, thread)| !thread.is_finished());
 
-                    let print_delay = if server.get_state().status == Status::Exiting {
+                    let print_delay = if state.should_exit {
                         Duration::from_millis(1000)
                     } else {
                         Duration::from_millis(60_000)
                     };
 
                     if Instant::now().duration_since(last_print) >= print_delay {
-                        let status = if server.get_state().status == Status::Exiting {
+                        let status = if state.should_exit {
                             "Server is trying to exit"
                         } else {
                             "Server running normally"
                         };
 
-                        let thread_count = server.active_threads.len();
-                        let threads = server.active_threads.iter()
+                        let thread_count = state.active_threads.len();
+                        let threads = state.active_threads.iter()
                             .map(|(name, _)| name.clone())
                             .collect::<Vec<String>>()
                             .join(", ");
@@ -110,10 +103,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     loop {
-        process_inputs(state.clone())?;
-        render(&mut terminal, state.clone())?;
+        process_inputs(state_arc.clone())?;
+        render(&mut terminal, state_arc.clone())?;
 
-        if state.lock().unwrap().status == ClientStatus::Exiting {
+        if state_arc.lock().unwrap().should_exit {
             break;
         } else {
             thread::sleep(Duration::from_millis(10));

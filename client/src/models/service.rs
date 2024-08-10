@@ -15,22 +15,13 @@ pub struct Service {
 }
 impl From<ConfigService> for Service {
     fn from(value: ConfigService) -> Self {
-        match value {
-            ConfigService::Scripted {
-                name,
-                dir,
-                compile,
-                run,
-                reset,
-                autocompile,
-            } => Service {
-                name,
-                dir: dir.into(),
-                compile: compile.map(Into::into),
-                run: run.map(Into::into),
-                reset: reset.into_iter().map(Into::into).collect(),
-                autocompile: autocompile.map(Into::into),
-            },
+        Service {
+            name: value.name,
+            dir: value.dir.into(),
+            compile: value.compile.map(Into::into),
+            run: value.run.map(Into::into),
+            reset: value.reset.into_iter().map(Into::into).collect(),
+            autocompile: value.autocompile.map(Into::into),
         }
     }
 }

@@ -39,7 +39,7 @@ impl OutputStore {
         &self,
         num_lines: usize,
         min_idx: Option<u128>,
-        keys: Vec<&OutputKey>
+        keys: &Vec<&OutputKey>
     ) -> Vec<(&OutputKey, &OutputLine)> {
         let min_idx = min_idx.unwrap_or(0);
         let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
@@ -98,7 +98,7 @@ impl OutputStore {
         &self,
         num_lines: usize,
         max_idx: Option<u128>,
-        keys: Vec<&OutputKey>
+        keys: &Vec<&OutputKey>
     ) -> Vec<(&OutputKey, &OutputLine)> {
         let max_idx = max_idx.unwrap_or(self.current_idx);
         let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
@@ -196,14 +196,13 @@ pub struct OutputLine {
 }
 
 // TODO move elsewhere?
-pub fn get_active_outputs<'a>(store: &'a OutputStore, state: &'a Option<SystemState>) -> Vec<&'a OutputKey> {
+pub fn get_active_outputs<'a>(store: &'a OutputStore, state: &'a SystemState) -> Vec<&'a OutputKey> {
     store.outputs.iter()
         .map(|(key, _)| key)
         .filter(|key| {
-            state.as_ref().map(|state| {
-                state.service_statuses
-                    .get(key.service_ref.as_str())
-                    .map(|status| status.show_output)
-            }).flatten().unwrap_or(false)
+            state.service_statuses
+                .get(key.service_ref.as_str())
+                .map(|status| status.show_output)
+                .unwrap_or(false)
         }).collect()
 }
