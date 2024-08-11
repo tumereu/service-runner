@@ -23,7 +23,7 @@ impl From<ConfigAutomationEntry> for AutomationEntry {
             debounce_millis: value.debounce_millis,
             effects: value.effects.into_iter().map(Into::into).collect(),
             trigger: value.trigger.into(),
-            default_mode: value.default_mode.unwrap_or(AutomationMode::Automatic).into(),
+            default_mode: value.default_mode.unwrap_or(ConfigAutomationDefaultMode::Automatic).into(),
         }
     }
 }

@@ -3,9 +3,10 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use crate::models::{AutomationMode, AutomationTrigger, ServiceAction};
+use crate::runner::automation::{enqueue_automation, process_pending_automations};
 use crate::system_state::SystemState;
 
 
@@ -16,34 +17,39 @@ pub struct FileWatcherState {
     pub latest_recompiles: HashMap<String, Instant>,
 }
 
-pub fn start_file_watcher(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
+pub fn start_file_watcher(system_arc: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        while !state.lock().unwrap().should_exit {
+        while !system_arc.lock().unwrap().should_exit {
             let rebuild_watchers = {
-                let server = state.lock().unwrap();
-                match (server.get_profile_name(), &server.file_watchers) {
+                let system = system_arc.lock().unwrap();
+                match (system.get_profile_name(), &system.file_watchers) {
                     (None, None) => false,
                     (None, Some(_)) => true,
                     (Some(_), None) => true,
                     (Some(profile), Some(FileWatcherState { profile_name, .. })) => profile != profile_name,
                 }
             };
+
             if rebuild_watchers {
                 info!("Rebuilding file watchers due to a change in profile");
-                setup_watchers(state.clone());
+                setup_watchers(system_arc.clone());
             }
-
-            check_triggers(state.clone());
 
             thread::sleep(Duration::from_millis(100))
         }
+
+        // Dropping the file watcher state should automatically clean up the created watchers
+        system_arc.lock().unwrap().file_watchers = None;
     })
 }
 
-fn setup_watchers(state: Arc<Mutex<SystemState>>) {
-    let mut server_state = state.lock().unwrap();
-    let new_watchers = if let Some(profile_name) = server_state.get_profile_name() {
-        let watchers: Vec<RecommendedWatcher> = server_state.iter_services()
+
+fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
+    let mut system = system_arc.lock().unwrap();
+    let system_arc = system_arc.clone();
+
+    let new_watchers = if let Some(profile_name) = system.get_profile_name() {
+        let watchers: Vec<RecommendedWatcher> = system.iter_services()
             .flat_map(|service| {
                 service.automation.iter()
                     .flat_map(|automation_entry| {
@@ -52,8 +58,8 @@ fn setup_watchers(state: Arc<Mutex<SystemState>>) {
                                 Some((
                                     service.name.clone(),
                                     service.dir.clone(),
-                                    automation_entry,
-                                    paths
+                                    automation_entry.clone(),
+                                    paths.clone()
                                 ))
                             },
                             _ => None
@@ -62,32 +68,19 @@ fn setup_watchers(state: Arc<Mutex<SystemState>>) {
             })
             .map(|(service_name, work_dir, automation_entry, watch_paths)| {
                 info!("Creating a watcher for service {service_name} with paths {watch_paths:?}");
+
                 let watcher = {
-                    let server = state.clone();
+                    let system_arc = system_arc.clone();
                     let service_name = service_name.clone();
+
                     notify::recommended_watcher(move |res| {
                         match res {
                             Ok(event) => {
-                                debug!("Received filesystem event for service {service_name}: {event:?}");
-                                let mut server = server.lock().unwrap();
-                                match server.get_service_status(&service_name).map(|status| status.auto_compile.clone()).flatten() {
-                                    // For automatic compile, add the service into the events so that the recompile can
-                                    // be triggered later, as the debounce interval passes
-                                    Some(AutomationMode::Automatic) => {
-                                        server.file_watchers
-                                            .iter_mut()
-                                            .for_each(|watcher_state| {
-                                                watcher_state.latest_events.insert(service_name.clone(), Instant::now());
-                                            })
-                                    },
-                                    // For triggered compile we just mark the service as having changes
-                                    Some(AutomationMode::Triggerable) => {
-                                        server.update_service_status(&service_name, |status| {
-                                            status.has_uncompiled_changes = true;
-                                        });
-                                    }
-                                    _ => {}
-                                }
+                                trace!("Received filesystem event for service {service_name}: {event:?}");
+                                let mut system = system_arc.lock().unwrap();
+
+                                enqueue_automation(&mut system, &service_name, &automation_entry);
+                                process_pending_automations(&mut system);
                             }
                             Err(err) => error!("Error in file watcher for service {service_name}: {err:?}"),
                         }
@@ -136,37 +129,5 @@ fn setup_watchers(state: Arc<Mutex<SystemState>>) {
         None
     };
 
-    server_state.file_watchers = new_watchers;
-}
-
-fn check_triggers(state_arc: Arc<Mutex<SystemState>>) {
-    let triggered_services: Vec<String> = {
-        state_arc.lock().unwrap()
-            .file_watchers
-            .iter()
-            .flat_map(|watcher_state| {
-                watcher_state.latest_events
-                    .iter()
-                    // Filter events down to those that have occurred since the last triggered recompile
-                    .filter(|(service, timestamp)| {
-                        watcher_state.latest_recompiles.get(service.as_str())
-                            .map(|recompile_timestamp| timestamp > &recompile_timestamp)
-                            .unwrap_or(true)
-                    })
-                    // Debounce the remaining events
-                    .filter(|(_, &timestamp)| {
-                        // TODO move debounce time to a config somewhere?
-                        Instant::now().duration_since(timestamp).as_millis() > 3000
-                    })
-            })
-            .map(|(service, _)| service.clone())
-            .collect()
-    };
-
-    let mut state = state_arc.lock().unwrap();
-    for service in triggered_services {
-        state.update_service_status(&service, |service| {
-            service.action = ServiceAction::Recompile;
-        });
-    }
+    system.file_watchers = new_watchers;
 }

@@ -7,7 +7,7 @@ pub struct AutomationEntry {
     pub debounce_millis: u64,
     pub effects: Vec<AutomationEffect>,
     pub trigger: AutomationTrigger,
-    pub default_mode: Some<AutomationDefaultMode>,
+    pub default_mode: Option<AutomationDefaultMode>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

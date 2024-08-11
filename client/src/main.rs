@@ -12,6 +12,7 @@ use log::{debug, info, LevelFilter};
 
 use crate::system_state::{SystemState};
 use crate::input::process_inputs;
+use crate::runner::automation::start_automation_processor;
 use crate::runner::file_watcher::start_file_watcher;
 use crate::ui::render;
 use crate::runner::service_worker::start_service_worker;
@@ -63,6 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut handles = vec![
         ("service-worker".into(), start_service_worker(state_arc.clone())),
         ("file-watcher".into(), start_file_watcher(state_arc.clone())),
+        ("automation-processor".into(), start_automation_processor(state_arc.clone())),
     ];
 
     state_arc.lock().unwrap().active_threads.append(&mut handles);

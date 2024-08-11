@@ -49,36 +49,38 @@ pub fn enqueue_automation(
 pub fn process_pending_automations(system: &mut SystemState) {
     let check_time = Instant::now();
 
-    system.service_statuses.iter().for_each(|(service_name, status)| {
-        status.pending_automations.iter()
-            .filter(|pending_automation| pending_automation.not_before.le(&check_time))
-            .for_each(|pending_automation| {
-                system.update_service_status(&service_name, |status| {
-                    match pending_automation.effect {
-                        AutomationEffect::Recompile => {
-                            process_action(system, Action::Recompile(service_name.clone()));
-                        }
-                        AutomationEffect::Start => {
-                            process_action(system, Action::UpdateRun(service_name.clone(), true));
-                        },
-                        AutomationEffect::Restart => {
-                            process_action(system, Action::Restart(service_name.clone()));
-                        }
-                        AutomationEffect::Stop => {
-                            process_action(system, Action::UpdateRun(service_name.clone(), false));
-                        }
-                        AutomationEffect::Reset => {
-                            process_action(system, Action::Reset(service_name.clone()));
-                        }
-                    }
-                });
-            });
+    let triggered_automations: Vec<(String, PendingAutomation)> = system.service_statuses.iter()
+        .flat_map(|(service_name, status)| {
+            status.pending_automations.iter()
+                .filter(|pending_automation| pending_automation.not_before.le(&check_time))
+                .map(|pending_automation| {
+                    (service_name.clone(), pending_automation.clone())
+                })
+        }).collect();
+    triggered_automations.iter().for_each(|(service_name, pending_automation)| {
+        match pending_automation.effect {
+            AutomationEffect::Recompile => {
+                process_action(system, Action::Recompile(service_name.clone()));
+            }
+            AutomationEffect::Start => {
+                process_action(system, Action::UpdateRun(service_name.clone(), true));
+            },
+            AutomationEffect::Restart => {
+                process_action(system, Action::Restart(service_name.clone()));
+            }
+            AutomationEffect::Stop => {
+                process_action(system, Action::UpdateRun(service_name.clone(), false));
+            }
+            AutomationEffect::Reset => {
+                process_action(system, Action::Reset(service_name.clone()));
+            }
+        }
+    });
 
-        // Remove all pending automations that were triggered
-        system.update_service_status(&service_name, |status| {
-            status.pending_automations.retain(|pending_automation| {
-                pending_automation.not_before.gt(&check_time)
-            })
+    // Remove all pending automations that were triggered
+    system.service_statuses.iter_mut().for_each(|(service_name, status)| {
+        status.pending_automations.retain(|pending_automation| {
+            pending_automation.not_before.gt(&check_time)
         })
     });
 }

@@ -1,7 +1,7 @@
 use std::ops::Add;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use crate::models::{AutomationTrigger, CompileStatus, OutputKey, OutputKind, PendingAutomation, ServiceAction};
+use crate::models::{AutomationTrigger, CompileStatus, OutputKey, OutputKind, PendingAutomation, AutomationEntry, ServiceAction};
 use crate::models::AutomationEffect::Recompile;
 use crate::runner::automation::{enqueue_automation, process_pending_automations};
 use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
@@ -136,23 +136,19 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
 
                         // Process automation: if a service has an automation entry triggered by the compilation of this
                         // service, then we should queue a pending automation for that service
-                        system.iter_services().for_each(|service| {
-                            // The service matches if it has an automation-entry that references the compilation
-                            // of the just-now compiled service
-                            service.automation
-                                .iter()
-                                .filter(|entry| {
-                                    match &entry.trigger {
-                                        AutomationTrigger::RecompiledService { service } => service == service_name,
-                                        _ => false
-                                    }
-                                }).for_each(|automation_entry| {
-                                    enqueue_automation(
-                                        &mut system,
-                                        &service.name,
-                                        &automation_entry
-                                    );
-                                });
+                        let automations_to_enqueue: Vec<(String, AutomationEntry)> = system.iter_services()
+                            .flat_map(|service| {
+                                service.automation
+                                    .iter()
+                                    .filter(|entry| {
+                                        match &entry.trigger {
+                                            AutomationTrigger::RecompiledService { service } => service == service_name,
+                                            _ => false
+                                        }
+                                    }).map(|automation_entry| (service.name.clone(), automation_entry.clone()))
+                            }).collect();
+                        automations_to_enqueue.iter().for_each(|(service, entry)| {
+                            enqueue_automation(&mut system, &service, &entry)
                         });
 
                         // Check the automations immediately, so that non-debounced automations fire without delay
