@@ -6,10 +6,9 @@ use Vec;
 use log::info;
 use serde::Deserialize;
 use walkdir::WalkDir;
-use serde_path_to_error::Error as SerdePathError;
 
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
-use crate::config::{ScriptedCompileConfig, Settings};
+use crate::config::{Settings};
 
 #[derive(Debug)]
 pub struct ConfigParsingError {

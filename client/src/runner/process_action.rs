@@ -1,4 +1,7 @@
-use crate::models::{Action, ServiceAction, ServiceStatus, AutoCompileMode};
+use std::time::Instant;
+use crate::models::{Action, ServiceAction, ServiceStatus, PendingAutomation};
+use crate::models::AutomationMode::{Automatic, Disabled};
+use crate::runner::automation::process_pending_automations;
 use crate::system_state::SystemState;
 use crate::ui::CurrentScreen;
 
@@ -19,60 +22,45 @@ pub fn process_action(system: &mut SystemState, action: Action) {
                 state.ui.screen = CurrentScreen::view_profile();
             });
         },
-        Action::UpdateServiceAction(service_name, action) => {
+        Action::Recompile(service_name) => {
             system.update_service_status(&service_name, |status| {
-                status.action = action;
+                status.action = ServiceAction::Recompile;
             });
         },
-        Action::UpdateAllServiceActions(action) => {
+        Action::Restart(service_name) => {
+            system.update_service_status(&service_name, |status| {
+                status.action = ServiceAction::Restart;
+            });
+        },
+        Action::RecompileAll => {
             system.update_all_statuses(|_, status| {
-                status.action = action.clone();
+                status.action = ServiceAction::Recompile;
             })
         },
-        Action::CycleAutoCompile(service_name) => {
+        Action::RestartAll => {
+            system.update_all_statuses(|_, status| {
+                status.action = ServiceAction::Restart;
+            })
+        },
+        Action::CycleAutomation(service_name) => {
             system.update_service_status(&service_name, |status| {
-                status.auto_compile = match status.auto_compile {
-                    None => None,
-                    Some(AutoCompileMode::Automatic) => Some(AutoCompileMode::Disabled),
-                    Some(AutoCompileMode::Disabled) => Some(AutoCompileMode::Custom),
-                    Some(AutoCompileMode::Custom) => {
-                        // When changing from triggered to automatic, if there were pending changes then we should also
-                        // trigger compilation
-                        if status.has_uncompiled_changes {
-                            status.action = ServiceAction::Recompile;
-                        }
-                        Some(AutoCompileMode::Automatic)
-                    },
+                // TODO maybe toggle a separate "automation disabled" instead.
+                if status.automation_modes.iter().all(|(_, mode)| *mode == Disabled) {
+                    status.automation_modes = status.automation_modes.iter()
+                        .map(|(key, _)| (key.clone(), Automatic))
+                        .collect()
+                } else {
+                    status.automation_modes = status.automation_modes.iter()
+                        .map(|(key, _)| (key.clone(), Disabled))
+                        .collect()
                 }
             })
         },
-        Action::CycleAutoCompileAll => {
-            let lowest_status: AutoCompileMode = system.iter_services()
-                .map(|service| {
-                    system.get_service_status(&service.name).as_ref()
-                        .map(|status| status.auto_compile.as_ref())
-                        .flatten()
-                })
-                .flatten()
-                .fold(AutoCompileMode::Automatic, |left, right| {
-                    match (left, right) {
-                        | (AutoCompileMode::Disabled, _)
-                        | (_, AutoCompileMode::Disabled) => AutoCompileMode::Disabled,
-                        | (AutoCompileMode::Custom, _)
-                        | (_, AutoCompileMode::Custom) => AutoCompileMode::Custom,
-                        | (AutoCompileMode::Automatic, _) => AutoCompileMode::Automatic
-                    }
-                });
-            system.update_all_statuses(|_, status| {
-                status.auto_compile = status.auto_compile.as_ref().map(|_| {
-                    match lowest_status {
-                        AutoCompileMode::Disabled => AutoCompileMode::Custom,
-                        AutoCompileMode::Custom => AutoCompileMode::Automatic,
-                        AutoCompileMode::Automatic => AutoCompileMode::Disabled
-                    }
-                });
-            })
-        },
+        Action::UpdateRun(service_name, should_run) => {
+            system.update_service_status(&service_name, |status| {
+                status.should_run = should_run;
+            });
+        }
         Action::ToggleRun(service_name) => {
             system.update_service_status(&service_name, |status| {
                 status.should_run = !status.should_run;
@@ -115,14 +103,18 @@ pub fn process_action(system: &mut SystemState, action: Action) {
                 }
             })
         },
-        Action::TriggerPendingCompiles => {
+        Action::TriggerPendingAutomations => {
             system.update_all_statuses(|_, status| {
-                if status.has_uncompiled_changes {
-                    status.has_uncompiled_changes = false;
-                    status.action = ServiceAction::Recompile;
-                }
-            })
-        },
+                status.pending_automations = status.pending_automations.iter()
+                    .map(|pending_automation| {
+                        PendingAutomation {
+                            not_before: Instant::now(),
+                            effect: pending_automation.effect
+                        }
+                    }).collect();
+            });
+            process_pending_automations(system);
+        }
         Action::ToggleOutput(service_name) => {
             system.update_service_status(&service_name, |status| {
                 status.show_output = !status.show_output;
@@ -139,6 +131,12 @@ pub fn process_action(system: &mut SystemState, action: Action) {
             system.update_all_statuses(|_, status| {
                 status.show_output = has_disabled;
             })
+        },
+        Action::Reset(service_name) => {
+            // TODO implement
+        },
+        Action::ResetAll => {
+            // TODO implement
         }
     }
 }

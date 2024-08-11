@@ -1,4 +1,4 @@
-mod autocompile;
+mod automation;
 mod compile;
 mod dependency;
 mod exec;
@@ -9,7 +9,7 @@ mod service;
 mod status;
 mod action;
 
-pub use autocompile::*;
+pub use automation::*;
 pub use compile::*;
 pub use dependency::*;
 pub use exec::*;

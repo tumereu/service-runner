@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+use std::time::Instant;
 use serde::{Deserialize, Serialize};
 
-use crate::models::{AutoCompileMode, Profile, Service};
+use crate::models::{AutomationEffect, AutomationMode, Profile, Service};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ServiceStatus {
     pub action: ServiceAction,
     pub should_run: bool,
@@ -10,8 +12,8 @@ pub struct ServiceStatus {
     pub compile_status: CompileStatus,
     pub run_status: RunStatus,
     pub show_output: bool,
-    pub auto_compile: Option<AutoCompileMode>,
-    pub has_uncompiled_changes: bool,
+    pub automation_modes: HashMap<String, AutomationMode>,
+    pub pending_automations: Vec<PendingAutomation>,
 }
 impl ServiceStatus {
     pub fn from(_profile: &Profile, service: &Service) -> ServiceStatus {
@@ -19,23 +21,32 @@ impl ServiceStatus {
             should_run: true,
             debug: false,
             action: ServiceAction::Recompile,
-            auto_compile: service.autocompile.as_ref().map(|auto_compile| auto_compile.default_mode.clone()),
+            automation_modes: service.automation
+                .iter()
+                .map(|entry| (entry.name.clone(), entry.default_mode.clone()))
+                .collect(),
             compile_status: CompileStatus::None,
             run_status: RunStatus::Stopped,
             show_output: true,
-            has_uncompiled_changes: false,
+            pending_automations: Vec::new(),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
+pub struct PendingAutomation {
+    pub effect: AutomationEffect,
+    pub not_before: Instant
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ServiceAction {
     None,
     Recompile,
     Restart,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum CompileStatus {
     None,
     Compiling(usize),
@@ -44,7 +55,7 @@ pub enum CompileStatus {
     Failed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum RunStatus {
     Stopped,
     Running,

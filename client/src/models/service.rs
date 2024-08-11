@@ -2,7 +2,7 @@ use std::convert::Into;
 use serde::{Deserialize, Serialize};
 
 use crate::config::ServiceDefinition as ConfigService;
-use crate::models::{AutoCompileConfig, CompileConfig, ExecutableEntry, RunConfig};
+use crate::models::{AutomationEntry, CompileConfig, ExecutableEntry, RunConfig};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {
@@ -11,7 +11,7 @@ pub struct Service {
     pub compile: Option<CompileConfig>,
     pub run: Option<RunConfig>,
     pub reset: Vec<ExecutableEntry>,
-    pub autocompile: Option<AutoCompileConfig>,
+    pub automation: Vec<AutomationEntry>,
 }
 impl From<ConfigService> for Service {
     fn from(value: ConfigService) -> Self {
@@ -21,7 +21,7 @@ impl From<ConfigService> for Service {
             compile: value.compile.map(Into::into),
             run: value.run.map(Into::into),
             reset: value.reset.into_iter().map(Into::into).collect(),
-            autocompile: value.autocompile.map(Into::into),
+            automation: value.automation.into_iter().map(Into::into).collect(),
         }
     }
 }

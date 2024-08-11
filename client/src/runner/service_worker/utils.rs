@@ -5,7 +5,6 @@ use std::{io, thread};
 use std::ops::Neg;
 use std::time::{Duration, Instant};
 use log::{error, info};
-use nix::libc::stat;
 
 use crate::models::{ExecutableEntry, OutputKey, OutputKind};
 

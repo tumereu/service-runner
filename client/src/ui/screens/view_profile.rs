@@ -12,11 +12,11 @@ use tui::style::Color;
 use tui::Frame;
 use tui::layout::Rect;
 
-use crate::models::{AutoCompileMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
-
+use crate::models::{AutomationMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
+use crate::models::AutomationMode::{Automatic, Disabled};
 use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
-use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, Renderable, render_at_pos, Toggle};
+use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, render_at_pos, Toggle};
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
 
 const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
@@ -302,20 +302,20 @@ fn service_list(
                             // Autocompile status
                             Cell {
                                 element: Text {
-                                    text: if service.autocompile.is_some() {
+                                    text: if service.automation.len() > 0 {
                                         "A"
                                     } else {
                                         "-"
                                     }.into(),
                                     fg: if let Some(status) = status {
-                                        match &status.auto_compile {
-                                            None => inactive_color.clone(),
-                                            Some(AutoCompileMode::Automatic) => active_color.clone(),
-                                            Some(AutoCompileMode::Custom) if status.has_uncompiled_changes => {
-                                                processing_color.clone()
-                                            },
-                                            Some(AutoCompileMode::Custom) => secondary_active_color.clone(),
-                                            Some(AutoCompileMode::Disabled) => inactive_color.clone(),
+                                        if status.pending_automations.len() > 0 {
+                                            processing_color.clone()
+                                        } else if status.automation_modes.iter().all(|(_, mode)| *mode == Automatic) {
+                                            active_color.clone()
+                                        } else if status.automation_modes.iter().all(|(_, mode)| *mode == Disabled) {
+                                            inactive_color.clone()
+                                        } else {
+                                            secondary_active_color.clone()
                                         }
                                     } else {
                                         inactive_color.clone()

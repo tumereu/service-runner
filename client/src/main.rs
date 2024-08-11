@@ -2,7 +2,6 @@ use std::sync::{Arc, Mutex};
 use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 use std::time::Instant;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };

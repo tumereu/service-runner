@@ -5,7 +5,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use log::{debug, error, info};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use crate::models::{AutoCompileMode, AutoCompileTrigger, ServiceAction};
+use crate::models::{AutomationMode, AutomationTrigger, ServiceAction};
 use crate::system_state::SystemState;
 
 
@@ -45,21 +45,22 @@ fn setup_watchers(state: Arc<Mutex<SystemState>>) {
     let new_watchers = if let Some(profile_name) = server_state.get_profile_name() {
         let watchers: Vec<RecommendedWatcher> = server_state.iter_services()
             .flat_map(|service| {
-                service.autocompile.iter()
-                    .flat_map(|autocompile| &autocompile.triggers)
-                    .filter(|trigger| matches!(trigger, AutoCompileTrigger::ModifiedFile { .. }))
-                    .map(|trigger| {
-                        (
-                            service.name.clone(),
-                            service.dir.clone(),
-                            match trigger {
-                                AutoCompileTrigger::ModifiedFile { paths } => paths.clone(),
-                                _ => panic!("The trigger must be a modified file in this section of code!")
-                            }
-                        )
+                service.automation.iter()
+                    .flat_map(|automation_entry| {
+                        match &automation_entry.trigger {
+                            AutomationTrigger::ModifiedFile { paths } => {
+                                Some((
+                                    service.name.clone(),
+                                    service.dir.clone(),
+                                    automation_entry,
+                                    paths
+                                ))
+                            },
+                            _ => None
+                        }
                     })
             })
-            .map(|(service_name, work_dir, watch_paths)| {
+            .map(|(service_name, work_dir, automation_entry, watch_paths)| {
                 info!("Creating a watcher for service {service_name} with paths {watch_paths:?}");
                 let watcher = {
                     let server = state.clone();
@@ -70,9 +71,9 @@ fn setup_watchers(state: Arc<Mutex<SystemState>>) {
                                 debug!("Received filesystem event for service {service_name}: {event:?}");
                                 let mut server = server.lock().unwrap();
                                 match server.get_service_status(&service_name).map(|status| status.auto_compile.clone()).flatten() {
-                                    // For automatic compile, add the server into the events so that the recompile can
+                                    // For automatic compile, add the service into the events so that the recompile can
                                     // be triggered later, as the debounce interval passes
-                                    Some(AutoCompileMode::Automatic) => {
+                                    Some(AutomationMode::Automatic) => {
                                         server.file_watchers
                                             .iter_mut()
                                             .for_each(|watcher_state| {
@@ -80,7 +81,7 @@ fn setup_watchers(state: Arc<Mutex<SystemState>>) {
                                             })
                                     },
                                     // For triggered compile we just mark the service as having changes
-                                    Some(AutoCompileMode::Custom) => {
+                                    Some(AutomationMode::Triggerable) => {
                                         server.update_service_status(&service_name, |status| {
                                             status.has_uncompiled_changes = true;
                                         });

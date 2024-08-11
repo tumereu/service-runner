@@ -38,31 +38,28 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) -> Result<(), String>
                 // Service interaction specific controls
                 // Restarting
                 KeyCode::Char('e') if shift => {
-                    process_global_action(system, UpdateAllServiceActions(ServiceAction::Restart));
+                    process_global_action(system, RestartAll);
                 },
                 KeyCode::Char('e') => {
-                    process_service_action(system, |service| UpdateServiceAction(service, ServiceAction::Restart));
+                    process_service_action(system, |service| Restart(service));
                 },
                 // Recompiling
                 KeyCode::Char('c') if shift => {
-                    process_global_action(system, UpdateAllServiceActions(ServiceAction::Recompile));
+                    process_global_action(system, RecompileAll);
                 },
                 KeyCode::Char('c') => {
-                    process_service_action(system, |service| UpdateServiceAction(service, ServiceAction::Recompile));
+                    process_service_action(system, |service| Recompile(service));
                 },
 
-                // Controlling autocompile
+                // Controlling automation
                 KeyCode::Char('a') if shift && ctrl => {
                     process_autocomplete_details(system, true);
                 },
                 KeyCode::Char('a') if ctrl => {
                     process_autocomplete_details(system, false);
                 },
-                KeyCode::Char('a') if shift => {
-                    process_global_action(system, CycleAutoCompileAll);
-                },
                 KeyCode::Char('a') => {
-                    process_service_action(system, |service| CycleAutoCompile(service));
+                    process_service_action(system, |service| CycleAutomation(service));
                 }
 
                 // Toggling should-run
@@ -92,7 +89,7 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) -> Result<(), String>
                     process_action(&mut system.lock().unwrap(), Shutdown);
                 }
                 // Triggering pending compiles. This can be used even if the focus is on the output window
-                KeyCode::Char('t') => process_global_action(system, TriggerPendingCompiles),
+                KeyCode::Char('t') => process_global_action(system, TriggerPendingAutomations),
                 // Scroll to start/end of the output
                 KeyCode::Char('g') => {
                     process_navigate_to_limit(

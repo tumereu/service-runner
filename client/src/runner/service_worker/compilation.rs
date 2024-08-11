@@ -1,6 +1,9 @@
+use std::ops::Add;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
-use crate::models::{AutoCompileMode, AutoCompileTrigger, CompileStatus, OutputKey, OutputKind, ServiceAction};
+use std::time::{Duration, Instant};
+use crate::models::{AutomationTrigger, CompileStatus, OutputKey, OutputKind, PendingAutomation, ServiceAction};
+use crate::models::AutomationEffect::Recompile;
+use crate::runner::automation::{enqueue_automation, process_pending_automations};
 use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::system_state::SystemState;
 use crate::utils::format_err;
@@ -88,7 +91,10 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
         state.update_service_status(&service_name, |status| {
             status.compile_status = CompileStatus::Compiling(index);
             status.action = ServiceAction::None;
-            status.has_uncompiled_changes = false;
+            // Remove any queued compile automations
+            status.pending_automations.retain(|automation| {
+                automation.effect != Recompile
+            })
         });
         // Register the time that the compilation was started
         state.file_watchers.iter_mut()
@@ -107,10 +113,11 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                 service_name: service_name.clone(),
                 output: OutputKind::Compile,
                 exit_early: |_| false,
-                on_finish: move |OnFinishParams { state, service_name, success, exit_code, .. }| {
-                    let mut server = state.lock().unwrap();
+                on_finish: move |OnFinishParams { state: system_arc, service_name, success, exit_code, .. }| {
+                    let mut system = system_arc.lock().unwrap();
+
                     if success {
-                        let num_steps = server
+                        let num_steps = system
                             .get_service(service_name)
                             .as_ref()
                             .map(|service| service.compile.as_ref())
@@ -118,7 +125,7 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                             .map(|compile| compile.commands.len())
                             .unwrap_or(0);
 
-                        server.update_service_status(&service_name, move |status| {
+                        system.update_service_status(&service_name, move |status| {
                             status.compile_status = if index >= num_steps - 1 {
                                 CompileStatus::FullyCompiled
                             } else {
@@ -127,46 +134,36 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                             status.action = ServiceAction::Restart;
                         });
 
-                        let triggered_recompiles: Vec<String> = server.iter_services()
-                            .filter(|service| {
-                                // The service matches if it has an autocompile-entry that references the compilation
-                                // of the just-now compiled service
-                                service.autocompile
-                                    .iter()
-                                    .flat_map(|autocompile| &autocompile.triggers)
-                                    .any(|trigger| {
-                                        match trigger {
-                                            AutoCompileTrigger::RecompiledService { service } => service == service_name,
-                                            _ => false
-                                        }
-                                    })
-                            })
-                            .map(|service| service.name.clone())
-                            .collect();
-
-                        // Trigger recompile for any service that has the just-compiled service as a trigger
-                        triggered_recompiles
-                            .iter()
-                            .for_each(|service| {
-                                server.update_service_status(&service, |status| {
-                                    match status.auto_compile {
-                                        Some(AutoCompileMode::Automatic) => {
-                                            status.action = ServiceAction::Recompile;
-                                        },
-                                        Some(AutoCompileMode::Custom) => {
-                                            status.has_uncompiled_changes = true;
-                                        },
-                                        _ => {}
+                        // Process automation: if a service has an automation entry triggered by the compilation of this
+                        // service, then we should queue a pending automation for that service
+                        system.iter_services().for_each(|service| {
+                            // The service matches if it has an automation-entry that references the compilation
+                            // of the just-now compiled service
+                            service.automation
+                                .iter()
+                                .filter(|entry| {
+                                    match &entry.trigger {
+                                        AutomationTrigger::RecompiledService { service } => service == service_name,
+                                        _ => false
                                     }
-                                })
-                            });
+                                }).for_each(|automation_entry| {
+                                    enqueue_automation(
+                                        &mut system,
+                                        &service.name,
+                                        &automation_entry
+                                    );
+                                });
+                        });
+
+                        // Check the automations immediately, so that non-debounced automations fire without delay
+                        process_pending_automations(&mut system);
                     } else {
-                        server.update_service_status(&service_name, |status| {
+                        system.update_service_status(&service_name, |status| {
                             status.compile_status = CompileStatus::Failed;
                             status.action = ServiceAction::None;
                         });
 
-                        server.add_output(
+                        system.add_output(
                             &OutputKey {
                                 name: OutputKey::CTL.into(),
                                 service_ref: service_name.into(),

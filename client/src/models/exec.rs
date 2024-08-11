@@ -1,7 +1,7 @@
-use crate::config::{ExecutableEntry as ConfigExecutableEntry, PartialExecutableEntry as ConfigPartialExecutableEntry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use crate::config::{ExecutableEntry as ConfigExecutableEntry, PartialExecutableEntry as ConfigPartialExecutableEntry};
 use crate::utils::write_escaped_str;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
