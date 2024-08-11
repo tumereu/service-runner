@@ -46,7 +46,6 @@ pub fn start_file_watcher(system_arc: Arc<Mutex<SystemState>>) -> thread::JoinHa
 
 fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
     let mut system = system_arc.lock().unwrap();
-    let system_arc = system_arc.clone();
 
     let new_watchers = if let Some(profile_name) = system.get_profile_name() {
         let watchers: Vec<RecommendedWatcher> = system.iter_services()

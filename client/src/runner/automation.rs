@@ -2,6 +2,7 @@ use std::ops::Add;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+use log::debug;
 use nix::libc::stat;
 use crate::models::{Action, AutomationEffect, AutomationEntry, PendingAutomation};
 use crate::runner::process_action::process_action;
@@ -12,8 +13,10 @@ use crate::system_state::SystemState;
 pub fn start_automation_processor(system_arc: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         while !system_arc.lock().unwrap().should_exit {
-            let mut system = system_arc.lock().unwrap();
-            process_pending_automations(&mut system);
+            {
+                let mut system = system_arc.lock().unwrap();
+                process_pending_automations(&mut system);
+            }
 
             thread::sleep(Duration::from_millis(10))
         }

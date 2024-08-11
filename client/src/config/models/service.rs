@@ -1,6 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
-use crate::config::{DependencyEntry, ExecutableEntry, HealthCheckConfig, PartialExecutableEntry};
-use crate::models::AutomationEntry;
+use crate::config::{DependencyEntry, AutomationEntry, ExecutableEntry, HealthCheckConfig, PartialExecutableEntry};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

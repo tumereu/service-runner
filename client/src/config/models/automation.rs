@@ -7,6 +7,7 @@ pub struct AutomationEntry {
     pub debounce_millis: u64,
     pub effects: Vec<AutomationEffect>,
     pub trigger: AutomationTrigger,
+    #[serde(default)]
     pub default_mode: Option<AutomationDefaultMode>,
 }
 
@@ -23,14 +24,19 @@ pub enum AutomationDefaultMode {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AutomationEffect {
     /// Compiles the targeted service. The service will be restarted if it is running.
-    Compile,
+    #[serde(rename = "recompile")]
+    Recompile,
     /// Starts the service if it is not currently running. Does nothing if the service is already started.
+    #[serde(rename = "start")]
     Start,
     /// Restarts the service, stopping it if running and then starting it.
+    #[serde(rename = "restart")]
     Restart,
     /// Stops the service if it is currently running.
+    #[serde(rename = "stop")]
     Stop,
     /// The service's reset-action is performed
+    #[serde(rename = "reset")]
     Reset,
 }
 

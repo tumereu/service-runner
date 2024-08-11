@@ -9,7 +9,7 @@ use tui::{backend::CrosstermBackend, Terminal};
 
 use config::read_config;
 use log::{debug, info, LevelFilter};
-
+use crate::config::{AutomationEntry, AutomationTrigger, ServiceDefinition};
 use crate::system_state::{SystemState};
 use crate::input::process_inputs;
 use crate::runner::automation::start_automation_processor;

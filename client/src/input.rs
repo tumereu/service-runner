@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode, KeyModifiers};
-
-use crate::models::{Action::*, Action, get_active_outputs, Profile, ServiceAction};
+use log::debug;
+use crate::models::{Action::*, Action, get_active_outputs, Profile};
 use crate::runner::process_action::process_action;
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 use crate::SystemState;
@@ -16,6 +16,8 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) -> Result<(), String>
         let event = read_event().unwrap();
 
         if let Event::Key(key) = event {
+            debug!("Received input event {key:?}");
+
             let shift = key.modifiers.contains(KeyModifiers::SHIFT);
             let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 

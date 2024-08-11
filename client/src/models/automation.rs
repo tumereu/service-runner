@@ -40,7 +40,7 @@ pub enum AutomationEffect {
 impl From<ConfigAutomationEffect> for AutomationEffect {
     fn from(value: ConfigAutomationEffect) -> Self {
         match value {
-            ConfigAutomationEffect::Compile => AutomationEffect::Recompile,
+            ConfigAutomationEffect::Recompile => AutomationEffect::Recompile,
             ConfigAutomationEffect::Start => AutomationEffect::Start,
             ConfigAutomationEffect::Restart => AutomationEffect::Restart,
             ConfigAutomationEffect::Stop => AutomationEffect::Stop,
