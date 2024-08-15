@@ -6,16 +6,14 @@ use std::hash::{Hash, Hasher};
 use std::iter;
 use std::rc::Rc;
 use itertools::Itertools;
-use nix::libc::system;
 use once_cell::sync::Lazy;
 
 use tui::backend::Backend;
 use tui::style::Color;
 use tui::Frame;
 use tui::layout::Rect;
-use tui::widgets::canvas::Label;
 use crate::models::{AutomationMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
-use crate::models::AutomationMode::{Automatic, Disabled, Triggerable};
+use crate::models::AutomationMode::{Automatic, Disabled};
 use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
 use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, render_at_pos, Toggle};
