@@ -54,14 +54,14 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) -> Result<(), String>
                 },
 
                 // Controlling automation
-                KeyCode::Char('a') if shift && ctrl => {
-                    process_autocomplete_details(system, true);
+                KeyCode::Char('a') if shift => {
+                    process_global_action(system, ToggleAutomationAll);
                 },
                 KeyCode::Char('a') if ctrl => {
-                    process_autocomplete_details(system, false);
+                    toggle_automation_detailed_controls(system, false);
                 },
                 KeyCode::Char('a') => {
-                    process_service_action(system, |service| CycleAutomation(service));
+                    process_service_action(system, |service| ToggleAutomation(service));
                 }
 
                 // Toggling should-run
@@ -112,13 +112,13 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) -> Result<(), String>
     Ok(())
 }
 
-fn process_autocomplete_details(system_arc: Arc<Mutex<SystemState>>, all: bool) {
+fn toggle_automation_detailed_controls(system_arc: Arc<Mutex<SystemState>>, all: bool) {
     let mut system = system_arc.lock().unwrap();
     match &mut system.ui.screen {
         CurrentScreen::ViewProfile(view_profile) if view_profile.active_pane == ViewProfilePane::ServiceList => {
             match view_profile.floating_pane {
-                Some(ViewProfileFloatingPane::ServiceAutocompleteDetails { .. }) => view_profile.floating_pane = None,
-                _ => view_profile.floating_pane = ViewProfileFloatingPane::ServiceAutocompleteDetails {
+                Some(ViewProfileFloatingPane::ServiceAutomationDetails { .. }) => view_profile.floating_pane = None,
+                _ => view_profile.floating_pane = ViewProfileFloatingPane::ServiceAutomationDetails {
                     detail_list_selection: 0
                 }.into()
             }

@@ -58,7 +58,7 @@ pub struct ViewProfileState {
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum ViewProfileFloatingPane {
-    ServiceAutocompleteDetails {
+    ServiceAutomationDetails {
         detail_list_selection: usize
     }
 }

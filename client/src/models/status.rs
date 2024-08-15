@@ -12,6 +12,10 @@ pub struct ServiceStatus {
     pub compile_status: CompileStatus,
     pub run_status: RunStatus,
     pub show_output: bool,
+    /// A yes/no -toggle controlling whether automation as a whole is enabled for this service or not. No automation
+    /// trigger will fire if this is false.
+    pub automation_enabled: bool,
+    /// Specific automation modes for each automation entry in the service, accessible with their name.
     pub automation_modes: HashMap<String, AutomationMode>,
     pub pending_automations: Vec<PendingAutomation>,
 }
@@ -21,6 +25,7 @@ impl ServiceStatus {
             should_run: true,
             debug: false,
             action: ServiceAction::Recompile,
+            automation_enabled: true,
             automation_modes: service.automation
                 .iter()
                 .map(|entry| (entry.name.clone(), entry.default_mode.clone()))

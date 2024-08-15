@@ -10,7 +10,6 @@ mod utils;
 
 pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        // TODO signals or something?
         while !state.lock().unwrap().should_exit {
             work_services(state.clone());
             thread::sleep(Duration::from_millis(10))

@@ -7,7 +7,6 @@ use crate::ui::CurrentScreen;
 
 pub fn process_action(system: &mut SystemState, action: Action) {
     match action {
-        Action::Tick => {},
         Action::Shutdown => {
             system.should_exit = true;
         },
@@ -42,17 +41,21 @@ pub fn process_action(system: &mut SystemState, action: Action) {
                 status.action = ServiceAction::Restart;
             })
         },
-        Action::CycleAutomation(service_name) => {
+        Action::ToggleAutomation(service_name) => {
             system.update_service_status(&service_name, |status| {
-                // TODO maybe toggle a separate "automation disabled" instead.
-                if status.automation_modes.iter().all(|(_, mode)| *mode == Disabled) {
-                    status.automation_modes = status.automation_modes.iter()
-                        .map(|(key, _)| (key.clone(), Automatic))
-                        .collect()
-                } else {
-                    status.automation_modes = status.automation_modes.iter()
-                        .map(|(key, _)| (key.clone(), Disabled))
-                        .collect()
+                status.automation_enabled = !status.automation_enabled;
+                // Clear any not-yet applied pending automations for the service
+                if !status.automation_enabled {
+                    status.pending_automations.clear();
+                }
+            })
+        },
+        Action::ToggleAutomationAll => {
+            system.update_all_statuses(|_, status| {
+                status.automation_enabled = !status.automation_enabled;
+                // Clear any not-yet applied pending automations for the service
+                if !status.automation_enabled {
+                    status.pending_automations.clear();
                 }
             })
         },

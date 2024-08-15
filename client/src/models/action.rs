@@ -1,7 +1,6 @@
 use crate::models::{Profile, ServiceAction};
 
 pub enum Action {
-    Tick,
     Shutdown,
     ActivateProfile(Profile),
     Reset(String),
@@ -10,7 +9,8 @@ pub enum Action {
     RestartAll,
     Recompile(String),
     RecompileAll,
-    CycleAutomation(String),
+    ToggleAutomation(String),
+    ToggleAutomationAll,
     UpdateRun(String, bool),
     ToggleRun(String),
     ToggleRunAll,

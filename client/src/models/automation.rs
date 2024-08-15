@@ -49,7 +49,7 @@ impl From<ConfigAutomationEffect> for AutomationEffect {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialOrd, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialOrd, PartialEq, Eq, Hash)]
 pub enum AutomationMode {
     Automatic,
     Triggerable,

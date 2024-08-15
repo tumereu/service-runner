@@ -12,9 +12,9 @@ use crate::models::{CompileStatus, HealthCheck, HealthCheckConfig, HttpMethod, O
 use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::system_state::SystemState;
 
-pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
+pub fn handle_running(system_arc: Arc<Mutex<SystemState>>) -> Option<()> {
     let (mut command, service_name) = {
-        let mut state = state_arc.lock().unwrap();
+        let mut state = system_arc.lock().unwrap();
 
         let (service_name, command, exec_display) = {
             let profile = state.current_profile.as_ref()?;
@@ -77,7 +77,7 @@ pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
 
             let health_check_thread = {
                 let handle = handle.clone();
-                let server = state_arc.clone();
+                let server = system_arc.clone();
                 let service_name = service_name.clone();
 
                 thread::spawn(move || {
@@ -227,22 +227,22 @@ pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
             };
 
             // Register the health check thread into active threads
-            state_arc
+            system_arc
                 .lock()
                 .unwrap()
                 .active_threads
                 .push((format!("{service_name}-health-check"), health_check_thread));
 
             ProcessHandler {
-                state: state_arc.clone(),
+                state: system_arc.clone(),
                 handle,
                 service_name: service_name.clone(),
                 output: OutputKind::Run,
-                on_finish: move |OnFinishParams { state: server, service_name, killed, .. }| {
-                    let mut server = server.lock().unwrap();
+                on_finish: move |OnFinishParams { state: system_arc, service_name, killed, .. }| {
+                    let mut system = system_arc.lock().unwrap();
                     // Mark the service as no longer running when it exits
                     // TODO message
-                    server.update_service_status(service_name, move |status| {
+                    system.update_service_status(service_name, move |status| {
                         if !killed || matches!(status.run_status, RunStatus::Failed) {
                             status.run_status = RunStatus::Failed;
                         } else {
@@ -250,13 +250,13 @@ pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                         }
                     });
                 },
-                exit_early: move |(server, service_name)| {
-                    let server = server.lock().unwrap();
-                    let status = &server
+                exit_early: move |(system_arc, service_name)| {
+                    let system = system_arc.lock().unwrap();
+                    let status = &system
                         .service_statuses
                         .get(service_name)
                         .unwrap();
-                    let deps_satisfied = server.get_service(service_name)
+                    let deps_satisfied = system.get_service(service_name)
                         .as_ref()
                         .unwrap()
                         .run
@@ -264,7 +264,7 @@ pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                         .unwrap()
                         .dependencies
                         .iter()
-                        .all(|dep| server.is_satisfied(dep));
+                        .all(|dep| system.is_satisfied(dep));
 
                     (status.action == ServiceAction::Restart && deps_satisfied)
                         || !status.should_run
@@ -274,8 +274,8 @@ pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
             .launch();
         }
         Err(error) => {
-            let mut server = state_arc.lock().unwrap();
-            server.update_state(|state| {
+            let mut system = system_arc.lock().unwrap();
+            system.update_state(|state| {
                 state
                     .service_statuses
                     .get_mut(&service_name)
@@ -283,7 +283,7 @@ pub fn handle_running(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                     .run_status = RunStatus::Failed;
             });
 
-            server.add_ctrl_output(&service_name, format_err!("Failed to spawn child process", error));
+            system.add_ctrl_output(&service_name, format_err!("Failed to spawn child process", error));
         }
     }
 

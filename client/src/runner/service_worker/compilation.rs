@@ -1,7 +1,6 @@
-use std::ops::Add;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
-use crate::models::{AutomationTrigger, CompileStatus, OutputKey, OutputKind, PendingAutomation, AutomationEntry, ServiceAction};
+use std::time::{Instant};
+use crate::models::{AutomationTrigger, CompileStatus, OutputKey, OutputKind, AutomationEntry, ServiceAction};
 use crate::models::AutomationEffect::Recompile;
 use crate::runner::automation::{enqueue_automation, process_pending_automations};
 use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
