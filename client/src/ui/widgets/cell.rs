@@ -1,13 +1,12 @@
 use std::cell::RefCell;
 use std::cmp::{max, min};
-use std::fmt::format;
 use std::rc::Rc;
 
 use tui::backend::Backend;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Spans;
-use tui::widgets::{Block, Borders};
+use tui::widgets::{Block, Borders, Clear};
 use tui::Frame;
 
 use crate::ui::widgets::{Renderable, Size};
@@ -27,6 +26,9 @@ pub struct Cell {
     pub min_width: u16,
     pub min_height: u16,
     pub store_bounds: Option<Rc<RefCell<Rect>>>,
+    /// If false, then the Cell will not clear its render area before drawing, retaining whatever has been rendered
+    /// underneath it. By default, Cells are always transparent.
+    pub opaque: bool,
 }
 impl Cell {
     pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
@@ -96,6 +98,9 @@ impl Cell {
                 Align::Center => rect.y + (rect.height - height) / 2,
             };
 
+            if self.opaque {
+                frame.render_widget(Clear, Rect::new(x, y, width, height));
+            }
             element.render(Rect::new(x, y, width, height), frame);
         }
     }

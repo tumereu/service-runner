@@ -4,21 +4,20 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode, KeyModifiers};
+use log::debug;
+use crate::models::{Action::*, Action, get_active_outputs, Profile};
+use crate::runner::process_action::process_action;
+use crate::ui::{CurrentScreen, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
+use crate::SystemState;
 
-use shared::message::models::{Profile, ServiceAction};
-use shared::message::Action;
-use shared::message::Action::{CycleAutoCompile, CycleAutoCompileAll, ToggleDebug, ToggleDebugAll, ToggleOutput, ToggleOutputAll, ToggleRun, ToggleRunAll, TriggerPendingCompiles, UpdateAllServiceActions, UpdateServiceAction};
-use shared::utils::get_active_outputs;
-
-use crate::ui::{UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
-use crate::{ClientState, ClientStatus};
-
-pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
+pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) -> Result<(), String> {
     while poll_events(Duration::from_millis(0)).unwrap_or(false) {
-        let client = client.clone();
+        let system = system_arc.clone();
         let event = read_event().unwrap();
 
         if let Event::Key(key) = event {
+            debug!("Received input event {key:?}");
+
             let shift = key.modifiers.contains(KeyModifiers::SHIFT);
             let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
@@ -29,83 +28,74 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
 
             match code {
                 // Generic navigation controls
-                KeyCode::Left | KeyCode::Char('h') => process_navigation(client, (-1, 0), shift || ctrl),
-                KeyCode::Right | KeyCode::Char('l') => process_navigation(client, (1, 0), shift || ctrl),
-                KeyCode::Up | KeyCode::Char('k') => process_navigation(client, (0, -1), shift || ctrl),
-                KeyCode::Down | KeyCode::Char('j') => process_navigation(client, (0, 1), shift || ctrl),
-                KeyCode::Tab => process_cycle(client),
+                KeyCode::Left | KeyCode::Char('h') => process_navigation(system, (-1, 0), shift || ctrl),
+                KeyCode::Right | KeyCode::Char('l') => process_navigation(system, (1, 0), shift || ctrl),
+                KeyCode::Up | KeyCode::Char('k') => process_navigation(system, (0, -1), shift || ctrl),
+                KeyCode::Down | KeyCode::Char('j') => process_navigation(system, (0, 1), shift || ctrl),
+                KeyCode::Tab => process_cycle(system),
                 // Generic selection controls
-                KeyCode::Enter | KeyCode::Char(' ') => process_select(client),
+                KeyCode::Enter | KeyCode::Char(' ') => process_select(system),
                 // Output wrapping controls
-                KeyCode::Char('w') => process_toggle_output_wrap(client),
+                KeyCode::Char('w') => process_toggle_output_wrap(system),
                 // Service interaction specific controls
                 // Restarting
                 KeyCode::Char('e') if shift => {
-                    process_global_action(client, UpdateAllServiceActions(ServiceAction::Restart));
+                    process_global_action(system, RestartAll);
                 },
                 KeyCode::Char('e') => {
-                    process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Restart));
+                    process_service_action(system, |service| Restart(service));
                 },
                 // Recompiling
                 KeyCode::Char('c') if shift => {
-                    process_global_action(client, UpdateAllServiceActions(ServiceAction::Recompile));
+                    process_global_action(system, RecompileAll);
                 },
                 KeyCode::Char('c') => {
-                    process_service_action(client, |service| UpdateServiceAction(service, ServiceAction::Recompile));
+                    process_service_action(system, |service| Recompile(service));
                 },
 
-                // Controlling autocompile
-                KeyCode::Char('a') if shift && ctrl => {
-                    process_autocomplete_details(client, true);
+                // Controlling automation
+                KeyCode::Char('a') if shift => {
+                    process_global_action(system, ToggleAutomationAll);
                 },
                 KeyCode::Char('a') if ctrl => {
-                    process_autocomplete_details(client, false);
-                },
-                KeyCode::Char('a') if shift => {
-                    process_global_action(client, CycleAutoCompileAll);
+                    toggle_automation_detailed_controls(system, false);
                 },
                 KeyCode::Char('a') => {
-                    process_service_action(client, |service| CycleAutoCompile(service));
+                    process_service_action(system, |service| ToggleAutomation(service));
                 }
 
                 // Toggling should-run
                 KeyCode::Char('r') if shift => {
-                    process_global_action(client, ToggleRunAll);
+                    process_global_action(system, ToggleRunAll);
                 },
                 KeyCode::Char('r') => {
-                    process_service_action(client, |service| ToggleRun(service));
-                }
-                // Detaching from a running service?
-                KeyCode::Char('d') if ctrl && !shift => {
-                    let mut client = client.lock().unwrap();
-                    client.status = ClientStatus::Exiting;
+                    process_service_action(system, |service| ToggleRun(service));
                 }
                 // Toggling debugging
                 KeyCode::Char('d') if shift => {
-                    process_global_action(client, ToggleDebugAll);
+                    process_global_action(system, ToggleDebugAll);
                 },
                 KeyCode::Char('d') => {
-                    process_service_action(client, |service| ToggleDebug(service));
+                    process_service_action(system, |service| ToggleDebug(service));
                 }
                 // Toggling output
                 KeyCode::Char('o') if shift => {
-                    process_global_action(client, ToggleOutputAll);
+                    process_global_action(system, ToggleOutputAll);
                 },
                 // Toggling output
                 KeyCode::Char('o') => {
-                    process_service_action(client, |service| ToggleOutput(service));
+                    process_service_action(system, |service| ToggleOutput(service));
                 },
                 // Controls to exit
                 KeyCode::Char('q') if ctrl => {
-                    let mut client = client.lock().unwrap();
-                    client.actions_out.push_back(Action::Shutdown);
+                    process_action(&mut system.lock().unwrap(), Shutdown);
                 }
                 // Triggering pending compiles. This can be used even if the focus is on the output window
-                KeyCode::Char('t') => process_global_action(client, TriggerPendingCompiles),
+                KeyCode::Char('t') => process_global_action(system, TriggerPendingAutomations),
                 // Scroll to start/end of the output
                 KeyCode::Char('g') => {
                     process_navigate_to_limit(
-                        client,
+                        system,
                         if shift {
                             NavLimit::End
                         } else {
@@ -122,13 +112,13 @@ pub fn process_inputs(client: Arc<Mutex<ClientState>>) -> Result<(), String> {
     Ok(())
 }
 
-fn process_autocomplete_details(client: Arc<Mutex<ClientState>>, all: bool) {
-    let mut client = client.lock().unwrap();
-    match &mut client.ui {
-        UIState::ViewProfile(view_profile) if view_profile.active_pane == ViewProfilePane::ServiceList => {
+fn toggle_automation_detailed_controls(system_arc: Arc<Mutex<SystemState>>, all: bool) {
+    let mut system = system_arc.lock().unwrap();
+    match &mut system.ui.screen {
+        CurrentScreen::ViewProfile(view_profile) if view_profile.active_pane == ViewProfilePane::ServiceList => {
             match view_profile.floating_pane {
-                Some(ViewProfileFloatingPane::ServiceAutocompleteDetails { .. }) => view_profile.floating_pane = None,
-                _ => view_profile.floating_pane = ViewProfileFloatingPane::ServiceAutocompleteDetails {
+                Some(ViewProfileFloatingPane::ServiceAutomationDetails { .. }) => view_profile.floating_pane = None,
+                _ => view_profile.floating_pane = ViewProfileFloatingPane::ServiceAutomationDetails {
                     detail_list_selection: 0
                 }.into()
             }
@@ -137,21 +127,17 @@ fn process_autocomplete_details(client: Arc<Mutex<ClientState>>, all: bool) {
     }
 }
 
-fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: bool) {
-    let mut client = client.lock().unwrap();
-    match &client.ui {
-        | UIState::Exiting
-        | UIState::Initializing => {}
-        UIState::ProfileSelect { selected_idx } => {
-            client.ui = UIState::ProfileSelect {
-                selected_idx: update_vert_index(*selected_idx, client.config.profiles.len(), dir),
+fn process_navigation(system_arc: Arc<Mutex<SystemState>>, dir: (i8, i8), boosted: bool) {
+    let mut system = system_arc.lock().unwrap();
+
+    match &system.ui.screen {
+        CurrentScreen::ProfileSelect { selected_idx } => {
+            system.ui.screen = CurrentScreen::ProfileSelect {
+                selected_idx: update_vert_index(*selected_idx, system.config.profiles.len(), dir),
             }
         }
-        UIState::ViewProfile(view_profile) => {
-            let num_profiles = client
-                .system_state
-                .as_ref()
-                .unwrap()
+        CurrentScreen::ViewProfile(view_profile) => {
+            let num_profiles = system
                 .current_profile
                 .as_ref()
                 .unwrap()
@@ -160,13 +146,13 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
 
             match view_profile.active_pane {
                 ViewProfilePane::ServiceList if dir.1 != 0 => {
-                    client.ui = UIState::ViewProfile(ViewProfileState {
+                    system.ui.screen = CurrentScreen::ViewProfile(ViewProfileState {
                         service_selection: update_vert_index(view_profile.service_selection, num_profiles, dir),
                         ..*view_profile
                     })
                 }
                 ViewProfilePane::OutputPane if dir.0 != 0 => {
-                    client.ui = UIState::ViewProfile(ViewProfileState {
+                    system.ui.screen = CurrentScreen::ViewProfile(ViewProfileState {
                         output_pos_horiz: {
                             let amount: u64 = if boosted {
                                 64
@@ -185,45 +171,47 @@ fn process_navigation(client: Arc<Mutex<ClientState>>, dir: (i8, i8), boosted: b
                     })
                 }
                 ViewProfilePane::OutputPane if dir.1 < 0 => {
-                    client.ui = UIState::ViewProfile(ViewProfileState {
+                    system.ui.screen = CurrentScreen::ViewProfile(ViewProfileState {
                         output_pos_vert: {
                             let amount: usize = if boosted {
-                                (client.last_frame_size.1 / 2) as usize
+                                (system.ui.last_frame_size.1 / 2) as usize
                             } else {
                                 1
                             };
+                            let active_outputs = get_active_outputs(&system.output_store, &system);
                             // Prevent users from scrolling past the first line of output
-                            let min_index = client.output_store.query_lines_from(
-                                client.last_frame_size.1.saturating_sub(2) as usize,
+                            let min_index = system.output_store.query_lines_from(
+                                system.ui.last_frame_size.1.saturating_sub(2) as usize,
                                 None,
-                                get_active_outputs(&client.output_store, &client.system_state)
+                                &active_outputs,
                             ).last().unwrap().1.index;
-                            client.output_store.query_lines_to(
+
+                            system.output_store.query_lines_to(
                                 (dir.1.neg() as usize) * amount + if view_profile.output_pos_vert.is_none() {
                                     0
                                 } else {
                                     1
                                 },
                                 view_profile.output_pos_vert,
-                                get_active_outputs(&client.output_store, &client.system_state)
+                                &active_outputs,
                             ).first().map(|(_, line)| max(line.index, min_index))
                         },
                         ..*view_profile
                     })
                 }
                 ViewProfilePane::OutputPane if dir.1 > 0 => {
-                    client.ui = UIState::ViewProfile(ViewProfileState {
+                    system.ui.screen = CurrentScreen::ViewProfile(ViewProfileState {
                         output_pos_vert: {
                             if view_profile.output_pos_vert.is_some() {
                                 let amount: usize = if boosted {
-                                    (client.last_frame_size.1 / 2) as usize
+                                    (system.ui.last_frame_size.1 / 2) as usize
                                 } else {
                                     1
                                 };
-                                let lines = client.output_store.query_lines_from(
+                                let lines = system.output_store.query_lines_from(
                                     (dir.1 as usize) * amount + 1,
                                     view_profile.output_pos_vert,
-                                    get_active_outputs(&client.output_store, &client.system_state)
+                                    &get_active_outputs(&system.output_store, &system)
                                 );
                                 if lines.len() == (dir.1 as usize) * amount + 1 {
                                     lines.last().map(|(_, line)| line.index)
@@ -247,23 +235,22 @@ enum NavLimit {
     End, Start
 }
 
-fn process_navigate_to_limit(client: Arc<Mutex<ClientState>>, limit: NavLimit) {
-    let mut client = client.lock().unwrap();
-    match &client.ui {
-        | UIState::Exiting
-        | UIState::Initializing
-        | UIState::ProfileSelect { .. } => {},
-        UIState::ViewProfile(view_profile) => {
+fn process_navigate_to_limit(system_arc: Arc<Mutex<SystemState>>, limit: NavLimit) {
+    let mut system = system_arc.lock().unwrap();
+
+    match &system.ui.screen {
+        CurrentScreen::ProfileSelect { .. } => {},
+        CurrentScreen::ViewProfile(view_profile) => {
             match view_profile.active_pane {
                 ViewProfilePane::OutputPane => {
-                    client.ui = UIState::ViewProfile(ViewProfileState {
+                    system.ui.screen = CurrentScreen::ViewProfile(ViewProfileState {
                         output_pos_vert: {
                             match limit {
                                 NavLimit::Start => Some(
-                                    client.output_store.query_lines_from(
-                                        client.last_frame_size.1.saturating_sub(2) as usize,
+                                    system.output_store.query_lines_from(
+                                        system.ui.last_frame_size.1.saturating_sub(2) as usize,
                                         None,
-                                        get_active_outputs(&client.output_store, &client.system_state)
+                                        &get_active_outputs(&system.output_store, &system)
                                     ).last().unwrap().1.index
                                 ),
                                 NavLimit::End => None
@@ -278,22 +265,20 @@ fn process_navigate_to_limit(client: Arc<Mutex<ClientState>>, limit: NavLimit) {
     }
 }
 
-fn process_cycle(client: Arc<Mutex<ClientState>>) {
-    let mut client = client.lock().unwrap();
-    match &client.ui {
-        | UIState::Initializing
-        | UIState::Exiting
-        | UIState::ProfileSelect { .. } => {}
-        UIState::ViewProfile(view_profile) => {
+fn process_cycle(system_arc: Arc<Mutex<SystemState>>) {
+    let mut system = system_arc.lock().unwrap();
+    match &system.ui.screen {
+        CurrentScreen::ProfileSelect { .. } => {}
+        CurrentScreen::ViewProfile(view_profile) => {
             match view_profile.active_pane {
                 ViewProfilePane::ServiceList => {
-                    client.ui = UIState::ViewProfile(ViewProfileState {
+                    system.ui.screen = CurrentScreen::ViewProfile(ViewProfileState {
                         active_pane: ViewProfilePane::OutputPane,
                         ..*view_profile
                     })
                 }
                 ViewProfilePane::OutputPane => {
-                    client.ui = UIState::ViewProfile(ViewProfileState {
+                    system.ui.screen = CurrentScreen::ViewProfile(ViewProfileState {
                         active_pane: ViewProfilePane::ServiceList,
                         ..*view_profile
                     })
@@ -303,22 +288,19 @@ fn process_cycle(client: Arc<Mutex<ClientState>>) {
     }
 }
 
-fn process_select(client: Arc<Mutex<ClientState>>) {
-    let mut client = client.lock().unwrap();
+fn process_select(system_arc: Arc<Mutex<SystemState>>) {
+    let mut system = system_arc.lock().unwrap();
 
-    match client.ui {
-        | UIState::Exiting
-        | UIState::Initializing => {}
-        UIState::ProfileSelect { selected_idx } => {
-            let selection = client.config.profiles.get(selected_idx);
+    match system.ui.screen {
+        CurrentScreen::ProfileSelect { selected_idx } => {
+            let selection = system.config.profiles.get(selected_idx);
 
             if let Some(profile) = selection {
-                let action =
-                    Action::ActivateProfile(Profile::new(profile, &client.config.services));
-                client.actions_out.push_back(action);
+                let action = ActivateProfile(Profile::new(profile, &system.config.services));
+                process_action(&mut system, action);
             }
         }
-        UIState::ViewProfile { .. } => {
+        CurrentScreen::ViewProfile { .. } => {
             // TODO change UI state so that we show a dialog or something with options?
         }
     }
@@ -335,46 +317,46 @@ fn update_vert_index(current: usize, list_len: usize, dir: (i8, i8)) -> usize {
 }
 
 fn process_global_action(
-    client: Arc<Mutex<ClientState>>,
+    system_arc: Arc<Mutex<SystemState>>,
     action: Action
 ) {
-    let mut client = client.lock().unwrap();
+    let mut system = system_arc.lock().unwrap();
 
-    match &client.ui {
-        UIState::ViewProfile(view_profile) => {
-            client.actions_out.push_back(action);
+    match &system.ui.screen {
+        CurrentScreen::ViewProfile(_) => {
+            process_action(&mut system, action);
         },
         _ => {}
     }
 }
 
 fn process_service_action<F>(
-    client: Arc<Mutex<ClientState>>,
+    system_arc: Arc<Mutex<SystemState>>,
     create_action: F
 ) where F: Fn(String) -> Action {
-    let mut client = client.lock().unwrap();
+    let mut system = system_arc.lock().unwrap();
 
-    match &client.ui {
-        UIState::ViewProfile(view_profile)
+    match &system.ui.screen {
+        CurrentScreen::ViewProfile(view_profile)
         if matches!(view_profile.active_pane, ViewProfilePane::ServiceList) => {
-            let service_name = client
-                .system_state.as_ref().unwrap()
+            let service_name = system
                 .current_profile.as_ref().unwrap()
                 .services[view_profile.service_selection]
                 .name
                 .clone();
-            client.actions_out.push_back(create_action(service_name));
+
+            process_action(&mut system, create_action(service_name));
         }
         _ => {}
     }
 }
 
-fn process_toggle_output_wrap(client: Arc<Mutex<ClientState>>) {
+fn process_toggle_output_wrap(client: Arc<Mutex<SystemState>>) {
     let mut client = client.lock().unwrap();
 
-    match &client.ui {
-        UIState::ViewProfile(view_profile) => {
-            client.ui = UIState::ViewProfile(ViewProfileState {
+    match &client.ui.screen {
+        CurrentScreen::ViewProfile(view_profile) => {
+            client.ui.screen = CurrentScreen::ViewProfile(ViewProfileState {
                 wrap_output: !view_profile.wrap_output,
                 output_pos_horiz: None,
                 ..*view_profile

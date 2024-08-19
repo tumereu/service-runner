@@ -2,25 +2,22 @@ use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::fmt::format;
 use std::hash::{Hash, Hasher};
 use std::iter;
-use std::ops::Index;
 use std::rc::Rc;
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 
 use tui::backend::Backend;
 use tui::style::Color;
 use tui::Frame;
 use tui::layout::Rect;
-
-use shared::message::models::{AutoCompileMode, CompileStatus, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
-use shared::utils::get_active_outputs;
-
-use crate::client_state::ClientState;
+use crate::models::{AutomationMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
+use crate::models::AutomationMode::{Automatic, Disabled};
+use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
-use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, Renderable, render_at_pos, Toggle};
-use crate::ui::{UIState, ViewProfileFloatingPane};
+use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, render_at_pos, Toggle};
+use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
 
 const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     vec![
@@ -40,12 +37,12 @@ const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     ]
 });
 
-pub fn render_view_profile<B>(frame: &mut Frame<B>, state: &ClientState)
+pub fn render_view_profile<B>(frame: &mut Frame<B>, system: &SystemState)
 where
     B: Backend,
 {
-    let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) = match &state.ui {
-        &UIState::ViewProfile(ViewProfileState {
+    let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) = match &system.ui.screen {
+        &CurrentScreen::ViewProfile(ViewProfileState {
             active_pane,
             service_selection,
             wrap_output,
@@ -56,23 +53,21 @@ where
         any @ _ => panic!("Invalid UI state in render_view_profile: {any:?}"),
     };
 
-    let profile = state
-        .system_state
-        .as_ref()
-        .map(|it| it.current_profile.as_ref())
-        .flatten();
-    let service_statuses = state.system_state.as_ref().map(|it| &it.service_statuses);
+    let profile = &system.current_profile;
+    let service_statuses = &system.service_statuses;
 
     // TODO move into a theme?
     let active_border_color = Color::Rgb(180, 180, 0);
     let border_color = Color::Rgb(100, 100, 0);
+    let active_color = Color::Rgb(0, 140, 0);
+    let secondary_active_color = Color::Rgb(0, 40, 180);
 
     let service_selection: Option<usize> = match pane {
         ViewProfilePane::ServiceList => Some(selection),
         _ => None,
     };
 
-    if let (Some(profile), Some(service_statuses)) = (profile, service_statuses) {
+    if let Some(profile) = profile {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
         let (service_list, selected_service_bounds) = service_list(profile, service_selection, service_statuses);
 
@@ -121,7 +116,7 @@ where
                             output_pos_horiz,
                             output_pos_vert,
                             &profile,
-                            &state
+                            &system
                         ).into_el(),
                         ..Default::default()
                     },
@@ -132,25 +127,68 @@ where
         );
 
         match floating_pane {
-            Some(ViewProfileFloatingPane::ServiceAutocompleteDetails { detail_list_selection }) => {
+            Some(ViewProfileFloatingPane::ServiceAutomationDetails { detail_list_selection }) => {
                 let selected_service_bounds = selected_service_bounds.borrow();
+                let automation_modes: Vec<(String, AutomationMode)> = system.iter_services_with_statuses()
+                    .dropping(service_selection.unwrap_or(0))
+                    .next()
+                    .map(|(service, status)| {
+                        service.automation.iter()
+                            .map(|automation_entry| {
+                                let automation_name = automation_entry.name.clone();
+                                let current_mode = status.automation_modes.get(&automation_name)
+                                    .map(|mode| *mode)
+                                    .unwrap_or(AutomationMode::Disabled);
+
+                                (automation_name, current_mode)
+                            }).collect()
+                    }).unwrap_or(Vec::new());
+                let longest_name: u16 = automation_modes.iter().map(|(name, _)| name.len() as u16).max().unwrap_or(0);
+
                 render_at_pos(
                     Cell {
-                        border: (active_border_color, String::from("Autocomplete Details")).into(),
-                        element: Flow {
-                            cells: vec![
+                        border: (active_border_color, String::from("Automation")).into(),
+                        opaque: true,
+                        element: List {
+                            selection: 0,
+                            items: automation_modes.iter().map(|(name, mode)| {
                                 Cell {
-                                    element: Toggle {
-                                        options: vec![
-                                            String::from("Automatic"),
-                                            String::from("Disabled"),
-                                            String::from("Custom"),
+                                    element: Flow {
+                                        direction: Dir::LeftRight,
+                                        cells: vec![
+                                            Cell {
+                                                element: Text {
+                                                    text: name.clone(),
+                                                    ..Default::default()
+                                                }.into_el(),
+                                                min_width: longest_name + 3,
+                                                padding_right: 3,
+                                                ..Default::default()
+                                            },
+                                            Cell {
+                                                element: Text {
+                                                    text: match mode {
+                                                        AutomationMode::Disabled => String::from("Disabled"),
+                                                        AutomationMode::Triggerable => String::from("Triggerable"),
+                                                        AutomationMode::Automatic => String::from("Automatic"),
+                                                    },
+                                                    fg: match mode {
+                                                        AutomationMode::Disabled => None,
+                                                        AutomationMode::Triggerable => Some(secondary_active_color),
+                                                        AutomationMode::Automatic => Some(active_color),
+                                                    },
+                                                    ..Default::default()
+                                                }.into_el(),
+                                                align_horiz: Align::End,
+                                                min_width: 11,
+                                                ..Default::default()
+                                            },
                                         ],
-                                        selection: 0
+                                        ..Default::default()
                                     }.into_el(),
                                     ..Default::default()
                                 }
-                            ],
+                            }).collect(),
                             ..Default::default()
                         }.into_el(),
                         ..Default::default()
@@ -309,24 +347,30 @@ fn service_list(
                             // Autocompile status
                             Cell {
                                 element: Text {
-                                    text: if service.autocompile.is_some() {
+                                    text: if service.automation.len() > 0 {
                                         "A"
                                     } else {
                                         "-"
                                     }.into(),
+
                                     fg: if let Some(status) = status {
-                                        match &status.auto_compile {
-                                            None => inactive_color.clone(),
-                                            Some(AutoCompileMode::AUTOMATIC) => active_color.clone(),
-                                            Some(AutoCompileMode::CUSTOM) if status.has_uncompiled_changes => {
-                                                processing_color.clone()
-                                            },
-                                            Some(AutoCompileMode::CUSTOM) => secondary_active_color.clone(),
-                                            Some(AutoCompileMode::DISABLED) => inactive_color.clone(),
+                                        if service.automation.len() == 0 {
+                                            inactive_color.clone()
+                                        } else if !status.automation_enabled {
+                                            inactive_color.clone()
+                                        } else if status.pending_automations.len() > 0 {
+                                            processing_color.clone()
+                                        } else if status.automation_modes.iter().all(|(_, mode)| *mode == Automatic) {
+                                            active_color.clone()
+                                        } else if status.automation_modes.iter().all(|(_, mode)| *mode == Disabled) {
+                                            inactive_color.clone()
+                                        } else {
+                                            secondary_active_color.clone()
                                         }
                                     } else {
                                         inactive_color.clone()
                                     }.into(),
+
                                     ..Default::default()
                                 }
                                     .into_el(),
@@ -361,7 +405,7 @@ fn output_pane(
     pos_horiz: Option<u64>,
     pos_vert: Option<u128>,
     profile: &Profile,
-    state: &ClientState,
+    state: &SystemState,
 ) -> Flow {
     Flow {
         direction: Dir::UpDown,
@@ -377,7 +421,7 @@ fn output_pane(
                         .query_lines_to(
                             height,
                             pos_vert,
-                            get_active_outputs(&state.output_store, &state.system_state)
+                            &get_active_outputs(&state.output_store, &state)
                         )
                         .into_iter()
                         .map(|(key, line)| {
@@ -442,7 +486,6 @@ fn output_pane(
         ..Default::default()
     }
 }
-
 
 fn hashed_color(text: &str) -> Color {
     // Hash the service name to obtain a color for it

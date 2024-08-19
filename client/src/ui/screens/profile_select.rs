@@ -2,16 +2,16 @@ use tui::backend::Backend;
 use tui::Frame;
 use tui::style::Color;
 
-use crate::client_state::ClientState;
+use crate::system_state::SystemState;
 use crate::ui::widgets::{render_root, Align, Cell, IntoCell, List};
-use crate::ui::UIState;
+use crate::ui::CurrentScreen;
 
-pub fn render_profile_select<B>(frame: &mut Frame<B>, state: &ClientState)
+pub fn render_profile_select<B>(frame: &mut Frame<B>, state: &SystemState)
 where
     B: Backend,
 {
-    let selected_idx = match &state.ui {
-        UIState::ProfileSelect { selected_idx } => selected_idx,
+    let selected_idx = match &state.ui.screen {
+        CurrentScreen::ProfileSelect { selected_idx } => selected_idx,
         any @ _ => panic!("Invalid UI state in render_profile_select: {any:?}"),
     };
 

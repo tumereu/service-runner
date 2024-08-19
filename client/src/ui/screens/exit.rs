@@ -1,12 +1,10 @@
 use tui::backend::Backend;
-use tui::text::Spans;
-use tui::widgets::Paragraph;
 use tui::Frame;
 
-use crate::client_state::ClientState;
+use crate::system_state::SystemState;
 use crate::ui::widgets::{Align, Cell, Text, Flow, IntoCell, render_root, Spinner};
 
-pub fn render_exit<B>(frame: &mut Frame<B>, _state: &ClientState)
+pub fn render_exit<B>(frame: &mut Frame<B>, _state: &SystemState)
 where
     B: Backend,
 {

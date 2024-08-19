@@ -1,4 +1,5 @@
 /target
 .idea/
-/config-local/config.toml
+/config-local/settings.toml
 config-local
+/service_runner.log

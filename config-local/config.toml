@@ -1,3 +1,0 @@
-[server]
-port=6765
-executable="./target/debug/server"
