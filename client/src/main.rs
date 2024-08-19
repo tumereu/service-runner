@@ -91,9 +91,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     if Instant::now().duration_since(last_print) >= print_delay {
                         let status = if state.should_exit {
-                            "Server is trying to exit"
+                            "System is trying to exit"
                         } else {
-                            "Server running normally"
+                            "System running normally"
                         };
 
                         let thread_count = state.active_threads.len();
