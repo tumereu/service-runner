@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, format, Formatter};
 use std::fs::read_to_string;
 use std::path::Path;
 use Vec;
@@ -57,8 +57,16 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
 }
 
 fn read_toml<'a, T : Deserialize<'a>>(path: &Path) -> Result<T, ConfigParsingError> {
-    // TODO different config parsing error
-    let file_content = read_to_string(path).unwrap();
+    let file_content = match read_to_string(path) {
+        Ok(value) => Ok(value),
+        Err(_) => {
+            let error_path = path.to_str().unwrap().to_string();
+            Err(ConfigParsingError {
+                filename: error_path.clone(),
+                user_message: format!("Error in reading path {error_path} as string")
+            })
+        }
+    }?;
 
     let result = serde_path_to_error::deserialize(
         toml::Deserializer::new(&file_content)
