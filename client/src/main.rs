@@ -8,7 +8,7 @@ use crossterm::{
 use tui::{backend::CrosstermBackend, Terminal};
 
 use config::read_config;
-use log::{debug, info, LevelFilter};
+use log::{debug, error, info, LevelFilter};
 use crate::config::{AutomationEntry, AutomationTrigger, ServiceDefinition};
 use crate::system_state::{SystemState};
 use crate::input::process_inputs;
@@ -123,7 +123,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    join_threads.join().unwrap();
+    match join_threads.join() {
+        Ok(_) => info!("Threads joined successfully"),
+        Err(error) => error!("Error when joining threads: {error:?}")
+    }
 
     // Clear terminal and restore normal mode
     terminal.clear()?;
