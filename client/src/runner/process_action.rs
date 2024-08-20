@@ -51,8 +51,16 @@ pub fn process_action(system: &mut SystemState, action: Action) {
             })
         },
         Action::ToggleAutomationAll => {
+            // Determine which state all services should get
+            let new_automation_enabled = system.iter_services()
+                .map(|service| {
+                    system.get_service_status(&service.name).as_ref()
+                        .map(|status| status.automation_enabled)
+                }).flatten()
+                .any(|cond| !cond);
+
             system.update_all_statuses(|_, status| {
-                status.automation_enabled = !status.automation_enabled;
+                status.automation_enabled = new_automation_enabled;
                 // Clear any not-yet applied pending automations for the service
                 if !status.automation_enabled {
                     status.pending_automations.clear();
