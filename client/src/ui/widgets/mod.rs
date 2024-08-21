@@ -107,7 +107,7 @@ impl Renderable {
     {
         let size = self.measure();
         let width = min(size.width, frame.size().width.saturating_sub(pos.0));
-        let height = min(size.height, frame.size().height.saturating_sub(pos.0));
+        let height = min(size.height, frame.size().height.saturating_sub(pos.1));
 
         self.render(
             Rect::new(pos.0, pos.1, width, height),

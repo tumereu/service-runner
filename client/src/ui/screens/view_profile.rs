@@ -6,6 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::iter;
 use std::rc::Rc;
 use itertools::Itertools;
+use log::info;
 use once_cell::sync::Lazy;
 
 use tui::backend::Backend;
