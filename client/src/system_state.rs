@@ -138,6 +138,6 @@ impl SystemState {
     }
 
     pub fn add_output(&mut self, key: &OutputKey, line: String) {
-        self.output_store.add_output(key, line).clone();
+        self.output_store.add_output(key, line);
     }
 }

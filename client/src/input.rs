@@ -10,7 +10,7 @@ use crate::runner::process_action::process_action;
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 use crate::SystemState;
 
-pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) -> Result<(), String> {
+pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
     while poll_events(Duration::from_millis(0)).unwrap_or(false) {
         let system = system_arc.clone();
         let event = read_event().unwrap();
@@ -108,8 +108,6 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) -> Result<(), String>
             }
         }
     }
-
-    Ok(())
 }
 
 fn toggle_automation_detailed_controls(system_arc: Arc<Mutex<SystemState>>, all: bool) {

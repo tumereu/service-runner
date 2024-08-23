@@ -36,7 +36,7 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
         .into_iter()
         .filter_map(|e| e.ok())
     {
-        let path = entry.path().clone();
+        let path = entry.path();
         let filename = entry.file_name().to_str().unwrap_or("");
 
         info!("Reading configuration file {filename}");

@@ -104,7 +104,7 @@ impl OutputStore {
         let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
         let mut bucket_indices: HashMap<OutputKey, Option<usize>> = keys
             .iter()
-            .map(|key| (key.clone(), self.outputs.get(key).unwrap()))
+            .map(|key| (*key, self.outputs.get(key).unwrap()))
             .map(|(key, lines)| {
                 if lines.len() == 0 {
                     // If the bucket has 0 lines, then there's nothing we could ever return

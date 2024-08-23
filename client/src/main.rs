@@ -113,8 +113,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     loop {
-        process_inputs(state_arc.clone())?;
-        render(&mut terminal, state_arc.clone())?;
+        process_inputs(state_arc.clone());
+        match render(&mut terminal, state_arc.clone()) {
+            Ok(_) => {},
+            Err(error) => {
+                error!("Encountered an unexpected exception during render(): {error:?}");
+                break;
+            }
+        }
 
         if state_arc.lock().unwrap().should_exit {
             break;
