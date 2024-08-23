@@ -1,6 +1,6 @@
 use std::time::Instant;
 use crate::models::{Action, ServiceAction, ServiceStatus, PendingAutomation};
-use crate::models::AutomationMode::{Automatic, Disabled};
+
 use crate::runner::automation::process_pending_automations;
 use crate::system_state::SystemState;
 use crate::ui::CurrentScreen;
@@ -53,10 +53,10 @@ pub fn process_action(system: &mut SystemState, action: Action) {
         Action::ToggleAutomationAll => {
             // Determine which state all services should get
             let new_automation_enabled = system.iter_services()
-                .map(|service| {
+                .filter_map(|service| {
                     system.get_service_status(&service.name).as_ref()
                         .map(|status| status.automation_enabled)
-                }).flatten()
+                })
                 .any(|cond| !cond);
 
             system.update_all_statuses(|_, status| {
@@ -79,10 +79,10 @@ pub fn process_action(system: &mut SystemState, action: Action) {
         },
         Action::ToggleRunAll => {
             let new_run_state = system.iter_services()
-                .map(|service| {
+                .filter_map(|service| {
                     system.get_service_status(&service.name).as_ref()
                         .map(|status| status.should_run)
-                }).flatten()
+                })
                 .any(|cond| !cond);
 
             system.update_all_statuses(|_, status| {
@@ -100,10 +100,10 @@ pub fn process_action(system: &mut SystemState, action: Action) {
         },
         Action::ToggleDebugAll => {
             let new_debug_state = system.iter_services()
-                .map(|service| {
+                .filter_map(|service| {
                     system.get_service_status(&service.name).as_ref()
                         .map(|status| status.debug)
-                }).flatten()
+                })
                 .any(|cond| !cond);
 
             system.update_all_statuses(|_, status| {
@@ -133,17 +133,17 @@ pub fn process_action(system: &mut SystemState, action: Action) {
         },
         Action::ToggleOutputAll => {
             let has_disabled = system.iter_services()
-                .map(|service| {
+                .filter_map(|service| {
                     system.get_service_status(&service.name).as_ref()
                         .map(|status| status.show_output)
-                }).flatten()
+                })
                 .any(|cond| !cond);
 
             system.update_all_statuses(|_, status| {
                 status.show_output = has_disabled;
             })
         },
-        Action::Reset(service_name) => {
+        Action::Reset(_service_name) => {
             // TODO implement
         },
         Action::ResetAll => {

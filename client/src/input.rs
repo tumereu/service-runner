@@ -23,7 +23,7 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
 
             let code = match key.code {
                 KeyCode::Char(character) => KeyCode::Char(character.to_ascii_lowercase()),
-                any @ _ => any
+                any => any
             };
 
             match code {
@@ -43,14 +43,14 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                     process_global_action(system, RestartAll);
                 },
                 KeyCode::Char('e') => {
-                    process_service_action(system, |service| Restart(service));
+                    process_service_action(system, Restart);
                 },
                 // Recompiling
                 KeyCode::Char('c') if shift => {
                     process_global_action(system, RecompileAll);
                 },
                 KeyCode::Char('c') => {
-                    process_service_action(system, |service| Recompile(service));
+                    process_service_action(system, Recompile);
                 },
 
                 // Controlling automation
@@ -61,7 +61,7 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                     toggle_automation_detailed_controls(system, false);
                 },
                 KeyCode::Char('a') => {
-                    process_service_action(system, |service| ToggleAutomation(service));
+                    process_service_action(system, ToggleAutomation);
                 }
 
                 // Toggling should-run
@@ -69,14 +69,14 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                     process_global_action(system, ToggleRunAll);
                 },
                 KeyCode::Char('r') => {
-                    process_service_action(system, |service| ToggleRun(service));
+                    process_service_action(system, ToggleRun);
                 }
                 // Toggling debugging
                 KeyCode::Char('d') if shift => {
                     process_global_action(system, ToggleDebugAll);
                 },
                 KeyCode::Char('d') => {
-                    process_service_action(system, |service| ToggleDebug(service));
+                    process_service_action(system, ToggleDebug);
                 }
                 // Toggling output
                 KeyCode::Char('o') if shift => {
@@ -84,7 +84,7 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                 },
                 // Toggling output
                 KeyCode::Char('o') => {
-                    process_service_action(system, |service| ToggleOutput(service));
+                    process_service_action(system, ToggleOutput);
                 },
                 // Controls to exit
                 KeyCode::Char('q') if ctrl => {
@@ -110,7 +110,7 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
     }
 }
 
-fn toggle_automation_detailed_controls(system_arc: Arc<Mutex<SystemState>>, all: bool) {
+fn toggle_automation_detailed_controls(system_arc: Arc<Mutex<SystemState>>, _all: bool) {
     let mut system = system_arc.lock().unwrap();
     match &mut system.ui.screen {
         CurrentScreen::ViewProfile(view_profile) if view_profile.active_pane == ViewProfilePane::ServiceList => {

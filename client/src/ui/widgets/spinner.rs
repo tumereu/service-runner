@@ -10,8 +10,8 @@ use tui::Frame;
 
 use crate::ui::widgets::{Renderable, Size};
 
-static REFERENCE_INSTANT: Lazy<Instant> = Lazy::new(|| Instant::now());
-const SPINNER_CHARS: &'static [&'static str] = &["⠋", "⠙", "⠸", "⠴", "⠦", "⠇"];
+static REFERENCE_INSTANT: Lazy<Instant> = Lazy::new(Instant::now);
+const SPINNER_CHARS: &[&str] = &["⠋", "⠙", "⠸", "⠴", "⠦", "⠇"];
 
 #[derive(Default, Debug)]
 pub struct Spinner {
@@ -37,14 +37,14 @@ impl Spinner {
         let icon = if !self.active {
             " "
         } else {
-            &SPINNER_CHARS[phase as usize]
+            SPINNER_CHARS[phase as usize]
         };
 
         frame.render_widget(Paragraph::new(Span::styled(icon, style)), rect);
     }
 
     pub fn measure(&self) -> Size {
-        (1 as u16, 1 as u16).into()
+        (1_u16, 1_u16).into()
     }
 }
 

@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::iter;
 use std::rc::Rc;
 use itertools::Itertools;
-use log::info;
+
 use once_cell::sync::Lazy;
 
 use tui::backend::Backend;
@@ -17,7 +17,7 @@ use crate::models::{AutomationMode, CompileStatus, get_active_outputs, OutputKey
 use crate::models::AutomationMode::{Automatic, Disabled};
 use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
-use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, render_at_pos, Toggle};
+use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, render_at_pos};
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
 
 const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
@@ -51,7 +51,7 @@ where
             output_pos_vert,
             floating_pane,
         }) => (active_pane, service_selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane),
-        any @ _ => panic!("Invalid UI state in render_view_profile: {any:?}"),
+        any => panic!("Invalid UI state in render_view_profile: {any:?}"),
     };
 
     let profile = &system.current_profile;
@@ -80,8 +80,8 @@ where
                     Cell {
                         border: (
                             match pane {
-                                ViewProfilePane::ServiceList => active_border_color.clone(),
-                                _ => border_color.clone(),
+                                ViewProfilePane::ServiceList => active_border_color,
+                                _ => border_color,
                             },
                             profile.name.clone(),
                         )
@@ -95,8 +95,8 @@ where
                     Cell {
                         border: (
                             match pane {
-                                ViewProfilePane::OutputPane => active_border_color.clone(),
-                                _ => border_color.clone(),
+                                ViewProfilePane::OutputPane => active_border_color,
+                                _ => border_color,
                             },
                             format!(
                                 "Output [wrap: {wrap_symbol}]",
@@ -116,8 +116,8 @@ where
                             wrap_output,
                             output_pos_horiz,
                             output_pos_vert,
-                            &profile,
-                            &system
+                            profile,
+                            system
                         ).into_el(),
                         ..Default::default()
                     },
@@ -128,7 +128,7 @@ where
         );
 
         match floating_pane {
-            Some(ViewProfileFloatingPane::ServiceAutomationDetails { detail_list_selection }) => {
+            Some(ViewProfileFloatingPane::ServiceAutomationDetails { detail_list_selection: _ }) => {
                 let selected_service_bounds = selected_service_bounds.borrow();
                 let automation_modes: Vec<(String, AutomationMode)> = system.iter_services_with_statuses()
                     .dropping(service_selection.unwrap_or(0))
@@ -137,13 +137,12 @@ where
                         service.automation.iter()
                             .map(|automation_entry| {
                                 let automation_name = automation_entry.name.clone();
-                                let current_mode = status.automation_modes.get(&automation_name)
-                                    .map(|mode| *mode)
+                                let current_mode = status.automation_modes.get(&automation_name).copied()
                                     .unwrap_or(AutomationMode::Disabled);
 
                                 (automation_name, current_mode)
                             }).collect()
-                    }).unwrap_or(Vec::new());
+                    }).unwrap_or_default();
                 let longest_name: u16 = automation_modes.iter().map(|(name, _)| name.len() as u16).max().unwrap_or(0);
 
                 render_at_pos(
@@ -279,21 +278,21 @@ fn service_list(
                                     }.into(),
                                     fg: if let Some(status) = status {
                                         match (&status.run_status, &status.action) {
-                                            (_, _) if service.run.is_none() => inactive_color.clone(),
+                                            (_, _) if service.run.is_none() => inactive_color,
                                             (RunStatus::Healthy | RunStatus::Running, _) if !status.should_run => {
-                                                processing_color.clone()
+                                                processing_color
                                             },
-                                            (_, _) if !status.should_run => inactive_color.clone(),
-                                            (RunStatus::Failed, _) => error_color.clone(),
-                                            (_, ServiceAction::Restart) => processing_color.clone(),
-                                            (RunStatus::Healthy, _) => active_color.clone(),
-                                            (RunStatus::Running, _) => processing_color.clone(),
-                                            (RunStatus::Stopped, ServiceAction::Recompile) => processing_color.clone(),
-                                            (_, _) if status.should_run => processing_color.clone(),
-                                            (_, _) => inactive_color.clone(),
+                                            (_, _) if !status.should_run => inactive_color,
+                                            (RunStatus::Failed, _) => error_color,
+                                            (_, ServiceAction::Restart) => processing_color,
+                                            (RunStatus::Healthy, _) => active_color,
+                                            (RunStatus::Running, _) => processing_color,
+                                            (RunStatus::Stopped, ServiceAction::Recompile) => processing_color,
+                                            (_, _) if status.should_run => processing_color,
+                                            (_, _) => inactive_color,
                                         }
                                     } else {
-                                        inactive_color.clone()
+                                        inactive_color
                                     }
                                     .into(),
                                     ..Default::default()
@@ -314,15 +313,15 @@ fn service_list(
                                             _ if matches!(
                                                 status.action,
                                                 ServiceAction::Recompile
-                                            ) => processing_color.clone(),
-                                            CompileStatus::None => inactive_color.clone(),
-                                            CompileStatus::FullyCompiled => active_color.clone(),
-                                            CompileStatus::PartiallyCompiled(_) => processing_color.clone(),
-                                            CompileStatus::Compiling(_) => processing_color.clone(),
-                                            CompileStatus::Failed => error_color.clone(),
+                                            ) => processing_color,
+                                            CompileStatus::None => inactive_color,
+                                            CompileStatus::FullyCompiled => active_color,
+                                            CompileStatus::PartiallyCompiled(_) => processing_color,
+                                            CompileStatus::Compiling(_) => processing_color,
+                                            CompileStatus::Failed => error_color,
                                         }
                                     } else {
-                                        inactive_color.clone()
+                                        inactive_color
                                     }
                                     .into(),
                                     ..Default::default()
@@ -335,9 +334,9 @@ fn service_list(
                                 element: Text {
                                     text: "O".into(),
                                     fg: if show_output {
-                                        active_color.clone()
+                                        active_color
                                     } else {
-                                        inactive_color.clone()
+                                        inactive_color
                                     }
                                     .into(),
                                     ..Default::default()
@@ -348,28 +347,28 @@ fn service_list(
                             // Autocompile status
                             Cell {
                                 element: Text {
-                                    text: if service.automation.len() > 0 {
+                                    text: if !service.automation.is_empty() {
                                         "A"
                                     } else {
                                         "-"
                                     }.into(),
 
                                     fg: if let Some(status) = status {
-                                        if service.automation.len() == 0 {
-                                            inactive_color.clone()
+                                        if service.automation.is_empty() {
+                                            inactive_color
                                         } else if !status.automation_enabled {
-                                            inactive_color.clone()
-                                        } else if status.pending_automations.len() > 0 {
-                                            processing_color.clone()
+                                            inactive_color
+                                        } else if !status.pending_automations.is_empty() {
+                                            processing_color
                                         } else if status.automation_modes.iter().all(|(_, mode)| *mode == Automatic) {
-                                            active_color.clone()
+                                            active_color
                                         } else if status.automation_modes.iter().all(|(_, mode)| *mode == Disabled) {
-                                            inactive_color.clone()
+                                            inactive_color
                                         } else {
-                                            secondary_active_color.clone()
+                                            secondary_active_color
                                         }
                                     } else {
-                                        inactive_color.clone()
+                                        inactive_color
                                     }.into(),
 
                                     ..Default::default()
@@ -422,7 +421,7 @@ fn output_pane(
                         .query_lines_to(
                             height,
                             pos_vert,
-                            &get_active_outputs(&state.output_store, &state)
+                            &get_active_outputs(&state.output_store, state)
                         )
                         .into_iter()
                         .map(|(key, line)| {
@@ -449,7 +448,7 @@ fn output_pane(
                                             OutputKey::STD => None,
                                             OutputKey::CTL => Some(Color::Rgb(180, 0, 130)),
                                             other => Some(hashed_color(other))
-                                        }.into(),
+                                        },
                                     },
                                     LinePart {
                                         text: format!("{service} | ", service = key.service_ref.clone()),
@@ -481,7 +480,7 @@ fn output_pane(
                 )
             } else {
                 None
-            }.into_iter()
+            }
         )
             .collect(),
         ..Default::default()

@@ -25,9 +25,7 @@ impl OutputDisplay {
                     // line and no wrapping
                     if line.parts.iter().all(|part| part.text.chars().all(|char| char.is_whitespace())) {
                         lines.push(
-                            line.prefix.iter()
-                                .map(|prefix| prefix.clone())
-                                .collect()
+                            line.prefix.to_vec()
                         );
                     } else {
                         line.parts.into_iter()
@@ -39,10 +37,10 @@ impl OutputDisplay {
                                     .for_each(|grapheme| {
                                         // Separate each word into their own vector. Each whitspace-element should end up
                                         // in a vector containing only that element
-                                        if whitespace_split.is_empty() || grapheme.trim().len() == 0 || last_whitespace {
+                                        if whitespace_split.is_empty() || grapheme.trim().is_empty() || last_whitespace {
                                             whitespace_split.push(Vec::new());
                                         }
-                                        last_whitespace = grapheme.trim().len() == 0;
+                                        last_whitespace = grapheme.trim().is_empty();
                                         whitespace_split.last_mut().unwrap().push(grapheme);
                                     });
 
@@ -62,7 +60,7 @@ impl OutputDisplay {
                                                     char
                                                 }
                                             }).collect(),
-                                            color: color.clone()
+                                            color
                                         }
                                     }).collect::<Vec<LinePart>>()
                             })
@@ -74,8 +72,7 @@ impl OutputDisplay {
                                     // Never start wrapped lines with words that are solely whitespace
                                     if part.text.chars().any(|char| !char.is_whitespace()) || lines.is_empty() {
                                         lines.push(
-                                            line.prefix.iter()
-                                                .map(|prefix| prefix.clone())
+                                            line.prefix.iter().cloned()
                                                 .chain(if !lines.is_empty() {
                                                     Some(LinePart {
                                                         text: String::from("\u{21AA}"),
@@ -83,7 +80,7 @@ impl OutputDisplay {
                                                     })
                                                 } else {
                                                     None
-                                                }.into_iter())
+                                                })
                                                 .chain(iter::once(part))
                                                 .collect()
                                         );
@@ -104,7 +101,7 @@ impl OutputDisplay {
                                 let new_part = LinePart {
                                     text: part.text.graphemes(true)
                                         .enumerate()
-                                        .filter(|(index, grapheme)| index >= &remaining_to_drop)
+                                        .filter(|(index, _grapheme)| index >= &remaining_to_drop)
                                         .map(|(_, grapheme)| grapheme)
                                         .collect::<Vec<&str>>()
                                         .concat(),

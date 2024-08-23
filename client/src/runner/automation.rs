@@ -31,13 +31,11 @@ pub fn enqueue_automation(
     automation_entry: &AutomationEntry
 ) {
     let automation_name = &automation_entry.name;
-    let current_mode: AutomationMode = system.get_service_status(&service_name)
-        .map(|status| status.automation_modes.get(&automation_entry.name))
-        .flatten()
-        .map(|mode| *mode)
+    let current_mode: AutomationMode = system.get_service_status(service_name)
+        .and_then(|status| status.automation_modes.get(&automation_entry.name)).copied()
         .unwrap_or(AutomationMode::Disabled);
 
-    if !system.get_service_status(&service_name).map(|status| status.automation_enabled).unwrap_or(false) {
+    if !system.get_service_status(service_name).map(|status| status.automation_enabled).unwrap_or(false) {
         debug!("Ignoring triggered automation {automation_name} for {service_name} as automation is disabled for the service");
     } else if current_mode == AutomationMode::Disabled {
         debug!("Ignoring triggered automation {automation_name} for {service_name} that automation specifically is disabled");
@@ -99,7 +97,7 @@ pub fn process_pending_automations(system: &mut SystemState) {
     });
 
     // Remove all pending automations that were triggered
-    system.service_statuses.iter_mut().for_each(|(service_name, status)| {
+    system.service_statuses.iter_mut().for_each(|(_service_name, status)| {
         status.pending_automations.retain(|pending_automation| {
             pending_automation.not_before.gt(&check_time)
         })

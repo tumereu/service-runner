@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::fmt::{Display, format, Formatter};
+use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::path::Path;
 use Vec;
@@ -42,9 +42,9 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
         info!("Reading configuration file {filename}");
 
         if filename.ends_with(".service.toml") {
-            services.push(read_toml(&path)?);
+            services.push(read_toml(path)?);
         } else if filename.ends_with(".profile.toml") {
-            profiles.push(read_toml(&path)?)
+            profiles.push(read_toml(path)?)
         }
     }
 

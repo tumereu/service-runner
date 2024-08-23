@@ -113,7 +113,7 @@ where
                             let mut handle = handle.lock().unwrap();
                             handle.stdout.take().unwrap()
                         };
-                        let key = OutputKey::new(OutputKey::STD.into(), service_name, output.clone());
+                        let key = OutputKey::new(OutputKey::STD.into(), service_name, output);
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
@@ -135,7 +135,7 @@ where
                             let mut handle = handle.lock().unwrap();
                             handle.stderr.take().unwrap()
                         };
-                        let key = OutputKey::new(OutputKey::STD.into(), service_name, output.clone());
+                        let key = OutputKey::new(OutputKey::STD.into(), service_name, output);
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
@@ -155,7 +155,7 @@ where
     }
 
     fn process_output_line(state: Arc<Mutex<SystemState>>, key: &OutputKey, output: String) {
-        state.lock().unwrap().output_store.add_output(&key, output);
+        state.lock().unwrap().output_store.add_output(key, output);
     }
 
     #[cfg(target_os = "linux")]

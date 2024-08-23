@@ -119,12 +119,11 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                         let num_steps = system
                             .get_service(service_name)
                             .as_ref()
-                            .map(|service| service.compile.as_ref())
-                            .flatten()
+                            .and_then(|service| service.compile.as_ref())
                             .map(|compile| compile.commands.len())
                             .unwrap_or(0);
 
-                        system.update_service_status(&service_name, move |status| {
+                        system.update_service_status(service_name, move |status| {
                             status.compile_status = if index >= num_steps - 1 {
                                 CompileStatus::FullyCompiled
                             } else {
@@ -147,13 +146,13 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                                     }).map(|automation_entry| (service.name.clone(), automation_entry.clone()))
                             }).collect();
                         automations_to_enqueue.iter().for_each(|(service, entry)| {
-                            enqueue_automation(&mut system, &service, &entry)
+                            enqueue_automation(&mut system, service, entry)
                         });
 
                         // Check the automations immediately, so that non-debounced automations fire without delay
                         process_pending_automations(&mut system);
                     } else {
-                        system.update_service_status(&service_name, |status| {
+                        system.update_service_status(service_name, |status| {
                             status.compile_status = CompileStatus::Failed;
                             status.action = ServiceAction::None;
                         });

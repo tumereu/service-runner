@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use crate::models::{AutomationMode, AutomationTrigger, ServiceAction};
+use crate::models::{AutomationTrigger};
 use crate::runner::automation::{enqueue_automation, process_pending_automations};
 use crate::system_state::SystemState;
 
@@ -65,7 +65,7 @@ fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
                         }
                     })
             })
-            .map(|(service_name, work_dir, automation_entry, watch_paths)| {
+            .filter_map(|(service_name, work_dir, automation_entry, watch_paths)| {
                 info!("Creating a watcher for service {service_name} with paths {watch_paths:?}");
 
                 let watcher = {
@@ -115,7 +115,7 @@ fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
                     error!("Failed to create a file watcher for {service_name}: {watcher:?}");
                     None
                 }
-            }).flatten()
+            })
             .collect();
 
         FileWatcherState {

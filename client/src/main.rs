@@ -9,7 +9,7 @@ use tui::{backend::CrosstermBackend, Terminal};
 
 use config::read_config;
 use log::{debug, error, info, LevelFilter};
-use crate::config::{AutomationEntry, AutomationTrigger, ServiceDefinition};
+
 use crate::system_state::{SystemState};
 use crate::input::process_inputs;
 use crate::runner::automation::start_automation_processor;
@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             loop {
                 {
                     let mut state = state_arc.lock().unwrap();
-                    if state.should_exit && state.active_threads.len() == 0 {
+                    if state.should_exit && state.active_threads.is_empty() {
                         break;
                     }
 

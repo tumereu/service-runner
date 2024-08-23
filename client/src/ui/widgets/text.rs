@@ -2,7 +2,7 @@ use tui::backend::Backend;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Span;
-use tui::widgets::{Clear, Paragraph};
+use tui::widgets::{Paragraph};
 use tui::Frame;
 
 use crate::ui::widgets::{Renderable, Size};
@@ -28,7 +28,7 @@ impl Text {
     }
 
     pub fn measure(&self) -> Size {
-        (self.text.len() as u16, 1 as u16).into()
+        (self.text.len() as u16, 1_u16).into()
     }
 }
 

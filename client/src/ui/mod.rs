@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use log::debug;
+
 use tui::backend::Backend;
 use tui::Terminal;
 

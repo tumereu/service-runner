@@ -12,7 +12,7 @@ where
 {
     let selected_idx = match &state.ui.screen {
         CurrentScreen::ProfileSelect { selected_idx } => selected_idx,
-        any @ _ => panic!("Invalid UI state in render_profile_select: {any:?}"),
+        any => panic!("Invalid UI state in render_profile_select: {any:?}"),
     };
 
     // TODO theme?

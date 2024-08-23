@@ -48,7 +48,7 @@ impl Cell {
             if let Some((color, title)) = &self.border {
                 block = block
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(color.clone()))
+                    .border_style(Style::default().fg(*color))
                     .title(Spans::from(title.to_string()));
             }
             frame.render_widget(block, rect);
@@ -70,7 +70,7 @@ impl Cell {
             .element
             .as_ref()
             .map(|el| el.measure())
-            .unwrap_or((0 as u16, 0 as u16).into());
+            .unwrap_or((0_u16, 0_u16).into());
 
         if let Some(element) = self.element {
             let max_width = rect.width.saturating_sub(padding_left + padding_right);
@@ -110,7 +110,7 @@ impl Cell {
             .element
             .as_ref()
             .map(|el| el.measure())
-            .unwrap_or((0 as u16, 0 as u16).into());
+            .unwrap_or((0_u16, 0_u16).into());
 
         let border_pad = if self.border.is_some() {
             2

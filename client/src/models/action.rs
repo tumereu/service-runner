@@ -1,4 +1,4 @@
-use crate::models::{Profile, ServiceAction};
+use crate::models::{Profile};
 
 pub enum Action {
     Shutdown,

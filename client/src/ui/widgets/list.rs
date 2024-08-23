@@ -62,7 +62,6 @@ impl List {
             .map(|item| item.measure())
             .reduce(|a, b| (max(a.width, b.width), a.height + b.height).into())
             .unwrap_or(Size::empty())
-            .into()
     }
 }
 

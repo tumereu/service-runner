@@ -85,8 +85,7 @@ pub fn handle_running(system_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                         .lock()
                         .unwrap()
                         .get_service(&service_name)
-                        .map(|service| service.run.as_ref())
-                        .flatten()
+                        .and_then(|service| service.run.as_ref())
                         .map(|run_conf| run_conf.health_check.clone())
                         .unwrap_or(None);
 
@@ -158,7 +157,7 @@ pub fn handle_running(system_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                                         } else {
                                             server.lock().unwrap().add_ctrl_output(
                                                 &service_name,
-                                                format!("Health check failed: HTTP request timeout")
+                                                "Health check failed: HTTP request timeout".to_string()
                                             );
 
                                             successful = false;
@@ -201,7 +200,7 @@ pub fn handle_running(system_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                         if !has_exited {
                             server.lock().unwrap().add_ctrl_output(
                                 &service_name,
-                                format!("Health checks failed: timeout exceeded")
+                                "Health checks failed: timeout exceeded".to_string()
                             );
                             server
                                 .lock()
@@ -210,18 +209,16 @@ pub fn handle_running(system_arc: Arc<Mutex<SystemState>>) -> Option<()> {
                                     status.run_status = RunStatus::Failed;
                                 });
                         }
-                    } else {
-                        if !has_exited {
-                            server
-                                .lock()
-                                .unwrap()
-                                .update_service_status(&service_name, |status| {
-                                    // If the service is still running, update its status to healthy
-                                    if matches!(status.run_status, RunStatus::Running) {
-                                        status.run_status = RunStatus::Healthy;
-                                    }
-                                });
-                        }
+                    } else if !has_exited {
+                        server
+                            .lock()
+                            .unwrap()
+                            .update_service_status(&service_name, |status| {
+                                // If the service is still running, update its status to healthy
+                                if matches!(status.run_status, RunStatus::Running) {
+                                    status.run_status = RunStatus::Healthy;
+                                }
+                            });
                     }
                 })
             };

@@ -37,13 +37,12 @@ impl SystemState {
     pub fn get_service(&self, service_name: &str) -> Option<&Service> {
         self.current_profile
             .as_ref()
-            .map(|profile| {
+            .and_then(|profile| {
                 profile
                     .services
                     .iter()
                     .find(|service| service.name == service_name)
             })
-            .flatten()
     }
 
     pub fn iter_services(&self) -> impl Iterator<Item = &Service> {
@@ -125,7 +124,7 @@ impl SystemState {
                 .flat_map(|profile| &profile.services)
                 .for_each(|service| {
                         let status = state.service_statuses.get_mut(&service.name).unwrap();
-                        update(&service, status);
+                        update(service, status);
 
                         // Remove impossible configurations
                         if status.action == ServiceAction::Recompile && service.compile.is_none() {

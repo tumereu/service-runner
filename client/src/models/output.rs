@@ -47,7 +47,7 @@ impl OutputStore {
             .iter()
             .map(|key| (key.clone(), self.outputs.get(key).unwrap()))
             .map(|(key, lines)| {
-                if lines.len() == 0 {
+                if lines.is_empty() {
                     // If the bucket has 0 lines, then there's nothing we could ever return
                     (key.clone(), None)
                 } else if lines.iter().all(|OutputLine { index, .. }| index < &min_idx) {
@@ -106,7 +106,7 @@ impl OutputStore {
             .iter()
             .map(|key| (*key, self.outputs.get(key).unwrap()))
             .map(|(key, lines)| {
-                if lines.len() == 0 {
+                if lines.is_empty() {
                     // If the bucket has 0 lines, then there's nothing we could ever return
                     (key.clone(), None)
                 } else if lines
@@ -197,8 +197,7 @@ pub struct OutputLine {
 
 // TODO move elsewhere?
 pub fn get_active_outputs<'a>(store: &'a OutputStore, state: &'a SystemState) -> Vec<&'a OutputKey> {
-    store.outputs.iter()
-        .map(|(key, _)| key)
+    store.outputs.keys()
         .filter(|key| {
             state.service_statuses
                 .get(key.service_ref.as_str())

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
+
 
 use crate::models::{AutomationEffect, AutomationMode, Profile, Service};
 
@@ -28,7 +28,7 @@ impl ServiceStatus {
             automation_enabled: true,
             automation_modes: service.automation
                 .iter()
-                .map(|entry| (entry.name.clone(), entry.default_mode.clone()))
+                .map(|entry| (entry.name.clone(), entry.default_mode))
                 .collect(),
             compile_status: CompileStatus::None,
             run_status: RunStatus::Stopped,
