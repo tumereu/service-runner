@@ -1,9 +1,12 @@
 use std::fmt::{Debug, Formatter};
 use std::iter;
+use itertools::Itertools;
+use log::debug;
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
 use tui::style::Color;
+use tui::widgets::Clear;
 use unicode_segmentation::UnicodeSegmentation;
 use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 
@@ -102,7 +105,15 @@ impl OutputDisplay {
                                     text: part.text.graphemes(true)
                                         .enumerate()
                                         .filter(|(index, _grapheme)| index >= &remaining_to_drop)
-                                        .map(|(_, grapheme)| grapheme)
+                                        .map(|(_, grapheme)| {
+                                            // Replace all whitespace with space.
+                                            if grapheme.trim().is_empty() {
+                                                // TODO replace tabs with multiple spaces?
+                                                &" "
+                                            } else {
+                                                grapheme
+                                            }
+                                        })
                                         .collect::<Vec<&str>>()
                                         .concat(),
                                     color: part.color
@@ -120,6 +131,9 @@ impl OutputDisplay {
         if lines.len() > rect.height.into() {
             lines = lines.as_slice()[lines.len().saturating_sub(rect.height.into())..].to_vec();
         }
+
+        // Clear the area before rendering
+        frame.render_widget(Clear, rect);
 
         Flow {
             cells: lines

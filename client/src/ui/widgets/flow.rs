@@ -80,7 +80,7 @@ impl Flow {
                 (current_pos, 0)
             };
 
-            // Increase current position for subseqent elements
+            // Increase current position for subsequent elements
             current_pos += if self.direction == Dir::UpDown {
                 size_in_layout.height
             } else {
