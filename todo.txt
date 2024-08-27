@@ -13,7 +13,6 @@
 - load .env file from directory?
 - different color A if file watching fails?
 - Override env in profile?
-- very long lines in output, if wrapping, will spill to the left side on the next line?
 - dump output to file -feature. Allow choosing which services, categories and how many lines or all.
 - Colorize/parse output based on regex rules to denote log levels?
 - Take ratatui and a tui-realm library into use?

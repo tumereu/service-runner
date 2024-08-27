@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use std::iter;
 use itertools::Itertools;
-use log::debug;
 use tui::backend::Backend;
 use tui::Frame;
 use tui::layout::Rect;
