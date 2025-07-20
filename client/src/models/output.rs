@@ -185,6 +185,7 @@ impl OutputKey {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum OutputKind {
+    // FIXME 
     Compile,
     Run,
 }

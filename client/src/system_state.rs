@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use crate::config::Config;
 use crate::models::{OutputKey, OutputStore, Profile, Service};
 use crate::runner::file_watcher::FileWatcherState;
@@ -38,7 +39,9 @@ impl SystemState {
                 profile
                     .services
                     .iter()
-                    .find(|service| service.definition.name == service_name)
+                    .find(|service| {
+                        service.definition.name == service_name
+                    })
             })
     }
 
@@ -84,6 +87,23 @@ pub fn is_satisfied(&self, dep: &Dependency) -> bool {
 }
 
      */
+
+    pub fn update_service<F>(&mut self, service_name: &str, update: F)
+    where
+        F: FnOnce(&mut Service),
+    {
+        self.update_state(move |state| {
+            let service_option = state.current_profile.as_mut()
+                .and_then(|profile| {
+                    profile.services.iter_mut()
+                        .find(|service| service.definition.name == service_name)
+                });
+
+            if let Some(service) = service_option {
+                update(service);
+            }
+        });
+    }
 
     /// TODO is this necessary anymore?
     pub fn update_state<F>(&mut self, update: F)

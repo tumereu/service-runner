@@ -12,3 +12,4 @@ pub use executable_entry::*;
 pub use health_check::*;
 pub use profile_definition::*;
 pub use service_definition::*;
+pub use dependency::*;

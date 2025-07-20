@@ -1,0 +1,9 @@
+name: "simple-service"
+dir: "./example-config/services/simple-service"
+stages:
+  - name: "build"
+    type: "cmd-seq"
+    commands:
+      - executable: "/usr/bin/python3"
+        args:
+          - "simulate-build.py"

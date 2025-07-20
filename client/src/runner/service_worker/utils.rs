@@ -97,7 +97,6 @@ where
                         on_finish(
                             OnFinishParams {
                                 state: server,
-                                service_name: &service_name,
                                 success,
                                 exit_code: status.map(|status| status.code().unwrap_or(0)).unwrap_or(0),
                                 killed
@@ -227,9 +226,8 @@ where
     }
 }
 
-pub struct OnFinishParams<'a> {
+pub struct OnFinishParams {
     pub state: Arc<Mutex<SystemState>>,
-    pub service_name: &'a str,
     pub success: bool,
     pub exit_code: i32,
     pub killed: bool,
