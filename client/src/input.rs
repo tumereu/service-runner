@@ -3,12 +3,12 @@ use std::ops::Neg;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode, KeyModifiers};
-use log::debug;
-use crate::models::{Action::*, Action, get_active_outputs, Profile};
+use crate::models::{get_active_outputs, Action, Action::*, Profile};
 use crate::runner::process_action::process_action;
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 use crate::SystemState;
+use crossterm::event::{poll as poll_events, read as read_event, Event, KeyCode, KeyModifiers};
+use log::debug;
 
 pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
     while poll_events(Duration::from_millis(0)).unwrap_or(false) {

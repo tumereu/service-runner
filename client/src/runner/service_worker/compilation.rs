@@ -1,8 +1,5 @@
-use std::sync::{Arc, Mutex};
-use crate::runner::automation::{enqueue_automation, process_pending_automations};
-use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::system_state::SystemState;
-use crate::utils::format_err;
+use std::sync::{Arc, Mutex};
 
 pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
     /*

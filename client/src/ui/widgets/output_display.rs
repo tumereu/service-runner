@@ -1,13 +1,13 @@
+use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
+use itertools::Itertools;
 use std::fmt::{Debug, Formatter};
 use std::iter;
-use itertools::Itertools;
 use tui::backend::Backend;
-use tui::Frame;
 use tui::layout::Rect;
 use tui::style::Color;
 use tui::widgets::Clear;
+use tui::Frame;
 use unicode_segmentation::UnicodeSegmentation;
-use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 
 #[derive(Default)]
 pub struct OutputDisplay {

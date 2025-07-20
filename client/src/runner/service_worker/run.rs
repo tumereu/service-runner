@@ -1,14 +1,5 @@
-use std::net::TcpListener;
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
 
-use reqwest::blocking::Client as HttpClient;
-use reqwest::Method;
-
-use crate::utils::format_err;
-
-use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::system_state::SystemState;
 
 pub fn handle_running(system_arc: Arc<Mutex<SystemState>>) -> Option<()> {

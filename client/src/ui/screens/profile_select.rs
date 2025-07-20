@@ -1,6 +1,6 @@
 use tui::backend::Backend;
-use tui::Frame;
 use tui::style::Color;
+use tui::Frame;
 
 use crate::system_state::SystemState;
 use crate::ui::widgets::{render_root, Align, Cell, IntoCell, List};

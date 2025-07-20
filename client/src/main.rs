@@ -1,24 +1,24 @@
-use std::sync::{Arc, Mutex};
-use std::{env, error::Error, io::stdout, process, thread, time::Duration};
-use std::time::Instant;
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
+use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 use tui::{backend::CrosstermBackend, Terminal};
 
 use config::read_config;
 use log::{debug, error, info, LevelFilter};
 
-use crate::system_state::{SystemState};
 use crate::input::process_inputs;
 use crate::models::Action::ActivateProfile;
 use crate::models::Profile;
 use crate::runner::automation::start_automation_processor;
 use crate::runner::file_watcher::start_file_watcher;
 use crate::runner::process_action::process_action;
-use crate::ui::render;
 use crate::runner::service_worker::start_service_worker;
+use crate::system_state::SystemState;
+use crate::ui::render;
 
 mod system_state;
 mod input;

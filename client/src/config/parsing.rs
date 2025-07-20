@@ -1,14 +1,14 @@
+use log::info;
+use serde::Deserialize;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::path::Path;
-use Vec;
-use log::info;
-use serde::Deserialize;
 use walkdir::WalkDir;
+use Vec;
 
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
-use crate::config::{Settings};
+use crate::config::Settings;
 
 #[derive(Debug)]
 pub struct ConfigParsingError {

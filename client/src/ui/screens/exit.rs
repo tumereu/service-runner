@@ -2,7 +2,7 @@ use tui::backend::Backend;
 use tui::Frame;
 
 use crate::system_state::SystemState;
-use crate::ui::widgets::{Align, Cell, Text, Flow, IntoCell, render_root, Spinner};
+use crate::ui::widgets::{render_root, Align, Cell, Flow, IntoCell, Spinner, Text};
 
 pub fn render_exit<B>(frame: &mut Frame<B>, _state: &SystemState)
 where

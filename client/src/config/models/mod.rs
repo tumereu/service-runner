@@ -6,10 +6,9 @@ mod dependency;
 mod profile_definition;
 mod config;
 
+pub use automation::*;
+pub use config::*;
 pub use executable_entry::*;
 pub use health_check::*;
-pub use automation::*;
-pub use service_definition::*;
-pub use dependency::*;
 pub use profile_definition::*;
-pub use config::*;
+pub use service_definition::*;

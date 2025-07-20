@@ -7,9 +7,9 @@ use tui::Frame;
 pub use cell::*;
 pub use flow::*;
 pub use list::*;
+pub use output_display::*;
 pub use spinner::*;
 pub use text::*;
-pub use output_display::*;
 pub use toggle::*;
 
 mod cell;

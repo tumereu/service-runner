@@ -1,7 +1,5 @@
-use std::time::Instant;
-use crate::models::{Action};
+use crate::models::Action;
 
-use crate::runner::automation::process_pending_automations;
 use crate::system_state::SystemState;
 use crate::ui::CurrentScreen;
 

@@ -1,7 +1,7 @@
+use crate::utils::write_escaped_str;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use crate::utils::write_escaped_str;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

@@ -1,24 +1,23 @@
+use itertools::Itertools;
 use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::iter;
 use std::rc::Rc;
-use itertools::Itertools;
 
 use once_cell::sync::Lazy;
 
-use tui::backend::Backend;
-use tui::style::Color;
-use tui::Frame;
-use tui::layout::Rect;
 use crate::config::AutomationMode;
 use crate::models::{get_active_outputs, OutputKey, OutputKind, Profile};
 use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
-use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, render_at_pos};
+use crate::ui::widgets::{render_at_pos, render_root, Align, Cell, Dir, Flow, IntoCell, LinePart, List, OutputDisplay, OutputLine, Spinner, Text};
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
+use tui::backend::Backend;
+use tui::layout::Rect;
+use tui::style::Color;
+use tui::Frame;
 
 const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     vec![

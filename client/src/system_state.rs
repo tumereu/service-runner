@@ -1,9 +1,8 @@
-use std::collections::{HashMap};
-use std::thread::JoinHandle;
 use crate::config::Config;
 use crate::models::{OutputKey, OutputStore, Profile, Service};
 use crate::runner::file_watcher::FileWatcherState;
 use crate::ui::UIState;
+use std::thread::JoinHandle;
 
 pub struct SystemState {
     pub current_profile: Option<Profile>,

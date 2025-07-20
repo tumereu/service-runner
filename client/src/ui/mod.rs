@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use tui::backend::Backend;
 use tui::Terminal;
 
-pub use state::{CurrentScreen, UIState, ViewProfilePane, ViewProfileState, ViewProfileFloatingPane};
+pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 
 use crate::ui::screens::profile_select::render_profile_select;
 use crate::ui::screens::view_profile::render_view_profile;

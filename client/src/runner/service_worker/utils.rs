@@ -1,12 +1,12 @@
-use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, ExitStatus, Stdio};
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::{io, thread};
-use std::ops::Neg;
-use std::time::{Duration, Instant};
-use log::{error, info};
 use crate::config::ExecutableEntry;
 use crate::models::{OutputKey, OutputKind};
+use log::{error, info};
+use std::io::{BufRead, BufReader};
+use std::ops::Neg;
+use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::{Duration, Instant};
+use std::{io, thread};
 
 use crate::system_state::SystemState;
 

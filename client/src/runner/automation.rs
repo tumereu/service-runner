@@ -1,11 +1,8 @@
-use std::ops::Add;
+use crate::config::AutomationEntry;
+use crate::system_state::SystemState;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use log::debug;
-use crate::config::AutomationEntry;
-use crate::runner::process_action::process_action;
-use crate::system_state::SystemState;
 
 /// Starts a new thread that periodically checks the system's pending automations and returns a join handle for the
 /// started thread.
