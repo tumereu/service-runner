@@ -22,6 +22,7 @@ serde = "1.0.204"
 serde-aux = "4.5.0"
 serde_derive = "1.0.204"
 serde_path_to_error = "0.1.16"
+serde_yaml = "0.9.34+deprecated"
 toml = "0.8.19"
 
 subst = "0.3.8"

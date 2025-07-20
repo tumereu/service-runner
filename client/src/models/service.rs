@@ -1,27 +1,25 @@
-use std::convert::Into;
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-
-use crate::config::ServiceDefinition as ConfigService;
-use crate::models::{AutomationEntry, CompileConfig, ExecutableEntry, RunConfig};
+use crate::config::ServiceDefinition;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {
-    pub name: String,
-    pub dir: Option<String>,
-    pub compile: Option<CompileConfig>,
-    pub run: Option<RunConfig>,
-    pub reset: Vec<ExecutableEntry>,
-    pub automation: Vec<AutomationEntry>,
+    pub definition: ServiceDefinition,
+    pub stage_statuses: HashMap<String, StageStatus>,
 }
-impl From<ConfigService> for Service {
-    fn from(value: ConfigService) -> Self {
+impl From<ServiceDefinition> for Service {
+    fn from(value: ServiceDefinition) -> Self {
         Service {
-            name: value.name,
-            dir: value.dir.into(),
-            compile: value.compile.map(Into::into),
-            run: value.run.map(Into::into),
-            reset: value.reset.into_iter().map(Into::into).collect(),
-            automation: value.automation.into_iter().map(Into::into).collect(),
+            definition: value,
+            stage_statuses: HashMap::new(),
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum StageStatus {
+    Initial,
+    Working,
+    Ok,
+    Error,
 }

@@ -1,13 +1,12 @@
 use std::sync::{Arc, Mutex};
-use std::time::{Instant};
-use crate::models::{AutomationTrigger, CompileStatus, OutputKey, OutputKind, AutomationEntry, ServiceAction};
-use crate::models::AutomationEffect::Recompile;
 use crate::runner::automation::{enqueue_automation, process_pending_automations};
 use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::system_state::SystemState;
 use crate::utils::format_err;
 
 pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
+    /*
+    FIXME
     let (mut command, service_name, index) = {
         let mut state = state_arc.lock().unwrap();
 
@@ -185,6 +184,8 @@ pub fn handle_compilation(state_arc: Arc<Mutex<SystemState>>) -> Option<()> {
             );
         }
     }
+    
+     */
 
     Some(())
 }

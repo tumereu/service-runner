@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use log::debug;
-use crate::models::{Action, AutomationEffect, AutomationEntry, AutomationMode, PendingAutomation};
+use crate::config::AutomationEntry;
 use crate::runner::process_action::process_action;
 use crate::system_state::SystemState;
 
@@ -31,6 +31,8 @@ pub fn enqueue_automation(
     automation_entry: &AutomationEntry
 ) {
     let automation_name = &automation_entry.name;
+    /*
+    FIXME
     let current_mode: AutomationMode = system.get_service_status(service_name)
         .and_then(|status| status.automation_modes.get(&automation_entry.name)).copied()
         .unwrap_or(AutomationMode::Disabled);
@@ -61,6 +63,8 @@ pub fn enqueue_automation(
             });
         });
     }
+    
+     */
 }
 
 /// Processes all currently pending automations for all services, firing the effects for all automations whose
@@ -68,6 +72,8 @@ pub fn enqueue_automation(
 pub fn process_pending_automations(system: &mut SystemState) {
     let check_time = Instant::now();
 
+    /*
+    FIXME
     let triggered_automations: Vec<(String, PendingAutomation)> = system.service_statuses.iter()
         .flat_map(|(service_name, status)| {
             status.pending_automations.iter()
@@ -102,4 +108,6 @@ pub fn process_pending_automations(system: &mut SystemState) {
             pending_automation.not_before.gt(&check_time)
         })
     });
+    
+     */
 }

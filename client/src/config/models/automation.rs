@@ -8,11 +8,11 @@ pub struct AutomationEntry {
     pub effects: Vec<AutomationEffect>,
     pub trigger: AutomationTrigger,
     #[serde(default)]
-    pub default_mode: Option<AutomationDefaultMode>,
+    pub default_mode: Option<AutomationMode>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum AutomationDefaultMode {
+pub enum AutomationMode {
     #[serde(rename = "automatic")]
     Automatic,
     #[serde(rename = "triggerable")]

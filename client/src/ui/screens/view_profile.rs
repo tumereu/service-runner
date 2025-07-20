@@ -13,8 +13,8 @@ use tui::backend::Backend;
 use tui::style::Color;
 use tui::Frame;
 use tui::layout::Rect;
-use crate::models::{AutomationMode, CompileStatus, get_active_outputs, OutputKey, OutputKind, Profile, RunStatus, ServiceAction, ServiceStatus};
-use crate::models::AutomationMode::{Automatic, Disabled};
+use crate::config::AutomationMode;
+use crate::models::{get_active_outputs, OutputKey, OutputKind, Profile};
 use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
 use crate::ui::widgets::{render_root, Align, Cell, Dir, Flow, IntoCell, List, Spinner, Text, OutputDisplay, OutputLine, LinePart, render_at_pos};
@@ -55,7 +55,6 @@ where
     };
 
     let profile = &system.current_profile;
-    let service_statuses = &system.service_statuses;
 
     // TODO move into a theme?
     let active_border_color = Color::Rgb(180, 180, 0);
@@ -70,7 +69,7 @@ where
 
     if let Some(profile) = profile {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
-        let (service_list, selected_service_bounds) = service_list(profile, service_selection, service_statuses);
+        let (service_list, selected_service_bounds) = service_list(profile, service_selection);
 
         render_root(
             Flow {
@@ -83,7 +82,7 @@ where
                                 ViewProfilePane::ServiceList => active_border_color,
                                 _ => border_color,
                             },
-                            profile.name.clone(),
+                            profile.definition.name.clone(),
                         )
                             .into(),
                         min_width: side_panel_width,
@@ -130,15 +129,15 @@ where
         match floating_pane {
             Some(ViewProfileFloatingPane::ServiceAutomationDetails { detail_list_selection: _ }) => {
                 let selected_service_bounds = selected_service_bounds.borrow();
-                let automation_modes: Vec<(String, AutomationMode)> = system.iter_services_with_statuses()
+                let automation_modes: Vec<(String, AutomationMode)> = system.iter_services()
                     .dropping(service_selection.unwrap_or(0))
                     .next()
-                    .map(|(service, status)| {
-                        service.automation.iter()
+                    .map(|(service)| {
+                        service.definition.automation.iter()
                             .map(|automation_entry| {
                                 let automation_name = automation_entry.name.clone();
-                                let current_mode = status.automation_modes.get(&automation_name).copied()
-                                    .unwrap_or(AutomationMode::Disabled);
+                                // FIXME resolve properly currently mode
+                                let current_mode = AutomationMode::Disabled;
 
                                 (automation_name, current_mode)
                             }).collect()
@@ -209,7 +208,6 @@ where
 fn service_list(
     profile: &Profile,
     selection: Option<usize>,
-    service_statuses: &HashMap<String, ServiceStatus>,
 ) -> (List, Rc<RefCell<Rect>>) {
     // TODO Theme?
     let active_color = Color::Rgb(0, 140, 0);
@@ -226,16 +224,9 @@ fn service_list(
             .iter()
             .enumerate()
             .map(|(index, service)| {
-                let status = service_statuses.get(&service.name);
-                let show_output = status.map(|it| it.show_output).unwrap_or(false);
-                let is_processing = status
-                    .map(|it| match (&it.compile_status, &it.run_status) {
-                        (CompileStatus::Compiling(_), _) => true,
-                        (CompileStatus::PartiallyCompiled(_), _) => true,
-                        (_, RunStatus::Running) => true,
-                        _ => false,
-                    })
-                    .unwrap_or(false);
+                // FIXME resolve from service properlycjBjj
+                let show_output = true;
+                let is_processing = true;
 
                 Cell {
                     align_horiz: Align::Stretch,
@@ -251,7 +242,7 @@ fn service_list(
                             Cell {
                                 fill: true,
                                 element: Text {
-                                    text: service.name.to_string(),
+                                    text: service.definition.name.to_string(),
                                     ..Default::default()
                                 }
                                 .into_el(),
@@ -266,69 +257,7 @@ fn service_list(
                                 .into_el(),
                                 ..Default::default()
                             },
-                            // Run status
-                            Cell {
-                                element: Text {
-                                    text: if service.run.is_none() {
-                                        "-"
-                                    } else if status.map(|status| status.debug).unwrap_or(false) {
-                                        "D"
-                                    } else {
-                                        "R"
-                                    }.into(),
-                                    fg: if let Some(status) = status {
-                                        match (&status.run_status, &status.action) {
-                                            (_, _) if service.run.is_none() => inactive_color,
-                                            (RunStatus::Healthy | RunStatus::Running, _) if !status.should_run => {
-                                                processing_color
-                                            },
-                                            (_, _) if !status.should_run => inactive_color,
-                                            (RunStatus::Failed, _) => error_color,
-                                            (_, ServiceAction::Restart) => processing_color,
-                                            (RunStatus::Healthy, _) => active_color,
-                                            (RunStatus::Running, _) => processing_color,
-                                            (RunStatus::Stopped, ServiceAction::Recompile) => processing_color,
-                                            (_, _) if status.should_run => processing_color,
-                                            (_, _) => inactive_color,
-                                        }
-                                    } else {
-                                        inactive_color
-                                    }
-                                    .into(),
-                                    ..Default::default()
-                                }
-                                .into_el(),
-                                ..Default::default()
-                            },
-                            // Compilation status
-                            Cell {
-                                element: Text {
-                                    text: if service.compile.is_some() {
-                                        "C"
-                                    } else {
-                                        "-"
-                                    }.into(),
-                                    fg: if let Some(status) = status {
-                                        match status.compile_status {
-                                            _ if matches!(
-                                                status.action,
-                                                ServiceAction::Recompile
-                                            ) => processing_color,
-                                            CompileStatus::None => inactive_color,
-                                            CompileStatus::FullyCompiled => active_color,
-                                            CompileStatus::PartiallyCompiled(_) => processing_color,
-                                            CompileStatus::Compiling(_) => processing_color,
-                                            CompileStatus::Failed => error_color,
-                                        }
-                                    } else {
-                                        inactive_color
-                                    }
-                                    .into(),
-                                    ..Default::default()
-                                }
-                                .into_el(),
-                                ..Default::default()
-                            },
+                            // FIXME add stage specific status lines
                             // Output status
                             Cell {
                                 element: Text {
@@ -347,29 +276,14 @@ fn service_list(
                             // Autocompile status
                             Cell {
                                 element: Text {
-                                    text: if !service.automation.is_empty() {
+                                    text: if !service.definition.automation.is_empty() {
                                         "A"
                                     } else {
                                         "-"
                                     }.into(),
 
-                                    fg: if let Some(status) = status {
-                                        if service.automation.is_empty() {
-                                            inactive_color
-                                        } else if !status.automation_enabled {
-                                            inactive_color
-                                        } else if !status.pending_automations.is_empty() {
-                                            processing_color
-                                        } else if status.automation_modes.iter().all(|(_, mode)| *mode == Automatic) {
-                                            active_color
-                                        } else if status.automation_modes.iter().all(|(_, mode)| *mode == Disabled) {
-                                            inactive_color
-                                        } else {
-                                            secondary_active_color
-                                        }
-                                    } else {
-                                        inactive_color
-                                    }.into(),
+                                    // FIXME proper color here
+                                    fg: inactive_color.into(),
 
                                     ..Default::default()
                                 }
@@ -427,7 +341,7 @@ fn output_pane(
                         .map(|(key, line)| {
                             let service_idx = profile.services.iter()
                                 .enumerate()
-                                .find(|(_, service)| service.name == key.service_ref)
+                                .find(|(_, service)| service.definition.name == key.service_ref)
                                 .unwrap().0;
 
                             OutputLine {

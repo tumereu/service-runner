@@ -294,7 +294,7 @@ fn process_select(system_arc: Arc<Mutex<SystemState>>) {
             let selection = system.config.profiles.get(selected_idx);
 
             if let Some(profile) = selection {
-                let action = ActivateProfile(Profile::new(profile, &system.config.services));
+                let action = ActivateProfile(Profile::new(profile.clone(), &system.config.services));
                 process_action(&mut system, action);
             }
         }
@@ -340,7 +340,7 @@ fn process_service_action<F>(
             let service_name = system
                 .current_profile.as_ref().unwrap()
                 .services[view_profile.service_selection]
-                .name
+                .definition.name
                 .clone();
 
             process_action(&mut system, create_action(service_name));

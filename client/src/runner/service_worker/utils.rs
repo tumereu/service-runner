@@ -5,8 +5,8 @@ use std::{io, thread};
 use std::ops::Neg;
 use std::time::{Duration, Instant};
 use log::{error, info};
-
-use crate::models::{ExecutableEntry, OutputKey, OutputKind};
+use crate::config::ExecutableEntry;
+use crate::models::{OutputKey, OutputKind};
 
 use crate::system_state::SystemState;
 
@@ -233,4 +233,21 @@ pub struct OnFinishParams<'a> {
     pub success: bool,
     pub exit_code: i32,
     pub killed: bool,
+}
+
+// TODO move?
+pub trait CtrlOutputWriter {
+    fn add_ctrl_output(&mut self, service_name: &str, str: String);
+}
+impl CtrlOutputWriter for MutexGuard<'_, SystemState> {
+    fn add_ctrl_output(&mut self, service_name: &str, str: String) {
+        self.add_output(
+            &OutputKey {
+                name: OutputKey::CTL.into(),
+                service_ref: service_name.to_string(),
+                kind: OutputKind::Run,
+            },
+            str,
+        );
+    }
 }

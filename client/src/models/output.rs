@@ -199,9 +199,7 @@ pub struct OutputLine {
 pub fn get_active_outputs<'a>(store: &'a OutputStore, state: &'a SystemState) -> Vec<&'a OutputKey> {
     store.outputs.keys()
         .filter(|key| {
-            state.service_statuses
-                .get(key.service_ref.as_str())
-                .map(|status| status.show_output)
-                .unwrap_or(false)
+            // FIXME use service state?
+            true
         }).collect()
 }

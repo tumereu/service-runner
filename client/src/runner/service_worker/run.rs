@@ -7,12 +7,13 @@ use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
 
 use crate::utils::format_err;
-use crate::models::{CompileStatus, HealthCheck, HealthCheckConfig, HttpMethod, OutputKey, OutputKind, RunStatus, ServiceAction};
 
 use crate::runner::service_worker::utils::{create_cmd, OnFinishParams, ProcessHandler};
 use crate::system_state::SystemState;
 
 pub fn handle_running(system_arc: Arc<Mutex<SystemState>>) -> Option<()> {
+    /*
+    FIXME
     let (mut command, service_name) = {
         let mut state = system_arc.lock().unwrap();
 
@@ -283,23 +284,8 @@ pub fn handle_running(system_arc: Arc<Mutex<SystemState>>) -> Option<()> {
             system.add_ctrl_output(&service_name, format_err!("Failed to spawn child process", error));
         }
     }
+    
+     */
 
     Some(())
-}
-
-trait CtrlOutputWriter {
-    fn add_ctrl_output(&mut self, service_name: &str, str: String);
-}
-
-impl CtrlOutputWriter for MutexGuard<'_, SystemState> {
-    fn add_ctrl_output(&mut self, service_name: &str, str: String) {
-        self.add_output(
-            &OutputKey {
-                name: OutputKey::CTL.into(),
-                service_ref: service_name.to_string(),
-                kind: OutputKind::Run,
-            },
-            str,
-        );
-    }
 }

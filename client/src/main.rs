@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .find(|profile| &profile.name == autolaunch_profile)
                 .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile));
 
-            let action = ActivateProfile(Profile::new(selection, &system.config.services));
+            let action = ActivateProfile(Profile::new(selection.clone(), &system.config.services));
             process_action(&mut system, action);
         }
     }

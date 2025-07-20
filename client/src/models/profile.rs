@@ -2,16 +2,16 @@ use std::convert::Into;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::{ProfileDefinition as ConfigProfile, ServiceDefinition as ConfigService};
+use crate::config::{ProfileDefinition, ServiceDefinition};
 use crate::models::Service;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Profile {
-    pub name: String,
+    pub definition: ProfileDefinition,
     pub services: Vec<Service>,
 }
 impl Profile {
-    pub fn new(profile: &ConfigProfile, all_services: &Vec<ConfigService>) -> Profile {
+    pub fn new(profile: ProfileDefinition, all_services: &Vec<ServiceDefinition>) -> Profile {
         let services: Vec<Service> = profile.services
             .iter()
             .flat_map(|service_ref| {
@@ -23,7 +23,7 @@ impl Profile {
             .collect();
 
         Profile {
-            name: profile.name.clone(),
+            definition: profile,
             services,
         }
     }

@@ -5,7 +5,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use log::{error, info, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use crate::models::{AutomationTrigger};
+use crate::config::AutomationTrigger;
 use crate::runner::automation::{enqueue_automation, process_pending_automations};
 use crate::system_state::SystemState;
 
@@ -50,13 +50,13 @@ fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
     let new_watchers = if let Some(profile_name) = system.get_profile_name() {
         let watchers: Vec<RecommendedWatcher> = system.iter_services()
             .flat_map(|service| {
-                service.automation.iter()
+                service.definition.automation.iter()
                     .flat_map(|automation_entry| {
                         match &automation_entry.trigger {
                             AutomationTrigger::ModifiedFile { paths } => {
                                 Some((
-                                    service.name.clone(),
-                                    service.dir.clone(),
+                                    service.definition.name.clone(),
+                                    service.definition.dir.clone(),
                                     automation_entry.clone(),
                                     paths.clone()
                                 ))
@@ -91,9 +91,7 @@ fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
                     let mut successful = true;
                     for path in &watch_paths {
                         let mut watch_path = PathBuf::new();
-                        if let Some(dir) = work_dir.as_ref() {
-                            watch_path.push(Path::new(dir));
-                        }
+                        watch_path.push(Path::new(&work_dir));
                         watch_path.push(Path::new(path));
 
                         let watch_result = watcher.watch(&watch_path, RecursiveMode::Recursive);
