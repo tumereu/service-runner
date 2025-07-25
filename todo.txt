@@ -17,3 +17,4 @@
 - Colorize/parse output based on regex rules to denote log levels?
 - Take ratatui and a tui-realm library into use?
 - (req: tui-realm): hideable charts at the top for CPU, memory, network usage?
+- Containerized services?
