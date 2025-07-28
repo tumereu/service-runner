@@ -12,8 +12,11 @@ use log::{debug, error, info, LevelFilter};
 
 use crate::system_state::{SystemState};
 use crate::input::process_inputs;
+use crate::models::Action::ActivateProfile;
+use crate::models::Profile;
 use crate::runner::automation::start_automation_processor;
 use crate::runner::file_watcher::start_file_watcher;
+use crate::runner::process_action::process_action;
 use crate::ui::render;
 use crate::runner::service_worker::start_service_worker;
 
@@ -111,6 +114,20 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         })
     };
+
+    // Check for autolaunched profile
+    {
+        let mut system = state_arc.lock().unwrap();
+
+        if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
+            let selection = system.config.profiles.iter()
+                .find(|profile| &profile.name == autolaunch_profile)
+                .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile));
+
+            let action = ActivateProfile(Profile::new(selection, &system.config.services));
+            process_action(&mut system, action);
+        }
+    }
 
     loop {
         process_inputs(state_arc.clone());

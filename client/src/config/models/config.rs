@@ -3,7 +3,8 @@ use crate::config::{ProfileDefinition, ServiceDefinition};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Settings {
-    // TODO add theming etc. here
+    #[serde(default)]
+    pub autolaunch_profile: Option<String>,
 }
 
 #[derive(Debug, Clone)]
