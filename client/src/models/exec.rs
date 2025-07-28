@@ -16,7 +16,7 @@ impl ExecutableEntry {
         ExecutableEntry {
             executable: other.executable.clone().unwrap_or_else(|| self.executable.clone()),
             args: other.args.clone().unwrap_or_else(|| self.args.clone()),
-            // TODO combine maps
+            // TODO combine maps?
             env: other.env.clone().unwrap_or_else(|| self.env.clone()),
         }
     }

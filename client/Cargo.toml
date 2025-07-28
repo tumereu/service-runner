@@ -24,5 +24,7 @@ serde_derive = "1.0.204"
 serde_path_to_error = "0.1.16"
 toml = "0.8.19"
 
+subst = "0.3.8"
+
 log = "0.4.22"
 simple-logging = "2.0.2"

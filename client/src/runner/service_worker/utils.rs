@@ -20,7 +20,12 @@ where
         cmd.current_dir(dir.as_ref());
     }
     entry.env.iter().for_each(|(key, value)| {
-        cmd.env(key.clone(), value.clone());
+        // Substitute environment variables if placeholders are used in the env entry
+        // TODO clean error handling, bubble error up and process in a nice way above
+        let parsed = subst::substitute(value, &subst::Env)
+            .expect(&format!("No variable found to substitute in env variable {}", value));
+
+        cmd.env(key.clone(), parsed);
     });
     cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::piped());
