@@ -40,5 +40,37 @@ Use arrow keys to select a profile and press Enter to activate it.
 
 ### Main screen
 
-TODO: explain
+This screen features a dual-pane interface: the **Services Pane** and the **Output Pane**. 
+Below is a primer on the controls for this.
+
+#### General Controls
+- **`Ctrl+Q`** — Quit the tool
+- **`Tab`** — Switch focus between the Services Pane and the Output Pane
+
+---
+
+### Output Pane Controls
+- **Arrow Keys** — Navigate output
+- **`Ctrl + Arrow Keys`** — Faster navigation
+- **`g`** — Jump to the beginning of the output
+- **`Shift+G`** — Jump to the end of the output
+- **`w`** — Toggle line wrapping on/off
+
+---
+
+### Services Pane Controls
+- **Arrow Keys** — Navigate service selection
+- **`r`** — Toggle a service on/off
+- **`e`** — Restart a service
+- **`c`** — Recompile a service
+- **`o`** — Toggle service output visibility
+- **`a`** — Toggle autocompilation for a service
+
+> **Note on Autocompilation**:  
+> Autocompilation may interfere with tasks like compiling unit tests. It's recommended to disable it in such cases to avoid conflicts from simultaneous recompilation.
+
+#### Bulk Actions
+Hold **Shift** while pressing a command key to apply it to **all services**.  
+For example:
+- **`Shift+A`** — Toggle autocompilation for all services
 
