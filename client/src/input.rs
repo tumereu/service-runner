@@ -340,7 +340,7 @@ fn process_service_action<F>(
             let service_name = system
                 .current_profile.as_ref().unwrap()
                 .services[view_profile.service_selection]
-                .definition.name
+                .definition.id
                 .clone();
 
             process_action(&mut system, create_action(service_name));

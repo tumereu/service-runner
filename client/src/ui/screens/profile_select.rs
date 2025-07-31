@@ -34,7 +34,7 @@ where
                             .config
                             .profiles
                             .iter()
-                            .map(|prof| prof.name.clone())
+                            .map(|prof| prof.id.clone())
                             .collect(),
                         Align::Center
                     ),

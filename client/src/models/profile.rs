@@ -16,7 +16,7 @@ impl Profile {
             .iter()
             .flat_map(|service_ref| {
                 all_services.iter()
-                    .find(|service| &service.name == &service_ref.name)
+                    .find(|service| &service.id == &service_ref.id)
                     .map(|service| service.to_owned().into())
                     .into_iter()
             })

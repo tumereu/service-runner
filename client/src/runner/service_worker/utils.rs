@@ -1,5 +1,5 @@
 use crate::config::ExecutableEntry;
-use crate::models::{OutputKey, OutputKind};
+use crate::models::{OutputKey, OutputKind, OutputLine};
 use log::{error, info};
 use std::io::{BufRead, BufReader};
 use std::ops::Neg;
@@ -7,7 +7,8 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use std::{io, thread};
-
+use std::collections::VecDeque;
+use std::thread::JoinHandle;
 use crate::system_state::SystemState;
 
 pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
@@ -40,88 +41,76 @@ where
     cmd
 }
 
-pub struct ProcessHandler<F, G>
-where
-    F: FnOnce(OnFinishParams) + Send + 'static,
-    G: Fn((Arc<Mutex<SystemState>>, &str)) -> bool + Send + 'static,
-{
-    pub state: Arc<Mutex<SystemState>>,
+pub struct ProcessHandler {
     pub handle: Arc<Mutex<Child>>,
-    pub service_name: String,
-    pub output: OutputKind,
-    pub on_finish: F,
-    pub exit_early: G,
+    pub service_id: String,
+    pub block_id: String,
+    force_exit: Arc<Mutex<bool>>,
+    pub exit_successful: Arc<Mutex<Option<bool>>>,
+    pub buffered_outputs: Arc<Mutex<VecDeque<(OutputKey, String)>>>,
 }
+impl ProcessHandler {
+    pub fn handle(process: Child, service_id: String, block_id: String) -> (ProcessHandler, Vec<(String, JoinHandle<()>)>) {
+        let thread_prefix = format!("{service_id}/{block_id}");
+        let handler = ProcessHandler {
+            handle: Arc::new(Mutex::new(process)),
+            service_id,
+            block_id,
+            force_exit: Arc::new(Mutex::new(false)),
+            exit_successful: Arc::new(Mutex::new(None)),
+            buffered_outputs: Arc::new(Mutex::new(VecDeque::new())),
+        };
 
-impl<F, G> ProcessHandler<F, G>
-where
-    F: FnOnce(OnFinishParams) + Send + 'static,
-    G: Fn((Arc<Mutex<SystemState>>, &str)) -> bool + Send + 'static,
-{
-    pub fn launch(self) {
-        let ProcessHandler {
-            state: server,
-            handle,
-            service_name,
-            output,
-            on_finish,
-            exit_early,
-        } = self;
         let mut new_threads = vec![
             // Kill the process when the server exits and invoke the callback after the process finishes
             (
-                format!("{service_name}-manager"),
+                format!("{thread_prefix}-manager"),
                 {
-                    let handle = handle.clone();
-                    let server = server.clone();
-                    let service_name = service_name.clone();
+                    let process_handle = handler.handle.clone();
+                    let force_exit = handler.force_exit.clone();
+                    let exit_status_arc = handler.exit_successful.clone();
+
                     thread::spawn(move || {
                         // Wait as long as the system and process are both running, or until an early-exit condition
                         // is fulfilled.
                         let mut killed = false;
                         loop {
-                            if exit_early((server.clone(), &service_name)) {
+                            if *force_exit.lock().unwrap() {
                                 killed = true;
                                 break;
                             }
-                            if handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
-                                break;
-                            }
-                            if server.lock().unwrap().should_exit {
+                            if process_handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
                                 break;
                             }
                             thread::sleep(Duration::from_millis(10));
                         }
-                        let status = Self::kill_process(handle);
+
+                        let status = Self::kill_process(process_handle);
                         let success = status.as_ref().map_or(false, |status| status.success());
-                        on_finish(
-                            OnFinishParams {
-                                state: server,
-                                success,
-                                exit_code: status.map(|status| status.code().unwrap_or(0)).unwrap_or(0),
-                                killed
-                            }
-                        )
+
+                        let mut exit_status = exit_status_arc.lock().unwrap();
+                        *exit_status = Some(success);
                     })
                 },
             ),
             // Read stdout
             (
-                format!("{service_name}-stdout"),
+                format!("{thread_prefix}-stdout"),
                 {
-                    let handle = handle.clone();
-                    let server = server.clone();
-                    let service_name = service_name.clone();
+                    let process_handle = handler.handle.clone();
+                    let buffered_outputs = handler.buffered_outputs.clone();
+                    let service_id = handler.service_id.clone();
+
                     thread::spawn(move || {
                         let stream = {
-                            let mut handle = handle.lock().unwrap();
+                            let mut handle = process_handle.lock().unwrap();
                             handle.stdout.take().unwrap()
                         };
-                        let key = OutputKey::new(OutputKey::STD.into(), service_name, output);
+                        let key = OutputKey::new(OutputKey::STD.into(), service_id.clone(), OutputKind::Run);
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
-                                Self::process_output_line(server.clone(), &key, line);
+                                buffered_outputs.lock().unwrap().push_back((key.clone(), line));
                             }
                         }
                     })
@@ -129,21 +118,22 @@ where
             ),
             // Read stderr
             (
-                format!("{service_name}-stderr"),
+                format!("{thread_prefix}-stderr"),
                 {
-                    let handle = handle.clone();
-                    let server = server.clone();
-                    let service_name = service_name.clone();
+                    let process_handle = handler.handle.clone();
+                    let buffered_outputs = handler.buffered_outputs.clone();
+                    let service_id = handler.service_id.clone();
+
                     thread::spawn(move || {
                         let stream = {
-                            let mut handle = handle.lock().unwrap();
+                            let mut handle = process_handle.lock().unwrap();
                             handle.stderr.take().unwrap()
                         };
-                        let key = OutputKey::new(OutputKey::STD.into(), service_name, output);
+                        let key = OutputKey::new(OutputKey::STD.into(), service_id.clone(), OutputKind::Run);
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
-                                Self::process_output_line(server.clone(), &key, line);
+                                buffered_outputs.lock().unwrap().push_back((key.clone(), line));
                             }
                         }
                     })
@@ -151,15 +141,7 @@ where
             )
         ];
 
-        server
-            .lock()
-            .unwrap()
-            .active_threads
-            .append(&mut new_threads);
-    }
-
-    fn process_output_line(state: Arc<Mutex<SystemState>>, key: &OutputKey, output: String) {
-        state.lock().unwrap().output_store.add_output(key, output);
+        (handler, new_threads)
     }
 
     #[cfg(target_os = "linux")]

@@ -55,7 +55,7 @@ fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
                         match &automation_entry.trigger {
                             AutomationTrigger::ModifiedFile { paths } => {
                                 Some((
-                                    service.definition.name.clone(),
+                                    service.definition.id.clone(),
                                     service.definition.dir.clone(),
                                     automation_entry.clone(),
                                     paths.clone()

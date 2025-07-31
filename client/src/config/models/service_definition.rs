@@ -5,26 +5,33 @@ use crate::config::models::dependency::{Dependency, RequiredStatus};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ServiceDefinition {
-    pub name: String,
+    pub id: String,
     pub dir: String,
-    pub stages: Vec<Stage>,
+    pub blocks: Vec<Block>,
     #[serde(default = "Vec::new")]
     pub automation: Vec<AutomationEntry>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Stage {
-    pub name: String,
+pub struct Block {
+    pub id: String,
+    pub status_line: StatusLineDefinition,
     pub health: Option<HealthCheckConfig>,
     #[serde(default)]
     pub prerequisites: Vec<Dependency>,
     #[serde(flatten)]
-    pub work: StageWork,
+    pub work: WorkDefinition,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct StatusLineDefinition {
+    pub symbol: String,
+    pub slot: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", deny_unknown_fields)]
-pub enum StageWork {
+pub enum WorkDefinition {
     #[serde(rename = "cmd-seq")]
     CommandSeq { commands: Vec<ExecutableEntry> },
     #[serde(rename = "process")]
@@ -34,12 +41,15 @@ pub enum StageWork {
 #[test]
 fn test_deserialize_service_definition() {
     let yaml = r#"
-        name: "MyService"
-        dir: "./services/myservice"
+        id: "test-service"
+        dir: "./services/test-service"
         automation: []
-        stages:
-          - name: "build"
+        blocks:
+          - id: "build"
             type: "cmd-seq"
+            status_line:
+              symbol: "B"
+              slot: 1
             commands:
               - executable: "cargo"
                 args: ["clean"]
@@ -47,8 +57,11 @@ fn test_deserialize_service_definition() {
                   RUST_BACKTRACE: "1"
               - executable: "cargo"
                 args: ["build"]
-          - name: "run"
+          - id: "run"
             type: "process"
+            status_line:
+              symbol: "R"
+              slot: 0
             prerequisites:
               - stage: build
             executable:
@@ -68,13 +81,13 @@ fn test_deserialize_service_definition() {
 
     let result: ServiceDefinition = serde_yaml::from_str(yaml).expect("Failed to deserialize");
 
-    assert_eq!(result.name, "MyService");
-    assert_eq!(result.dir, "./services/myservice");
-    assert_eq!(result.stages.len(), 2);
+    assert_eq!(result.id, "test-service");
+    assert_eq!(result.dir, "./services/test-service");
+    assert_eq!(result.blocks.len(), 2);
 
-    let build_stage = &result.stages[0];
+    let build_stage = &result.blocks[0];
     match &build_stage.work {
-        StageWork::CommandSeq { commands } => {
+        WorkDefinition::CommandSeq { commands } => {
             assert_eq!(commands.len(), 2);
             assert_eq!(commands[0].executable, "cargo");
             assert_eq!(commands[0].args, vec!["clean"]);
@@ -82,9 +95,9 @@ fn test_deserialize_service_definition() {
         _ => panic!("Expected CmdSeq variant for stage 0"),
     }
 
-    let run_stage = &result.stages[1];
+    let run_stage = &result.blocks[1];
     match &run_stage.work {
-        StageWork::Process { executable } => {
+        WorkDefinition::Process { executable } => {
             assert_eq!(executable.executable, "./target/debug/myservice");
         }
         _ => panic!("Expected Process variant for stage 1"),
@@ -118,4 +131,11 @@ fn test_deserialize_service_definition() {
     assert_eq!(run_stage.prerequisites[0].status, RequiredStatus::Ok);
     assert_eq!(run_stage.prerequisites[0].service, None);
     assert_eq!(run_stage.prerequisites[0].stage, "build");
+
+    // Check the status line entries for both stages
+    assert_eq!(build_stage.status_line.symbol, "B");
+    assert_eq!(build_stage.status_line.slot, 1);
+
+    assert_eq!(run_stage.status_line.symbol, "R");
+    assert_eq!(run_stage.status_line.slot, 0);
 }

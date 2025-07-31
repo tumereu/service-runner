@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
             let selection = system.config.profiles.iter()
-                .find(|profile| &profile.name == autolaunch_profile)
+                .find(|profile| &profile.id == autolaunch_profile)
                 .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile));
 
             let action = ActivateProfile(Profile::new(selection.clone(), &system.config.services));

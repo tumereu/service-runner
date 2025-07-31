@@ -8,8 +8,8 @@ use std::rc::Rc;
 
 use once_cell::sync::Lazy;
 
-use crate::config::AutomationMode;
-use crate::models::{get_active_outputs, OutputKey, OutputKind, Profile};
+use crate::config::{AutomationMode, Block};
+use crate::models::{get_active_outputs, BlockStatus, OutputKey, OutputKind, Profile};
 use crate::system_state::SystemState;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
 use crate::ui::widgets::{render_at_pos, render_root, Align, Cell, Dir, Flow, IntoCell, LinePart, List, OutputDisplay, OutputLine, Spinner, Text};
@@ -43,13 +43,13 @@ where
 {
     let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) = match &system.ui.screen {
         &CurrentScreen::ViewProfile(ViewProfileState {
-            active_pane,
-            service_selection,
-            wrap_output,
-            output_pos_horiz,
-            output_pos_vert,
-            floating_pane,
-        }) => (active_pane, service_selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane),
+                                        active_pane,
+                                        service_selection,
+                                        wrap_output,
+                                        output_pos_horiz,
+                                        output_pos_vert,
+                                        floating_pane,
+                                    }) => (active_pane, service_selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane),
         any => panic!("Invalid UI state in render_view_profile: {any:?}"),
     };
 
@@ -81,7 +81,7 @@ where
                                 ViewProfilePane::ServiceList => active_border_color,
                                 _ => border_color,
                             },
-                            profile.definition.name.clone(),
+                            profile.definition.id.clone(),
                         )
                             .into(),
                         min_width: side_panel_width,
@@ -198,7 +198,7 @@ where
                     ),
                     frame,
                 );
-            },
+            }
             _ => {}
         }
     }
@@ -227,6 +227,86 @@ fn service_list(
                 let show_output = true;
                 let is_processing = true;
 
+                let start_elements = vec![
+                    // Service name
+                    Cell {
+                        fill: true,
+                        element: Text {
+                            text: service.definition.id.to_string(),
+                            ..Default::default()
+                        }.into_el(),
+                        ..Default::default()
+                    },
+                    // Status prefix
+                    Cell {
+                        element: Text {
+                            text: " ".into(),
+                            ..Default::default()
+                        }.into_el(),
+                        ..Default::default()
+                    },
+                ];
+                let end_elements = vec![
+                    // Output status
+                    Cell {
+                        element: Text {
+                            text: "O".into(),
+                            fg: if show_output {
+                                active_color
+                            } else {
+                                inactive_color
+                            }
+                                .into(),
+                            ..Default::default()
+                        }.into_el(),
+                        ..Default::default()
+                    },
+                    // Autocompile status
+                    Cell {
+                        element: Text {
+                            text: if !service.definition.automation.is_empty() {
+                                "A"
+                            } else {
+                                "-"
+                            }.into(),
+
+                            // FIXME proper color here
+                            fg: inactive_color.into(),
+
+                            ..Default::default()
+                        }.into_el(),
+                        ..Default::default()
+                    },
+                    Cell {
+                        padding_left: 1,
+                        element: Spinner {
+                            active: is_processing,
+                            ..Default::default()
+                        }.into_el(),
+                        ..Default::default()
+                    },
+                ];
+                let block_refs: Vec<&Block> = service.definition.blocks.iter().collect();
+                block_refs.iter().sorted_by_key(|block| block.status_line.slot);
+
+                // FIXME add empty blocks if other services have blocks not listed here
+                let block_elements: Vec<Cell> = block_refs.into_iter()
+                    .map(|block| {
+                        Cell {
+                            element: Text {
+                                text: block.status_line.symbol.clone(),
+
+                                fg: match service.get_block_status(&block.id) {
+                                    BlockStatus::Initial => inactive_color.into(),
+                                    BlockStatus::Working { .. } => processing_color.into(),
+                                    BlockStatus::Ok => active_color.into(),
+                                    BlockStatus::Error => error_color.into(),
+                                },
+                            }.into_el(),
+                            ..Default::default()
+                        }
+                    }).collect();
+
                 Cell {
                     align_horiz: Align::Stretch,
                     store_bounds: if index == selection.unwrap_or(usize::MAX) {
@@ -236,72 +316,14 @@ fn service_list(
                     },
                     element: Flow {
                         direction: Dir::LeftRight,
-                        cells: vec![
-                            // Service name
-                            Cell {
-                                fill: true,
-                                element: Text {
-                                    text: service.definition.name.to_string(),
-                                    ..Default::default()
-                                }
-                                .into_el(),
-                                ..Default::default()
-                            },
-                            // Status prefix
-                            Cell {
-                                element: Text {
-                                    text: " ".into(),
-                                    ..Default::default()
-                                }
-                                .into_el(),
-                                ..Default::default()
-                            },
-                            // FIXME add stage specific status lines
-                            // Output status
-                            Cell {
-                                element: Text {
-                                    text: "O".into(),
-                                    fg: if show_output {
-                                        active_color
-                                    } else {
-                                        inactive_color
-                                    }
-                                    .into(),
-                                    ..Default::default()
-                                }
-                                .into_el(),
-                                ..Default::default()
-                            },
-                            // Autocompile status
-                            Cell {
-                                element: Text {
-                                    text: if !service.definition.automation.is_empty() {
-                                        "A"
-                                    } else {
-                                        "-"
-                                    }.into(),
-
-                                    // FIXME proper color here
-                                    fg: inactive_color.into(),
-
-                                    ..Default::default()
-                                }
-                                    .into_el(),
-                                ..Default::default()
-                            },
-                            Cell {
-                                padding_left: 1,
-                                element: Spinner {
-                                    active: is_processing,
-                                    ..Default::default()
-                                }
-                                .into_el(),
-                                ..Default::default()
-                            },
-                        ],
+                        cells: [
+                            start_elements,
+                            block_elements,
+                            end_elements,
+                        ].into_iter().flatten().collect(),
                         ..Default::default()
                     }
-                    .into_el(),
+                        .into_el(),
                     ..Default::default()
                 }
             })
@@ -334,13 +356,13 @@ fn output_pane(
                         .query_lines_to(
                             height,
                             pos_vert,
-                            &get_active_outputs(&state.output_store, state)
+                            &get_active_outputs(&state.output_store, state),
                         )
                         .into_iter()
                         .map(|(key, line)| {
                             let service_idx = profile.services.iter()
                                 .enumerate()
-                                .find(|(_, service)| service.definition.name == key.service_ref)
+                                .find(|(_, service)| service.definition.id == key.service_ref)
                                 .unwrap().0;
 
                             OutputLine {
@@ -373,7 +395,7 @@ fn output_pane(
                                         text: line.value.clone(),
                                         color: None
                                     }
-                                ]
+                                ],
                             }
                         }).collect(),
                 }.into_el(),

@@ -1,8 +1,11 @@
-name: "simple-service"
+id: "simple-service"
 dir: "./example-config/services/simple-service"
-stages:
-  - name: "build"
+blocks:
+  - id: "build"
     type: "cmd-seq"
+    status_line:
+      symbol: "Bu"
+      slot: 10
     commands:
       - executable: "/usr/bin/python3"
         args:

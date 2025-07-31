@@ -29,10 +29,10 @@ impl SystemState {
     }
 
     pub fn get_profile_name(&self) -> Option<&str> {
-        self.current_profile.as_ref().map(|profile| profile.definition.name.as_str())
+        self.current_profile.as_ref().map(|profile| profile.definition.id.as_str())
     }
 
-    pub fn get_service(&self, service_name: &str) -> Option<&Service> {
+    pub fn get_service(&self, service_id: &str) -> Option<&Service> {
         self.current_profile
             .as_ref()
             .and_then(|profile| {
@@ -40,7 +40,7 @@ impl SystemState {
                     .services
                     .iter()
                     .find(|service| {
-                        service.definition.name == service_name
+                        service.definition.id == service_id
                     })
             })
     }
@@ -88,7 +88,7 @@ pub fn is_satisfied(&self, dep: &Dependency) -> bool {
 
      */
 
-    pub fn update_service<F>(&mut self, service_name: &str, update: F)
+    pub fn update_service<F>(&mut self, service_id: &str, update: F)
     where
         F: FnOnce(&mut Service),
     {
@@ -96,7 +96,7 @@ pub fn is_satisfied(&self, dep: &Dependency) -> bool {
             let service_option = state.current_profile.as_mut()
                 .and_then(|profile| {
                     profile.services.iter_mut()
-                        .find(|service| service.definition.name == service_name)
+                        .find(|service| service.definition.id == service_id)
                 });
 
             if let Some(service) = service_option {
