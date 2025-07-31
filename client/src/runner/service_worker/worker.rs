@@ -99,16 +99,18 @@ fn work_block(state_arc: Arc<Mutex<SystemState>>, service_id: &str, block_id: &s
         }
 
         (_, Some(BlockAction::ReRun)) => {
-            let mut state = state_arc.lock().unwrap();
+            let process_status = state_arc
+                .lock()
+                .unwrap()
+                .get_block_process(service_id, block_id)
+                .map(|wrapper| wrapper.status.lock().unwrap().clone());
 
-            match state.get_block_process(service_id, block_id) {
-                Some(wrapper)
-                    if wrapper.status.lock().unwrap().clone() == ProcessStatus::Running =>
-                {
-                    wrapper.stop()
+            match process_status {
+                Some(ProcessStatus::Running) => {
+                    // FIXME stop wrapper
                 }
                 Some(_) => {
-                    state.set_block_process(service_id, block_id, None);
+                    // FIXME remove wrapper
                 }
                 None => {
                     clear_current_action(state_arc.clone(), service_id, block_id);
@@ -188,10 +190,12 @@ fn work_block(state_arc: Arc<Mutex<SystemState>>, service_id: &str, block_id: &s
                 }
                 Some(ProcessStatus::Failed) => {
                     debug!("Block {service_id}.{block_id} has failed at step {steps_completed}. Updating status to Error");
+                    // FIXME remove wrapper
                     update_status(state_arc.clone(), service_id, block_id, BlockStatus::Error)
                 }
                 Some(ProcessStatus::Ok) => {
                     debug!("Block {service_id}.{block_id} has completed step {steps_completed}. Updating status to next step");
+                    // FIXME remove wrapper
                     update_status(
                         state_arc.clone(),
                         service_id,
