@@ -1,9 +1,10 @@
-use std::ops::Deref;
+use std::collections::HashMap;
 use crate::config::Config;
 use crate::models::{OutputKey, OutputStore, Profile, Service};
 use crate::runner::file_watcher::FileWatcherState;
 use crate::ui::UIState;
 use std::thread::JoinHandle;
+use crate::runner::service_worker::ProcessWrapper;
 
 pub struct SystemState {
     pub current_profile: Option<Profile>,
@@ -12,7 +13,8 @@ pub struct SystemState {
     pub config: Config,
     pub should_exit: bool,
     pub active_threads: Vec<(String, JoinHandle<()>)>,
-    pub file_watchers: Option<FileWatcherState>
+    pub file_watchers: Option<FileWatcherState>,
+    block_processes: HashMap<(String, String), ProcessWrapper>,
 }
 
 impl SystemState {
@@ -24,12 +26,26 @@ impl SystemState {
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
             file_watchers: None,
+            block_processes: HashMap::new(),
             config,
         }
     }
 
     pub fn get_profile_name(&self) -> Option<&str> {
         self.current_profile.as_ref().map(|profile| profile.definition.id.as_str())
+    }
+
+    pub fn get_block_process(&self, service_id: &str, block_id: &str) -> Option<&ProcessWrapper> {
+        self.block_processes.get(&(service_id.to_owned(), block_id.to_owned()))
+    }
+
+    pub fn set_block_process(&mut self, service_id: &str, block_id: &str, process: Option<ProcessWrapper>) {
+        let key = (service_id.to_owned(), block_id.to_owned());
+        
+        match process {
+            Some(process) => self.block_processes.insert(key, process),
+            None => self.block_processes.remove(&key),
+        };
     }
 
     pub fn get_service(&self, service_id: &str) -> Option<&Service> {

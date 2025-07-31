@@ -35,9 +35,11 @@ impl Service {
 impl From<ServiceDefinition> for Service {
     fn from(value: ServiceDefinition) -> Self {
         Service {
-            definition: value,
             block_statuses: HashMap::new(),
-            block_actions: HashMap::new(),
+            block_actions: value.blocks.iter()
+                .map(|block| (block.id.clone(), BlockAction::Run))
+                .collect(),
+            definition: value,
         }
     }
 }

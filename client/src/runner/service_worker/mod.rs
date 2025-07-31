@@ -6,8 +6,10 @@ use crate::system_state::SystemState;
 
 mod compilation;
 mod run;
-mod utils;
+mod process_wrapper;
 mod worker;
+
+pub use process_wrapper::*;
 
 pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {

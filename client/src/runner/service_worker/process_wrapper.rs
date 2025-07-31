@@ -41,24 +41,34 @@ where
     cmd
 }
 
-pub struct ProcessHandler {
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ProcessStatus {
+    Running,
+    Ok,
+    Failed,
+}
+
+pub struct ProcessWrapper {
     pub handle: Arc<Mutex<Child>>,
     pub service_id: String,
     pub block_id: String,
+    pub status: Arc<Mutex<ProcessStatus>>,
     force_exit: Arc<Mutex<bool>>,
-    pub exit_successful: Arc<Mutex<Option<bool>>>,
-    pub buffered_outputs: Arc<Mutex<VecDeque<(OutputKey, String)>>>,
 }
-impl ProcessHandler {
-    pub fn handle(process: Child, service_id: String, block_id: String) -> (ProcessHandler, Vec<(String, JoinHandle<()>)>) {
+impl ProcessWrapper {
+    pub fn handle(
+        state_arc: Arc<Mutex<SystemState>>,
+        process: Child,
+        service_id: String,
+        block_id: String,
+    ) -> ProcessWrapper {
         let thread_prefix = format!("{service_id}/{block_id}");
-        let handler = ProcessHandler {
+        let handler = ProcessWrapper {
             handle: Arc::new(Mutex::new(process)),
             service_id,
             block_id,
             force_exit: Arc::new(Mutex::new(false)),
-            exit_successful: Arc::new(Mutex::new(None)),
-            buffered_outputs: Arc::new(Mutex::new(VecDeque::new())),
+            status: Arc::new(Mutex::new(ProcessStatus::Running)),
         };
 
         let mut new_threads = vec![
@@ -68,7 +78,8 @@ impl ProcessHandler {
                 {
                     let process_handle = handler.handle.clone();
                     let force_exit = handler.force_exit.clone();
-                    let exit_status_arc = handler.exit_successful.clone();
+                    let status_arc = handler.status.clone();
+                    let state_arc = state_arc.clone();
 
                     thread::spawn(move || {
                         // Wait as long as the system and process are both running, or until an early-exit condition
@@ -76,6 +87,10 @@ impl ProcessHandler {
                         let mut killed = false;
                         loop {
                             if *force_exit.lock().unwrap() {
+                                killed = true;
+                                break;
+                            }
+                            if state_arc.lock().unwrap().should_exit {
                                 killed = true;
                                 break;
                             }
@@ -88,8 +103,12 @@ impl ProcessHandler {
                         let status = Self::kill_process(process_handle);
                         let success = status.as_ref().map_or(false, |status| status.success());
 
-                        let mut exit_status = exit_status_arc.lock().unwrap();
-                        *exit_status = Some(success);
+                        let mut exit_status = status_arc.lock().unwrap();
+                        *exit_status = if success {
+                            ProcessStatus::Ok
+                        } else {
+                            ProcessStatus::Failed
+                        }
                     })
                 },
             ),
@@ -98,7 +117,7 @@ impl ProcessHandler {
                 format!("{thread_prefix}-stdout"),
                 {
                     let process_handle = handler.handle.clone();
-                    let buffered_outputs = handler.buffered_outputs.clone();
+                    let state_arc = state_arc.clone();
                     let service_id = handler.service_id.clone();
 
                     thread::spawn(move || {
@@ -110,7 +129,8 @@ impl ProcessHandler {
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
-                                buffered_outputs.lock().unwrap().push_back((key.clone(), line));
+                                let mut state = state_arc.lock().unwrap();
+                                state.output_store.add_output(&key, line);
                             }
                         }
                     })
@@ -121,7 +141,7 @@ impl ProcessHandler {
                 format!("{thread_prefix}-stderr"),
                 {
                     let process_handle = handler.handle.clone();
-                    let buffered_outputs = handler.buffered_outputs.clone();
+                    let state_arc = state_arc.clone();
                     let service_id = handler.service_id.clone();
 
                     thread::spawn(move || {
@@ -133,7 +153,8 @@ impl ProcessHandler {
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
-                                buffered_outputs.lock().unwrap().push_back((key.clone(), line));
+                                let mut state = state_arc.lock().unwrap();
+                                state.output_store.add_output(&key, line);
                             }
                         }
                     })
@@ -141,7 +162,16 @@ impl ProcessHandler {
             )
         ];
 
-        (handler, new_threads)
+        {
+            let mut state = state_arc.lock().unwrap();
+            state.active_threads.append(&mut new_threads);
+        }
+
+        handler
+    }
+
+    pub fn stop(&self) {
+        *self.force_exit.lock().unwrap() = true;
     }
 
     #[cfg(target_os = "linux")]
