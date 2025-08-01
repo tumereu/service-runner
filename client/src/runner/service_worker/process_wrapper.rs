@@ -1,6 +1,6 @@
 use crate::config::ExecutableEntry;
 use crate::models::{OutputKey, OutputKind, OutputLine};
-use log::{error, info};
+use log::{debug, error, info};
 use std::io::{BufRead, BufReader};
 use std::ops::Neg;
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use std::{io, thread};
 use std::collections::VecDeque;
+use std::fmt::format;
 use std::thread::JoinHandle;
 use crate::system_state::SystemState;
 
@@ -42,33 +43,92 @@ where
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ProcessStatus {
+pub enum AsyncOperationStatus {
     Running,
     Ok,
     Failed,
+}
+
+pub enum AsyncOperationHandle {
+    Process(ProcessWrapper),
+    Work(WorkWrapper),
+}
+impl AsyncOperationHandle {
+    pub fn status(&self) -> AsyncOperationStatus {
+        match self {
+            AsyncOperationHandle::Process(wrapper) => wrapper.status.lock().unwrap().clone(),
+            AsyncOperationHandle::Work(wrapper) => wrapper.status.lock().unwrap().clone(),
+        }
+    }
+
+    /// Signals to this operation that it should stop
+    pub fn stop(&self) {
+        match self {
+            AsyncOperationHandle::Process(wrapper) => wrapper.stop(),
+            AsyncOperationHandle::Work(_) => {
+                // Work is intended for short-lived operations, and cannot be stopped. It should
+                // finish soon on its own
+            }
+        }
+    }
+}
+
+pub struct WorkWrapper {
+    pub status: Arc<Mutex<AsyncOperationStatus>>,
+}
+impl WorkWrapper {
+    pub fn wrap<F: FnOnce() -> bool>(
+        state_arc: Arc<Mutex<SystemState>>,
+        service_id: String,
+        block_id: String,
+        work: F
+    ) -> WorkWrapper {
+        let wrapper = WorkWrapper {
+            status: Arc::new(Mutex::new(AsyncOperationStatus::Running)),
+        };
+        
+        let thread = thread::spawn(|| {
+            let result = work();
+            if result {
+                *wrapper.status.lock().unwrap() = AsyncOperationStatus::Ok 
+            } else {
+                *wrapper.status.lock().unwrap() = AsyncOperationStatus::Failed
+            }
+        });
+
+        {
+            let mut state = state_arc.lock().unwrap();
+            state.active_threads.push((
+                format!("{service_id}.{block_id}-work"),
+                thread
+            ));
+        }
+        
+        wrapper
+    }
 }
 
 pub struct ProcessWrapper {
     pub handle: Arc<Mutex<Child>>,
     pub service_id: String,
     pub block_id: String,
-    pub status: Arc<Mutex<ProcessStatus>>,
+    pub status: Arc<Mutex<AsyncOperationStatus>>,
     force_exit: Arc<Mutex<bool>>,
 }
 impl ProcessWrapper {
-    pub fn handle(
+    pub fn wrap(
         state_arc: Arc<Mutex<SystemState>>,
         process: Child,
         service_id: String,
         block_id: String,
     ) -> ProcessWrapper {
-        let thread_prefix = format!("{service_id}/{block_id}");
+        let thread_prefix = format!("{service_id}.{block_id}");
         let handler = ProcessWrapper {
             handle: Arc::new(Mutex::new(process)),
             service_id,
             block_id,
             force_exit: Arc::new(Mutex::new(false)),
-            status: Arc::new(Mutex::new(ProcessStatus::Running)),
+            status: Arc::new(Mutex::new(AsyncOperationStatus::Running)),
         };
 
         let mut new_threads = vec![
@@ -105,9 +165,9 @@ impl ProcessWrapper {
 
                         let mut exit_status = status_arc.lock().unwrap();
                         *exit_status = if success {
-                            ProcessStatus::Ok
+                            AsyncOperationStatus::Ok
                         } else {
-                            ProcessStatus::Failed
+                            AsyncOperationStatus::Failed
                         }
                     })
                 },
@@ -236,13 +296,6 @@ impl ProcessWrapper {
         // Obtain exit status and invoke callback
         handle.wait()
     }
-}
-
-pub struct OnFinishParams {
-    pub state: Arc<Mutex<SystemState>>,
-    pub success: bool,
-    pub exit_code: i32,
-    pub killed: bool,
 }
 
 // TODO move?

@@ -6,6 +6,7 @@ use crate::system_state::SystemState;
 
 mod process_wrapper;
 mod worker;
+mod block_worker;
 
 pub use process_wrapper::*;
 

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::{ProfileDefinition, ServiceDefinition};
 use crate::models::Service;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Profile {
     pub definition: ProfileDefinition,
     pub services: Vec<Service>,

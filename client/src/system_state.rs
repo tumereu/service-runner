@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use crate::config::Config;
-use crate::models::{OutputKey, OutputStore, Profile, Service};
+use crate::config::{Block, Config};
+use crate::models::{GetBlock, OutputKey, OutputStore, Profile, Service};
 use crate::runner::file_watcher::FileWatcherState;
 use crate::ui::UIState;
 use std::thread::JoinHandle;
-use crate::runner::service_worker::ProcessWrapper;
+use crate::runner::service_worker::{AsyncOperationHandle, ProcessWrapper};
 
 pub struct SystemState {
     pub current_profile: Option<Profile>,
@@ -14,7 +14,7 @@ pub struct SystemState {
     pub should_exit: bool,
     pub active_threads: Vec<(String, JoinHandle<()>)>,
     pub file_watchers: Option<FileWatcherState>,
-    block_processes: HashMap<(String, String), ProcessWrapper>,
+    block_processes: HashMap<(String, String), AsyncOperationHandle>,
 }
 
 impl SystemState {
@@ -35,11 +35,11 @@ impl SystemState {
         self.current_profile.as_ref().map(|profile| profile.definition.id.as_str())
     }
 
-    pub fn get_block_process(&self, service_id: &str, block_id: &str) -> Option<&ProcessWrapper> {
+    pub fn get_block_operation(&self, service_id: &str, block_id: &str) -> Option<&AsyncOperationHandle> {
         self.block_processes.get(&(service_id.to_owned(), block_id.to_owned()))
     }
 
-    pub fn set_block_process(&mut self, service_id: &str, block_id: &str, process: Option<ProcessWrapper>) {
+    pub fn set_block_operation(&mut self, service_id: &str, block_id: &str, process: Option<AsyncOperationHandle>) {
         let key = (service_id.to_owned(), block_id.to_owned());
         
         match process {
@@ -59,6 +59,11 @@ impl SystemState {
                         service.definition.id == service_id
                     })
             })
+    }
+
+    pub fn get_service_block(&self, service_id: &str, block_id: &str) -> Option<&Block> {
+        self.get_service(service_id)
+            .and_then(|service| service.get_block(block_id))
     }
 
     pub fn iter_services(&self) -> impl Iterator<Item = &Service> {

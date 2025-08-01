@@ -1,8 +1,9 @@
 use crate::config::{ServiceDefinition, Block};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::Instant;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Service {
     pub definition: ServiceDefinition,
     block_statuses: HashMap<String, BlockStatus>,
@@ -15,7 +16,7 @@ impl Service {
         if self.definition.blocks.iter().all(|block| block.id != block_id) {
             return;
         }
-        
+
         self.block_statuses.insert(block_id.to_owned(), status);
     }
 
@@ -29,7 +30,7 @@ impl Service {
         if self.definition.blocks.iter().all(|block| block.id != block_id) {
             return;
         }
-        
+
         match action {
             Some(action) => self.block_actions.insert(block_id.to_owned(), action),
             None => self.block_actions.remove(block_id),
@@ -54,15 +55,42 @@ impl From<ServiceDefinition> for Service {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum BlockStatus {
     Initial,
     Working {
-        steps_completed: usize,
-        current_step: Option<usize>,
+        /// If `true`, then the actual work step will be skipped if the block is deemed healthy
+        /// before execution. If `false`, then pre-work health checks will not be performed and work
+        /// is always performed.
+        skip_if_healthy: bool,
+        step: WorkStep,
     },
     Ok,
     Error,
+}
+
+#[derive(Debug, Clone)]
+pub enum WorkStep {
+    Initial,
+    PrerequisiteCheck {
+        checks_completed: usize,
+        last_failure: Option<Instant>,
+    },
+    PreWorkHealthCheck {
+        checks_completed: usize,
+    },
+    PerformWork {
+        steps_completed: usize,
+    },
+    PostWorkHealthCheck {
+        checks_completed: usize,
+        last_failure: Option<Instant>,
+    },
+}
+impl Default for WorkStep {
+    fn default() -> Self {
+        Self::Initial
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
