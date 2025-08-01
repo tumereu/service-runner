@@ -4,8 +4,6 @@ use std::time::Duration;
 
 use crate::system_state::SystemState;
 
-mod compilation;
-mod run;
 mod process_wrapper;
 mod worker;
 

@@ -3,7 +3,7 @@ use std::ops::Neg;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crate::models::{get_active_outputs, Action, Action::*, Profile};
+use crate::models::{get_active_outputs, Action, Action::*, BlockAction, Profile};
 use crate::runner::process_action::process_action;
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 use crate::SystemState;
@@ -26,6 +26,20 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                 any => any
             };
 
+            let selected_service_id = {
+                let state = system_arc.lock().unwrap();
+                match &state.ui.screen {
+                    CurrentScreen::ViewProfile(view_profile) => {
+                        state.current_profile.as_ref()
+                            .and_then(|profile| {
+                                profile.services.get(view_profile.service_selection)
+                                    .map(|service| service.definition.id.clone())
+                            })
+                    },
+                    _ => None
+                }
+            };
+
             match code {
                 // Generic navigation controls
                 KeyCode::Left | KeyCode::Char('h') => process_navigation(system, (-1, 0), shift || ctrl),
@@ -38,19 +52,24 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                 // Output wrapping controls
                 KeyCode::Char('w') => process_toggle_output_wrap(system),
                 // Service interaction specific controls
+                // FIXME extract into a control scheme mapping, block names are hardcoded atm
                 // Restarting
-                KeyCode::Char('e') if shift => {
-                    process_global_action(system, RestartAll);
-                },
                 KeyCode::Char('e') => {
-                    process_service_action(system, Restart);
+                    process_service_action(
+                        system,
+                        if shift { None } else { selected_service_id },
+                        "run",
+                        BlockAction::ReRun,
+                    );
                 },
                 // Recompiling
-                KeyCode::Char('c') if shift => {
-                    process_global_action(system, RecompileAll);
-                },
                 KeyCode::Char('c') => {
-                    process_service_action(system, Recompile);
+                    process_service_action(
+                        system,
+                        if shift { None } else { selected_service_id },
+                        "build",
+                        BlockAction::ReRun,
+                    );
                 },
 
                 // Controlling automation
@@ -61,22 +80,17 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                     toggle_automation_detailed_controls(system, false);
                 },
                 KeyCode::Char('a') => {
-                    process_service_action(system, ToggleAutomation);
+                    // FIXME toggle automation
                 }
 
                 // Toggling should-run
-                KeyCode::Char('r') if shift => {
-                    process_global_action(system, ToggleRunAll);
-                },
                 KeyCode::Char('r') => {
-                    process_service_action(system, ToggleRun);
-                }
-                // Toggling debugging
-                KeyCode::Char('d') if shift => {
-                    process_global_action(system, ToggleDebugAll);
-                },
-                KeyCode::Char('d') => {
-                    process_service_action(system, ToggleDebug);
+                    process_service_action(
+                        system,
+                        if shift { None } else { selected_service_id },
+                        "run",
+                        BlockAction::ToggleEnabled,
+                    );
                 }
                 // Toggling output
                 KeyCode::Char('o') if shift => {
@@ -84,7 +98,7 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                 },
                 // Toggling output
                 KeyCode::Char('o') => {
-                    process_service_action(system, ToggleOutput);
+                    // FIXME toggle output
                 },
                 // Controls to exit
                 KeyCode::Char('q') if ctrl => {
@@ -328,22 +342,30 @@ fn process_global_action(
     }
 }
 
-fn process_service_action<F>(
+fn process_service_action(
     system_arc: Arc<Mutex<SystemState>>,
-    create_action: F
-) where F: Fn(String) -> Action {
+    target_service: Option<String>,
+    block_id: &str,
+    action: BlockAction,
+) {
+    debug!("Processing service action {action:?} for target={target_service:?}.{block_id}");
     let mut system = system_arc.lock().unwrap();
 
     match &system.ui.screen {
         CurrentScreen::ViewProfile(view_profile)
         if matches!(view_profile.active_pane, ViewProfilePane::ServiceList) => {
-            let service_name = system
-                .current_profile.as_ref().unwrap()
-                .services[view_profile.service_selection]
-                .definition.id
-                .clone();
+            let affected_services: Vec<String> = system.iter_services()
+                .filter(|service| match &target_service {
+                    None => true,
+                    Some(target_service_id) => target_service_id == &service.definition.id,
+                }).map(|service| service.definition.id.clone())
+                .collect();
 
-            process_action(&mut system, create_action(service_name));
+            affected_services.iter().for_each(|service_id| {
+                system.update_service(&service_id, |service| {
+                    service.update_block_action(&block_id, Some(action.clone()));
+                });
+            });
         }
         _ => {}
     }

@@ -7,10 +7,15 @@ pub struct Service {
     pub definition: ServiceDefinition,
     block_statuses: HashMap<String, BlockStatus>,
     block_actions: HashMap<String, BlockAction>,
+    pub enabled: bool,
 }
 impl Service {
     pub fn update_block_status(&mut self, block_id: &str, status: BlockStatus)
     {
+        if self.definition.blocks.iter().all(|block| block.id != block_id) {
+            return;
+        }
+        
         self.block_statuses.insert(block_id.to_owned(), status);
     }
 
@@ -21,6 +26,10 @@ impl Service {
 
     pub fn update_block_action(&mut self, block_id: &str, action: Option<BlockAction>)
     {
+        if self.definition.blocks.iter().all(|block| block.id != block_id) {
+            return;
+        }
+        
         match action {
             Some(action) => self.block_actions.insert(block_id.to_owned(), action),
             None => self.block_actions.remove(block_id),
@@ -40,6 +49,7 @@ impl From<ServiceDefinition> for Service {
                 .map(|block| (block.id.clone(), BlockAction::Run))
                 .collect(),
             definition: value,
+            enabled: true,
         }
     }
 }
@@ -59,6 +69,7 @@ pub enum BlockStatus {
 pub enum BlockAction {
     Disable,
     Enable,
+    ToggleEnabled,
     Run,
     ReRun,
     Stop,

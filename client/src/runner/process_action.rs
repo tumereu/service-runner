@@ -17,11 +17,5 @@ pub fn process_action(system: &mut SystemState, action: Action) {
         _ => {
             // TODO fix
         }
-        Action::Reset(_service_name) => {
-            // TODO implement
-        },
-        Action::ResetAll => {
-            // TODO implement
-        }
     }
 }

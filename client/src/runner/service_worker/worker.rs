@@ -47,17 +47,7 @@ fn work_block(state_arc: Arc<Mutex<SystemState>>, service_id: &str, block_id: &s
             .work
             .clone()
     };
-
-    let prerequisites_satisfied = {
-        let state = state_arc.lock().unwrap();
-        let service = state.get_service(&service_id).unwrap();
-        let block = service.get_block(&block_id).unwrap();
-
-        block
-            .prerequisites
-            .iter()
-            .all(|prerequisite| is_prerequisite_satisfied(&state, service, prerequisite))
-    };
+    let service_enabled = state_arc.lock().unwrap().get_service(service_id).unwrap().enabled;
 
     let (status, action) = {
         let state = state_arc.lock().unwrap();
@@ -76,6 +66,40 @@ fn work_block(state_arc: Arc<Mutex<SystemState>>, service_id: &str, block_id: &s
 
     // TODO check dependencies?
     match (status, action) {
+        (_, Some(BlockAction::Enable)) => {
+            clear_current_action(state_arc.clone(), service_id, block_id);
+            state_arc.lock().unwrap().update_service(service_id, |service| {
+                service.enabled = true;
+            })
+        }
+        (_, Some(BlockAction::ToggleEnabled)) if !service_enabled => {
+            clear_current_action(state_arc.clone(), service_id, block_id);
+            state_arc.lock().unwrap().update_service(service_id, |service| {
+                service.enabled = true;
+            })
+        }
+
+        (_, Some(BlockAction::Disable)) => {
+            stop_block_process_and_then(state_arc.clone(), service_id, block_id, || {
+                clear_current_action(state_arc.clone(), service_id, block_id);
+                state_arc.lock().unwrap().update_service(service_id, |service| {
+                    service.enabled = false;
+                });
+            });
+        }
+        (_, Some(BlockAction::ToggleEnabled)) => {
+            stop_block_process_and_then(state_arc.clone(), service_id, block_id, || {
+                clear_current_action(state_arc.clone(), service_id, block_id);
+                state_arc.lock().unwrap().update_service(service_id, |service| {
+                    service.enabled = false;
+                });
+            });
+        }
+
+        (_, Some(_)) if !service_enabled => {
+            clear_current_action(state_arc.clone(), service_id, block_id);
+        }
+
         (
             BlockStatus::Working {
                 steps_completed, ..
@@ -99,32 +123,18 @@ fn work_block(state_arc: Arc<Mutex<SystemState>>, service_id: &str, block_id: &s
         }
 
         (_, Some(BlockAction::ReRun)) => {
-            let process_status = state_arc
-                .lock()
-                .unwrap()
-                .get_block_process(service_id, block_id)
-                .map(|wrapper| wrapper.status.lock().unwrap().clone());
-
-            match process_status {
-                Some(ProcessStatus::Running) => {
-                    // FIXME stop wrapper
-                }
-                Some(_) => {
-                    // FIXME remove wrapper
-                }
-                None => {
-                    clear_current_action(state_arc.clone(), service_id, block_id);
-                    update_status(
-                        state_arc.clone(),
-                        service_id,
-                        block_id,
-                        BlockStatus::Working {
-                            steps_completed: 0,
-                            current_step: None,
-                        },
-                    )
-                }
-            }
+            stop_block_process_and_then(state_arc.clone(), service_id, block_id, || {
+                clear_current_action(state_arc.clone(), service_id, block_id);
+                update_status(
+                    state_arc.clone(),
+                    service_id,
+                    block_id,
+                    BlockStatus::Working {
+                        steps_completed: 0,
+                        current_step: None,
+                    },
+                )
+            });
         }
 
         (BlockStatus::Initial | BlockStatus::Error, Some(BlockAction::Run)) => {
@@ -154,21 +164,30 @@ fn work_block(state_arc: Arc<Mutex<SystemState>>, service_id: &str, block_id: &s
                 },
             )
         }
-
-        (_, Some(BlockAction::Enable)) => {
-            // FIXME implement
-            clear_current_action(state_arc.clone(), service_id, block_id);
+        (status, Some(BlockAction::Stop)) => {
+            stop_block_process_and_then(state_arc.clone(), service_id, block_id, || {
+                clear_current_action(state_arc.clone(), service_id, block_id);
+                update_status(
+                    state_arc.clone(),
+                    service_id,
+                    block_id,
+                    match status {
+                        BlockStatus::Initial => BlockStatus::Initial,
+                        BlockStatus::Working { .. } => BlockStatus::Initial,
+                        // FIXME maybe this should be based on work type, or maybe health check?
+                        //       in any case, we can't always go back to initial. Or can we?
+                        BlockStatus::Ok => BlockStatus::Initial,
+                        BlockStatus::Error => BlockStatus::Error,
+                    },
+                )
+            });
         }
-        (_, Some(BlockAction::Disable)) => {
-            // FIXME implement
-            clear_current_action(state_arc.clone(), service_id, block_id);
+        (BlockStatus::Working { .. }, Some(BlockAction::Cancel)) => {
+            stop_block_process_and_then(state_arc.clone(), service_id, block_id, || {
+                clear_current_action(state_arc.clone(), service_id, block_id);
+            });
         }
-        (_, Some(BlockAction::Stop)) => {
-            // FIXME implement
-            clear_current_action(state_arc.clone(), service_id, block_id);
-        }
-        (_, Some(BlockAction::Cancel)) => {
-            // FIXME implement
+        (BlockStatus::Initial | BlockStatus::Ok | BlockStatus::Error, Some(BlockAction::Cancel)) => {
             clear_current_action(state_arc.clone(), service_id, block_id);
         }
         (
@@ -190,12 +209,11 @@ fn work_block(state_arc: Arc<Mutex<SystemState>>, service_id: &str, block_id: &s
                 }
                 Some(ProcessStatus::Failed) => {
                     debug!("Block {service_id}.{block_id} has failed at step {steps_completed}. Updating status to Error");
-                    // FIXME remove wrapper
-                    update_status(state_arc.clone(), service_id, block_id, BlockStatus::Error)
+                    update_status(state_arc.clone(), service_id, block_id, BlockStatus::Error);
+                    state_arc.lock().unwrap().set_block_process(service_id, block_id, None);
                 }
                 Some(ProcessStatus::Ok) => {
                     debug!("Block {service_id}.{block_id} has completed step {steps_completed}. Updating status to next step");
-                    // FIXME remove wrapper
                     update_status(
                         state_arc.clone(),
                         service_id,
@@ -204,7 +222,8 @@ fn work_block(state_arc: Arc<Mutex<SystemState>>, service_id: &str, block_id: &s
                             current_step: None,
                             steps_completed: steps_completed + 1,
                         },
-                    )
+                    );
+                    state_arc.lock().unwrap().set_block_process(service_id, block_id, None);
                 }
                 None => update_status(state_arc.clone(), service_id, block_id, BlockStatus::Error),
             }
@@ -364,6 +383,44 @@ fn exec_next_work(
         }
         WorkDefinition::Process { executable } => {
             // TODO handle
+        }
+    }
+}
+
+fn stop_block_process_and_then<F>(
+    state_arc: Arc<Mutex<SystemState>>,
+    service_id: &str,
+    block_id: &str,
+    execute: F,
+) where
+    F: FnOnce(),
+{
+    let process_status = state_arc
+            .lock()
+            .unwrap()
+            .get_block_process(service_id, block_id)
+            .map(|wrapper| wrapper.status.lock().unwrap().clone());
+
+    match process_status {
+        Some(ProcessStatus::Running) => {
+            debug!("Stopping current process for {service_id}.{block_id}");
+            state_arc
+                .lock()
+                .unwrap()
+                .get_block_process(service_id, block_id)
+                .iter()
+                .for_each(|wrapper| wrapper.stop());
+        }
+        Some(_) => {
+            debug!("Current process for {service_id}.{block_id} is stopped, removing it");
+
+            state_arc
+                .lock()
+                .unwrap()
+                .set_block_process(service_id, block_id, None)
+        },
+        None => {
+            execute();
         }
     }
 }
