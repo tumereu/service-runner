@@ -68,7 +68,7 @@ where
 
     if let Some(profile) = profile {
         let side_panel_width = min(40, max(25, frame.size().width / 5));
-        let (service_list, selected_service_bounds) = service_list(profile, service_selection);
+        let (service_list, selected_service_bounds) = service_list(system, profile, service_selection);
 
         render_root(
             Flow {
@@ -205,6 +205,7 @@ where
 }
 
 fn service_list(
+    system_state: &SystemState,
     profile: &Profile,
     selection: Option<usize>,
 ) -> (List, Rc<RefCell<Rect>>) {
@@ -225,7 +226,7 @@ fn service_list(
             .map(|(index, service)| {
                 // FIXME resolve from service properlycjBjj
                 let show_output = true;
-                let is_processing = true;
+                let is_processing = system_state.has_operations(&service.definition.id);
 
                 let start_elements = vec![
                     // Service name

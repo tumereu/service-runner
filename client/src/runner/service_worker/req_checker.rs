@@ -175,7 +175,7 @@ impl RequirementChecker for BlockWorker {
                                     }
                                 }
                                 if matched_any {
-                                    output.push(format!("Req OK: {} exists", pattern_str));
+                                    output.push(format!("Req OK: path {} exists", pattern_str));
                                 } else {
                                     output.push(format!("Req fail: no file/dir found with '{}'", pattern_str));
                                 }

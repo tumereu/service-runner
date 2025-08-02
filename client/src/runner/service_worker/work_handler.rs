@@ -6,7 +6,7 @@ use crate::runner::service_worker::{
 };
 use crate::system_state::OperationType;
 use crate::utils::format_err;
-use log::error;
+use log::{debug, error};
 use std::time::{Duration, Instant};
 use crate::runner::service_worker::block_worker::BlockWorker;
 use crate::runner::service_worker::req_checker::RequirementChecker;
@@ -174,9 +174,8 @@ impl WorkHandler for BlockWorker {
                         self.update_status(
                             BlockStatus::Working {
                                 skip_if_healthy,
-                                step: WorkStep::PrerequisiteCheck {
+                                step: WorkStep::PreWorkHealthCheck {
                                     checks_completed: checks_completed + 1,
-                                    last_failure: None,
                                 },
                             },
                         );
