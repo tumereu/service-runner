@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use log::{error, info};
+use nix::libc::SIGKILL;
 
 use crate::config::ExecutableEntry;
 use crate::models::{OutputKey, OutputKind};
@@ -50,6 +51,7 @@ impl WorkWrapper {
         state_arc: Arc<Mutex<SystemState>>,
         service_id: String,
         block_id: String,
+        silent: bool,
         work: F
     ) -> WorkWrapper where F : (FnOnce() -> WorkResult) + Send + 'static {
         let wrapper = WorkWrapper {
@@ -67,10 +69,13 @@ impl WorkWrapper {
             } else {
                 *status.lock().unwrap() = AsyncOperationStatus::Failed
             }
-            let mut state = state_arc_copy.lock().unwrap();
-            result.output.into_iter().for_each(|output| {
-                state.add_ctrl_output(&service_id_copy, output);
-            })
+
+            if !silent {
+                let mut state = state_arc_copy.lock().unwrap();
+                result.output.into_iter().for_each(|output| {
+                    state.add_ctrl_output(&service_id_copy, output);
+                });
+            }
         });
 
         {
@@ -142,7 +147,8 @@ impl ProcessWrapper {
                             thread::sleep(Duration::from_millis(10));
                         }
 
-                        let status = Self::kill_process(process_handle);
+                        let system_exiting = state_arc.lock().unwrap().should_exit;
+                        let status = Self::kill_process(process_handle, !system_exiting);
                         let success = status.as_ref().map_or(false, |status| status.success());
 
                         let mut exit_status = status_arc.lock().unwrap();
@@ -217,7 +223,7 @@ impl ProcessWrapper {
     }
 
     #[cfg(target_os = "linux")]
-    fn kill_process(handle: Arc<Mutex<Child>>) -> io::Result<ExitStatus> {
+    fn kill_process(handle: Arc<Mutex<Child>>, be_nice: bool) -> io::Result<ExitStatus> {
         use nix::unistd::Pid;
         use nix::sys::signal::{self, Signal};
 
@@ -243,24 +249,30 @@ impl ProcessWrapper {
             }
         }
 
+        if be_nice {
+            // If the process is running, start by sending SIGINT
+            if handle.try_wait().unwrap_or(None).is_none() {
+                signal_and_wait(&mut handle, Signal::SIGINT, Duration::from_millis(5000))
+            }
 
-        // If the process is running, start by sending SIGINT
-        if handle.try_wait().unwrap_or(None).is_none() {
-            signal_and_wait(&mut handle, Signal::SIGINT, Duration::from_millis(5000))
+            // If the process is still running, then we should send a SIGTERM
+            if handle.try_wait().unwrap_or(None).is_none() {
+                signal_and_wait(&mut handle, Signal::SIGTERM, Duration::from_millis(5000))
+            }
+
+            // If the process is STILL running, then we should send a SIGKILL
+            if handle.try_wait().unwrap_or(None).is_none() {
+                signal_and_wait(&mut handle, Signal::SIGKILL, Duration::from_millis(5000))
+            }
+        } else {
+            info!("Sending {signal} to process group {pid}", signal = Signal::SIGKILL, pid = handle.id());
+            match signal::kill(Pid::from_raw((handle.id() as i32).neg()), Signal::SIGKILL) {
+                Err(error) => error!("Failed to send signal to process: {error:?}"),
+                Ok(_) => {},
+            }
         }
 
-        // If the process is still running, then we should send a SIGTERM
-        if handle.try_wait().unwrap_or(None).is_none() {
-            signal_and_wait(&mut handle, Signal::SIGTERM, Duration::from_millis(5000))
-        }
-
-        // If the process is STILL running, then we should send a SIGKILL
-        if handle.try_wait().unwrap_or(None).is_none() {
-            signal_and_wait(&mut handle, Signal::SIGKILL, Duration::from_millis(5000))
-        }
-
-        // The process really should not be running anymore. But as a fallback, we use the kill()
-        // function for handles
+        // The process really should not be running anymore. But as a fallback, use the handle's kill() function.
         if handle.try_wait().unwrap_or(None).is_none() {
             info!("Terminating process {pid} forcefully", pid = handle.id());
             handle.kill().unwrap_or(());
@@ -270,7 +282,7 @@ impl ProcessWrapper {
     }
 
     #[cfg(not(target_os = "linux"))]
-    fn kill_process(handle: Arc<Mutex<Child>>) -> io::Result<ExitStatus> {
+    fn kill_process(handle: Arc<Mutex<Child>>, be_nice: bool) -> io::Result<ExitStatus> {
         let mut handle = handle.lock().unwrap();
         // Kill the process if it its alive
         // TODO graceful terminate? Kill children somehow

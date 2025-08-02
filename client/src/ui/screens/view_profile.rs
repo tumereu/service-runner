@@ -287,8 +287,8 @@ fn service_list(
                         ..Default::default()
                     },
                 ];
-                let block_refs: Vec<&Block> = service.definition.blocks.iter().collect();
-                block_refs.iter().sorted_by_key(|block| block.status_line.slot);
+                let mut block_refs: Vec<&Block> = service.definition.blocks.iter().collect();
+                block_refs.sort_by_key(|block| block.status_line.slot);
 
                 // FIXME add empty blocks if other services have blocks not listed here
                 let block_elements: Vec<Cell> = block_refs.into_iter()

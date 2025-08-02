@@ -25,7 +25,7 @@ pub enum Requirement {
     },
 
     #[serde(rename = "dependency")]
-    Dependency {
+    BlockDependency {
         #[serde(default)]
         service: Option<String>,
         block: String,

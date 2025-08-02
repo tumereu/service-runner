@@ -18,13 +18,14 @@ pub enum RequirementCheckResult {
 }
 
 pub trait RequirementChecker {
-    fn check_requirement(&self, requirement: &Requirement);
+    fn check_requirement(&self, requirement: &Requirement, silent: bool);
 }
 
 impl RequirementChecker for BlockWorker {
     fn check_requirement(
         &self,
         requirement: &Requirement,
+        silent: bool,
     ) {
         match requirement.clone() {
             Requirement::Http {
@@ -77,7 +78,7 @@ impl RequirementChecker for BlockWorker {
                             }
                         }
                     }
-                }, OperationType::Check);
+                }, OperationType::Check, silent);
             }
             Requirement::Port { port, host } => {
                 let host = match host {
@@ -97,9 +98,9 @@ impl RequirementChecker for BlockWorker {
                             vec![format!("Req fail: could not bind to {host}:{port}")]
                         }
                     }
-                }, OperationType::Check);
+                }, OperationType::Check, silent);
             }
-            Requirement::Dependency { service, block: block_ref, status: required_status } => {
+            Requirement::BlockDependency { service, block: block_ref, status: required_status } => {
                 let required_service = service.unwrap_or(self.service_id.clone());
 
                 let successful = self.query_system(|system| {
@@ -130,7 +131,7 @@ impl RequirementChecker for BlockWorker {
                             vec![format!("Req fail: {required_service}.{block_ref} is not in status {required_status}")]
                         }
                     }
-                }, OperationType::Check);
+                }, OperationType::Check, silent);
             }
             Requirement::File { paths } => {
                 let workdir = self.query_service(|service| service.definition.dir.clone());
@@ -194,8 +195,8 @@ impl RequirementChecker for BlockWorker {
                         successful: success,
                         output
                     }
-                }, OperationType::Check);
+                }, OperationType::Check, silent);
             }
-        }
+        };
     }
 }

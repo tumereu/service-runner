@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use log::error;
+use log::{debug, error};
 
 use crate::config::WorkDefinition;
 use crate::models::{BlockStatus, WorkStep};
@@ -35,14 +35,13 @@ impl WorkHandler for BlockWorker {
             }
         };
 
-        let skip_if_healthy = skip_if_healthy && self.query_block(|block| match block.work {
-            // Command sequences are skippable if necessary
-            WorkDefinition::CommandSeq { .. } => true,
-            // Processes are not, since a healthy process-block must have the handle of the process it has spawned
-            WorkDefinition::Process { .. } => false,
+        let is_process = self.query_block(|block| match block.work {
+            // Command sequences execute once and then are done
+            WorkDefinition::CommandSeq { .. } => false,
+            // Processes require that the work is in running-state in order for them to be healthy
+            WorkDefinition::Process { .. } => true,
         });
-
-        // FIXME skipping should not be possible for process-type work?
+        let skip_if_healthy = skip_if_healthy && !is_process;
 
         match step {
             // Ensure that there's no lingering process. There should not be if other actions are handled correctly,
@@ -99,7 +98,7 @@ impl WorkHandler for BlockWorker {
                         );
                     }
                     (None, Some(requirement)) => {
-                        self.check_requirement(&requirement);
+                        self.check_requirement(&requirement, true);
                     }
                     (Some(AsyncOperationStatus::Failed), _) => {
                         self.clear_stopped_operation(OperationType::Check);
@@ -156,7 +155,7 @@ impl WorkHandler for BlockWorker {
                     ),
                     // No ongoing process, still requirements to check => start the check for the next one
                     (None, Some(requirement)) => {
-                        self.check_requirement(&requirement);
+                        self.check_requirement(&requirement, false);
                     }
                     // Health check failed, we must fully perform the block's work. Move into the appropriate state
                     (Some(AsyncOperationStatus::Failed), _) => {
@@ -246,7 +245,7 @@ impl WorkHandler for BlockWorker {
 
                         }
                     }
-                    WorkDefinition::Process { executable } => {
+                    WorkDefinition::Process { command: executable } => {
                         let mut command = create_cmd(
                             &executable,
                             Some(work_dir),
@@ -282,6 +281,14 @@ impl WorkHandler for BlockWorker {
                 let timeout = self.query_block(|block| block.health.timeout.clone());
 
                 match (check_status, current_requirement, last_failure) {
+                    // If the block is a process and we do not have a live process running, then immediately stop all
+                    // work and enter error state
+                    (_, _, _) if is_process && !matches!(work_status, Some(AsyncOperationStatus::Running)) => {
+                        self.stop_all_operations_and_then(|| {
+                            self.add_ctrl_output("External process has terminated unexpectedly.".to_owned());
+                            self.update_status(BlockStatus::Error)
+                        });
+                    }
                     // If there are no more (or at all) requirements to check, then we can finally consider the
                     // block healthy
                     (_, None, _) => self.update_status(BlockStatus::Ok),
@@ -296,7 +303,7 @@ impl WorkHandler for BlockWorker {
                     }
                     // No ongoing check, still have requirements to check => start the next check
                     (None, Some(requirement), _) => {
-                        self.check_requirement(&requirement);
+                        self.check_requirement(&requirement, false);
                     }
                     // Health check failed, we must fully perform the block's work. Move into the appropriate state
                     (Some(AsyncOperationStatus::Failed), _, _) => {

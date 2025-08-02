@@ -1,20 +1,42 @@
 id: "simple-service"
 dir: "./example-config/services/simple-service"
 blocks:
-  - id: "build"
-    type: "cmd-seq"
-    status_line:
-      symbol: "Bu"
-      slot: 10
+  - id: build
+    type: cmd-seq
     commands:
-      - executable: "/usr/bin/python3"
+      - executable: /usr/bin/python3
         args:
-          - "simulate-build.py"
-      - executable: "/usr/bin/python3"
+          - simulate-build.py
+      - executable: /usr/bin/python3
         args:
-          - "simulate-assemble.py"
+          - simulate-assemble.py
+    status_line:
+      symbol: Bld
+      slot: 20
     health:
       requirements:
         - type: file
           paths:
             - build/build-artifact.example
+  - id: run
+    type: process
+    command:
+      executable: /usr/bin/python3
+      args:
+        - run.py
+    prerequisites:
+      - type: dependency
+        block: build
+    status_line:
+      symbol: Run
+      slot: 10
+    health:
+      timeout: 20s
+      requirements:
+        - type: port
+          port: 8000
+        - type: http
+          timeout: 500ms
+          method: GET
+          url: http://localhost:8000/status
+          status: 200

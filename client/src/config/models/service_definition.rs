@@ -46,7 +46,7 @@ pub enum WorkDefinition {
     #[serde(rename = "cmd-seq")]
     CommandSeq { commands: Vec<ExecutableEntry> },
     #[serde(rename = "process")]
-    Process { executable: ExecutableEntry },
+    Process { command: ExecutableEntry },
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn test_deserialize_service_definition() {
 
     let run_stage = &result.blocks[1];
     match &run_stage.work {
-        WorkDefinition::Process { executable } => {
+        WorkDefinition::Process { command: executable } => {
             assert_eq!(executable.executable, "./target/debug/myservice");
         }
         _ => panic!("Expected Process variant for stage 1"),
