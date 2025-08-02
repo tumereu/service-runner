@@ -16,92 +16,6 @@ use crate::models::WorkStep::Initial;
 use crate::runner::service_worker::block_worker::BlockWorker;
 use crate::runner::service_worker::req_checker::RequirementChecker;
 
-fn exec_next_work(
-    state_arc: Arc<Mutex<SystemState>>,
-    service_id: &str,
-    block_id: &str,
-    steps_completed: usize,
-) {
-    let work = {
-        let state = state_arc.lock().unwrap();
-
-        state
-            .get_service(&service_id)
-            .unwrap()
-            .get_block(&block_id)
-            .unwrap()
-            .work
-            .clone()
-    };
-
-    match work {
-        WorkDefinition::CommandSeq { commands } => {
-            let next_command = &commands[steps_completed];
-            let mut command = create_cmd(
-                next_command,
-                Some(
-                    state_arc
-                        .lock()
-                        .unwrap()
-                        .get_service(&service_id)
-                        .unwrap()
-                        .definition
-                        .dir
-                        .clone(),
-                ),
-            );
-
-            {
-                let mut state = state_arc.lock().unwrap();
-                state.add_output(
-                    &OutputKey {
-                        name: OutputKey::CTL.into(),
-                        service_ref: service_id.to_owned(),
-                        kind: OutputKind::Compile,
-                    },
-                    format!("Exec: {next_command}"),
-                );
-            }
-
-            match command.spawn() {
-                Ok(process_handle) => {
-                    let wrapper = ProcessWrapper::wrap(
-                        state_arc.clone(),
-                        process_handle,
-                        service_id.to_owned(),
-                        block_id.to_owned(),
-                    );
-
-                    let mut state = state_arc.lock().unwrap();
-                    state.set_block_operation(
-                        service_id,
-                        block_id,
-                        Some(AsyncOperationHandle::Process(wrapper)),
-                    );
-                }
-                Err(error) => {
-                    let mut state = state_arc.lock().unwrap();
-                    state.update_service(&service_id, |service| {
-                        service.update_block_status(&block_id, BlockStatus::Error)
-                    });
-
-                    state.add_output(
-                        &OutputKey {
-                            name: OutputKey::CTL.into(),
-                            service_ref: service_id.to_owned(),
-                            kind: OutputKind::Compile,
-                        },
-                        format_err!("Failed to spawn child process", error),
-                    );
-                }
-            }
-        }
-        WorkDefinition::Process { executable } => {
-            // TODO handle
-        }
-    }
-}
-
 pub trait WorkHandler {
     fn handle_work(&self);
 }
@@ -110,6 +24,7 @@ impl WorkHandler for BlockWorker {
     fn handle_work(&self) {
         let block_status = self.get_block_status();
         let operation_status = self.get_operation_status();
+        let work_dir = self.query_service(|service| service.definition.dir.clone());
 
         let (step, skip_if_healthy) = match block_status {
             BlockStatus::Working {
@@ -121,6 +36,15 @@ impl WorkHandler for BlockWorker {
                 return;
             }
         };
+
+        let skip_if_healthy = skip_if_healthy && self.query_block(|block| match block.work {
+            // Command sequences are skippable if necessary
+            WorkDefinition::CommandSeq { .. } => true,
+            // Processes are not, since a healthy process-block must have the handle of the process it has spawned
+            WorkDefinition::Process { .. } => false,
+        });
+
+        // FIXME skipping should not be possible for process-type work?
 
         match step {
             // Ensure that there's no lingering process. There should not be if other actions are handled correctly,
@@ -208,18 +132,35 @@ impl WorkHandler for BlockWorker {
                 }
             }
 
-            WorkStep::PreWorkHealthCheck { start_time, checks_completed } => {
+            WorkStep::PreWorkHealthCheck { checks_completed } => {
                 let current_requirement = self.query_block(|block| {
                     block.health.requirements.get(checks_completed).clone()
                 });
                 let has_health_checks = self.query_block(|block| !block.health.requirements.is_empty());
-                // FIXME timeout over all checks
 
                 match (operation_status, current_requirement) {
-                    (_, _) 
                     // If the block has no health checks then we must not treat "all requirements passed" as a free
                     // ticket to skip work, but we must always execute the blocks work.
-                    (_, None) if !has_health_checks => {
+                    (_, None) if !has_health_checks => self.update_status(
+                        BlockStatus::Working {
+                            skip_if_healthy,
+                            step: WorkStep::PerformWork {
+                                steps_completed: 0,
+                            },
+                        },
+                    ),
+                    // Otherwise, if there is no current requirement then we know that all of them have been
+                    // successfully checked
+                    (_, None) => self.update_status(
+                        BlockStatus::Ok,
+                    ),
+                    // No ongoing process, still requirements to check => start the check for the next one
+                    (None, Some(requirement)) => {
+                        self.perform_async_work(|| self.check_requirement(&requirement));
+                    }
+                    // Health check failed, we must fully perform the block's work. Move into the appropriate state
+                    (Some(AsyncOperationStatus::Failed), _) => {
+                        self.clear_stopped_operation();
                         self.update_status(
                             BlockStatus::Working {
                                 skip_if_healthy,
@@ -229,8 +170,74 @@ impl WorkHandler for BlockWorker {
                             },
                         );
                     }
-                    // Otherwise, if there is no current requirement then we know that all of them have been
-                    // successfully checked
+                    (Some(AsyncOperationStatus::Ok), _) => {
+                        // Increment the amount of successful checks
+                        self.clear_stopped_operation();
+                        self.update_status(
+                            BlockStatus::Working {
+                                skip_if_healthy,
+                                step: WorkStep::PrerequisiteCheck {
+                                    checks_completed: checks_completed + 1,
+                                    last_failure: None,
+                                },
+                            },
+                        );
+                    }
+                    (Some(AsyncOperationStatus::Running), _) => {
+                        // Do nothing, wait for the async check to finish
+                    }
+                }
+            }
+
+            WorkStep::PerformWork { steps_completed } => {
+                match self.query_block(|block| block.work.clone()) {
+                    WorkDefinition::CommandSeq { commands } => {
+                        let next_command = &commands[steps_completed];
+                        let mut command = create_cmd(
+                            next_command,
+                            Some(work_dir),
+                        );
+
+                        self.add_ctrl_output(
+                            format!("Exec: {next_command}"),
+                        );
+
+                        match command.spawn() {
+                            Ok(process_handle) => {
+                                let wrapper = ProcessWrapper::wrap(
+                                    state_arc.clone(),
+                                    process_handle,
+                                    service_id.to_owned(),
+                                    block_id.to_owned(),
+                                );
+
+                                let mut state = state_arc.lock().unwrap();
+                                state.set_block_operation(
+                                    service_id,
+                                    block_id,
+                                    Some(AsyncOperationHandle::Process(wrapper)),
+                                );
+                            }
+                            Err(error) => {
+                                let mut state = state_arc.lock().unwrap();
+                                state.update_service(&service_id, |service| {
+                                    service.update_block_status(&block_id, BlockStatus::Error)
+                                });
+
+                                state.add_output(
+                                    &OutputKey {
+                                        name: OutputKey::CTL.into(),
+                                        service_ref: service_id.to_owned(),
+                                        kind: OutputKind::Compile,
+                                    },
+                                    format_err!("Failed to spawn child process", error),
+                                );
+                            }
+                        }
+                    }
+                    WorkDefinition::Process { executable } => {
+                        // TODO handle
+                    }
                 }
             }
         }
