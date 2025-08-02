@@ -12,6 +12,7 @@ pub trait BlockProcessor {
 impl BlockProcessor for BlockWorker {
     fn process_block(&self) {
         let service_enabled = self.query_service(|service| service.enabled);
+        let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
         match (self.get_block_status(), self.get_action()) {
             (_, Some(BlockAction::Enable)) => {
@@ -46,7 +47,7 @@ impl BlockProcessor for BlockWorker {
 
             (_, Some(BlockAction::ReRun)) => {
                 self.stop_all_operations_and_then(|| {
-                    info!("Re-running {}.{}", self.service_id, self.block_id);
+                    info!("Re-running {debug_id}");
 
                     self.clear_current_action();
                     self.update_status(
@@ -59,7 +60,7 @@ impl BlockProcessor for BlockWorker {
             }
 
             (BlockStatus::Initial | BlockStatus::Error, Some(BlockAction::Run)) => {
-                info!("Block {service_id}.{block_id} will be run");
+                info!("Block {debug_id} will be run");
                 self.clear_current_action();
 
                 self.update_status(
@@ -71,7 +72,7 @@ impl BlockProcessor for BlockWorker {
             }
 
             (BlockStatus::Working { .. } | BlockStatus::Ok, Some(BlockAction::Run)) => {
-                info!("Block {service_id}.{block_id} is already in a running/finished status, clearing run-action");
+                info!("Block {debug_id} is already in a running/finished status, clearing run-action");
                 self.clear_current_action();
             }
             (status, Some(BlockAction::Stop)) => {

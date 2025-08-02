@@ -28,7 +28,7 @@ impl WorkHandler for BlockWorker {
                 skip_if_healthy,
             } => (step, skip_if_healthy),
             _ => {
-                error!("ERROR: invoked work-processing function with invalid block status {status:?}");
+                error!("ERROR: invoked work-processing function with invalid block status {block_status:?}");
                 return;
             }
         };
@@ -71,7 +71,9 @@ impl WorkHandler for BlockWorker {
                 checks_completed,
                 ..
             } => {
-                let current_requirement = self.query_block(|block| block.prerequisites.get(checks_completed).clone());
+                let current_requirement = self.query_block(|block| {
+                    block.prerequisites.get(checks_completed).map(|req| req.clone())
+                });
 
                 match (check_status, current_requirement) {
                     (_, None) if skip_if_healthy => {
@@ -95,7 +97,7 @@ impl WorkHandler for BlockWorker {
                         );
                     }
                     (None, Some(requirement)) => {
-                        self.perform_async_work(|| self.check_requirement(&requirement), OperationType::Check);
+                        self.check_requirement(&requirement);
                     }
                     (Some(AsyncOperationStatus::Failed), _) => {
                         self.clear_stopped_operation(OperationType::Check);
@@ -130,7 +132,7 @@ impl WorkHandler for BlockWorker {
 
             WorkStep::PreWorkHealthCheck { checks_completed } => {
                 let current_requirement = self.query_block(|block| {
-                    block.health.requirements.get(checks_completed).clone()
+                    block.health.requirements.get(checks_completed).map(|req| req.clone())
                 });
                 let has_health_checks = self.query_block(|block| !block.health.requirements.is_empty());
 
@@ -152,7 +154,7 @@ impl WorkHandler for BlockWorker {
                     ),
                     // No ongoing process, still requirements to check => start the check for the next one
                     (None, Some(requirement)) => {
-                        self.perform_async_work(|| self.check_requirement(&requirement), OperationType::Check);
+                        self.check_requirement(&requirement);
                     }
                     // Health check failed, we must fully perform the block's work. Move into the appropriate state
                     (Some(AsyncOperationStatus::Failed), _) => {
@@ -208,7 +210,7 @@ impl WorkHandler for BlockWorker {
                                     executable,
                                     Some(work_dir),
                                 );
-                                self.add_ctrl_output(format!("Exec: {next_executable}"));
+                                self.add_ctrl_output(format!("Exec: {executable}"));
 
                                 match command.spawn() {
                                     Ok(process_handle) => {
@@ -248,7 +250,7 @@ impl WorkHandler for BlockWorker {
                             &executable,
                             Some(work_dir),
                         );
-                        self.add_ctrl_output(format!("Exec: {next_executable}"));
+                        self.add_ctrl_output(format!("Exec: {executable}"));
 
                         match command.spawn() {
                             Ok(process_handle) => {
@@ -274,7 +276,7 @@ impl WorkHandler for BlockWorker {
 
             WorkStep::PostWorkHealthCheck { start_time, checks_completed, last_failure } => {
                 let current_requirement = self.query_block(|block| {
-                    block.health.requirements.get(checks_completed).clone()
+                    block.health.requirements.get(checks_completed).map(|req| req.clone())
                 });
                 let timeout = self.query_block(|block| block.health.timeout.clone());
 
@@ -293,7 +295,7 @@ impl WorkHandler for BlockWorker {
                     }
                     // No ongoing check, still have requirements to check => start the next check
                     (None, Some(requirement), _) => {
-                        self.perform_async_work(|| self.check_requirement(&requirement), OperationType::Check);
+                        self.check_requirement(&requirement);
                     }
                     // Health check failed, we must fully perform the block's work. Move into the appropriate state
                     (Some(AsyncOperationStatus::Failed), _, _) => {

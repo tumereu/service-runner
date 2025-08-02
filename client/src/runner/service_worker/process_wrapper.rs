@@ -74,22 +74,23 @@ pub struct WorkWrapper {
     pub status: Arc<Mutex<AsyncOperationStatus>>,
 }
 impl WorkWrapper {
-    pub fn wrap<F: FnOnce() -> bool>(
+    pub fn wrap<F>(
         state_arc: Arc<Mutex<SystemState>>,
         service_id: String,
         block_id: String,
         work: F
-    ) -> WorkWrapper {
+    ) -> WorkWrapper where F : (FnOnce() -> bool) + Send + 'static {
         let wrapper = WorkWrapper {
             status: Arc::new(Mutex::new(AsyncOperationStatus::Running)),
         };
+        let status = wrapper.status.clone();
         
-        let thread = thread::spawn(|| {
+        let thread = thread::spawn(move || {
             let result = work();
             if result {
-                *wrapper.status.lock().unwrap() = AsyncOperationStatus::Ok 
+                *status.lock().unwrap() = AsyncOperationStatus::Ok
             } else {
-                *wrapper.status.lock().unwrap() = AsyncOperationStatus::Failed
+                *status.lock().unwrap() = AsyncOperationStatus::Failed
             }
         });
 

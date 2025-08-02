@@ -9,10 +9,8 @@ pub fn process_action(system: &mut SystemState, action: Action) {
             system.should_exit = true;
         },
         Action::ActivateProfile(profile) => {
-            system.update_state(|state| {
-                state.current_profile = Some(profile);
-                state.ui.screen = CurrentScreen::view_profile();
-            });
+            system.current_profile = Some(profile);
+            system.ui.screen = CurrentScreen::view_profile();
         },
         _ => {
             // TODO fix

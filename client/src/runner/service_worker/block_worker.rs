@@ -167,7 +167,7 @@ impl BlockWorker {
         }
     }
 
-    pub fn perform_async_work<F>(&self, work: F, operation_type: OperationType) where F: FnOnce() -> bool {
+    pub fn perform_async_work<F>(&self, work: F, operation_type: OperationType) where F: FnOnce() -> bool + Send + 'static {
         let wrapper = WorkWrapper::wrap(
             self.system_state.clone(),
             self.service_id.clone(),
