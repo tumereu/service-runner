@@ -1,7 +1,7 @@
 use crate::models::{BlockAction, BlockStatus, GetBlock, Service};
 use crate::system_state::SystemState;
 use std::sync::{Arc, Mutex};
-use log::debug;
+use log::{debug, error};
 use crate::config::Block;
 use crate::runner::service_worker::{AsyncOperationStatus, CtrlOutputWriter, WorkWrapper};
 
@@ -109,6 +109,27 @@ impl BlockWorker {
             }
             None => {
                 execute();
+            }
+        }
+    }
+
+    pub fn clear_stopped_operation(&self) {
+        let debug_id = format!("{}.{}", self.service_id, self.block_id);
+
+        match self.get_operation_status() {
+            Some(AsyncOperationStatus::Running) => {
+                error!("Received request to clear stopped operation for {debug_id} but operation is still running")
+            }
+            Some(AsyncOperationStatus::Failed | AsyncOperationStatus::Ok) => {
+                debug!("Removing stopped operation for {debug_id}");
+
+                self.system_state
+                    .lock()
+                    .unwrap()
+                    .set_block_operation(&self.service_id, &self.block_id, None);
+            }
+            None => {
+                // No need to do anything, no operation to remove
             }
         }
     }

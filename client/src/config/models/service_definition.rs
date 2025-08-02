@@ -15,14 +15,15 @@ pub struct ServiceDefinition {
 pub struct Block {
     pub id: String,
     pub status_line: StatusLineDefinition,
-    pub health: Option<HealthCheckConfig>,
+    #[serde(default)]
+    pub health: HealthCheckConfig,
     #[serde(default)]
     pub prerequisites: Vec<Requirement>,
     #[serde(flatten)]
     pub work: WorkDefinition,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct HealthCheckConfig {
     #[serde(default)]

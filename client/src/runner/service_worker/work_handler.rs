@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use crate::models::WorkStep::Initial;
 use crate::runner::service_worker::block_worker::BlockWorker;
+use crate::runner::service_worker::req_checker::RequirementChecker;
 
 fn exec_next_work(
     state_arc: Arc<Mutex<SystemState>>,
@@ -174,19 +175,11 @@ impl WorkHandler for BlockWorker {
                         );
                     }
                     (None, Some(requirement)) => {
-                        self.perform_async_work(|| {})
-                        WorkWrapper::wrap(
-                            state_arc.clone(),
-                            service_id.to_owned(),
-                            block_id.to_owned(),
-                            || check_requirement(state_arc.clone(), service_id, block_id, &requirement),
-                        );
+                        self.perform_async_work(|| self.check_requirement(&requirement));
                     }
                     (Some(AsyncOperationStatus::Failed), _) => {
-                        update_status(
-                            state_arc.clone(),
-                            service_id,
-                            block_id,
+                        self.clear_stopped_operation();
+                        self.update_status(
                             BlockStatus::Working {
                                 skip_if_healthy,
                                 step: WorkStep::PrerequisiteCheck {
@@ -196,6 +189,48 @@ impl WorkHandler for BlockWorker {
                             },
                         );
                     }
+                    (Some(AsyncOperationStatus::Ok), _) => {
+                        // Increment the amount of successful checks
+                        self.clear_stopped_operation();
+                        self.update_status(
+                            BlockStatus::Working {
+                                skip_if_healthy,
+                                step: WorkStep::PrerequisiteCheck {
+                                    checks_completed: checks_completed + 1,
+                                    last_failure: None,
+                                },
+                            },
+                        );
+                    }
+                    (Some(AsyncOperationStatus::Running), _) => {
+                        // Do nothing, wait for the async check to finish
+                    }
+                }
+            }
+
+            WorkStep::PreWorkHealthCheck { start_time, checks_completed } => {
+                let current_requirement = self.query_block(|block| {
+                    block.health.requirements.get(checks_completed).clone()
+                });
+                let has_health_checks = self.query_block(|block| !block.health.requirements.is_empty());
+                // FIXME timeout over all checks
+
+                match (operation_status, current_requirement) {
+                    (_, _) 
+                    // If the block has no health checks then we must not treat "all requirements passed" as a free
+                    // ticket to skip work, but we must always execute the blocks work.
+                    (_, None) if !has_health_checks => {
+                        self.update_status(
+                            BlockStatus::Working {
+                                skip_if_healthy,
+                                step: WorkStep::PerformWork {
+                                    steps_completed: 0,
+                                },
+                            },
+                        );
+                    }
+                    // Otherwise, if there is no current requirement then we know that all of them have been
+                    // successfully checked
                 }
             }
         }

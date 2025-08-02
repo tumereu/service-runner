@@ -77,12 +77,14 @@ pub enum WorkStep {
         last_failure: Option<Instant>,
     },
     PreWorkHealthCheck {
+        start_time: Instant,
         checks_completed: usize,
     },
     PerformWork {
         steps_completed: usize,
     },
     PostWorkHealthCheck {
+        start_time: Instant,
         checks_completed: usize,
         last_failure: Option<Instant>,
     },

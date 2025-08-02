@@ -12,7 +12,7 @@ pub enum RequirementCheckResult {
     Async,
 }
 
-trait RequirementChecker {
+pub trait RequirementChecker {
     fn check_requirement(&self, requirement: &Requirement) -> bool;
 }
 
