@@ -10,3 +10,11 @@ blocks:
       - executable: "/usr/bin/python3"
         args:
           - "simulate-build.py"
+      - executable: "/usr/bin/python3"
+        args:
+          - "simulate-assemble.py"
+    health:
+      requirements:
+        - type: file
+          paths:
+            - build/build-artifact.example

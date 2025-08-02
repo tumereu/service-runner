@@ -27,6 +27,7 @@ humantime-serde = "1.1.1"
 toml = "0.8.19"
 
 subst = "0.3.8"
+glob = "0.3.1"
 
 log = "0.4.22"
 simple-logging = "2.0.2"

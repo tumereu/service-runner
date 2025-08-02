@@ -1,12 +1,11 @@
 import time
 import random
 
-def print_with_delay(text, min_delay=0.2, max_delay=0.6):
+def print_with_delay(text, min_delay=0.01, max_delay=0.2):
     print(text, flush=True)
     time.sleep(random.uniform(min_delay, max_delay))
 
 def simulate_gradle_build():
-    total_time = random.uniform(3, 5)
     start_time = time.time()
 
     print_with_delay("> Task :compileJava")

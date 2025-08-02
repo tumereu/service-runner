@@ -15,7 +15,12 @@ pub enum Requirement {
     
     #[serde(rename = "port")]
     Port { port: u16, host: Option<String> },
-    
+
+    #[serde(rename = "file")]
+    File {
+        paths: Vec<String>
+    },
+
     #[serde(rename = "dependency")]
     Dependency {
         #[serde(default)]
