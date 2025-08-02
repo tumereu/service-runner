@@ -1,15 +1,17 @@
-use crate::config::WorkDefinition;
-use crate::models::{BlockStatus, OutputKey, OutputKind, WorkStep};
-use crate::runner::service_worker::async_operation::{create_cmd, ProcessWrapper};
-use crate::runner::service_worker::{
-    AsyncOperationHandle, AsyncOperationStatus, CtrlOutputWriter,
-};
-use crate::system_state::OperationType;
-use crate::utils::format_err;
-use log::{debug, error};
 use std::time::{Duration, Instant};
+
+use log::error;
+
+use crate::config::WorkDefinition;
+use crate::models::{BlockStatus, WorkStep};
+use crate::runner::service_worker::{
+    AsyncOperationStatus, CtrlOutputWriter,
+};
+use crate::runner::service_worker::async_operation::create_cmd;
 use crate::runner::service_worker::block_worker::BlockWorker;
 use crate::runner::service_worker::req_checker::RequirementChecker;
+use crate::system_state::OperationType;
+use crate::utils::format_err;
 
 pub trait WorkHandler {
     fn handle_work(&self);

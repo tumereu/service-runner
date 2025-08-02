@@ -1,9 +1,9 @@
 use std::cmp::max;
 
 use tui::backend::Backend;
+use tui::Frame;
 use tui::layout::Rect;
 use tui::style::Color;
-use tui::Frame;
 
 use crate::ui::widgets::{Align, Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 

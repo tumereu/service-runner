@@ -1,7 +1,9 @@
-use crate::config::{ServiceDefinition, Block};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
+
+use crate::config::{Block, ServiceDefinition};
 
 #[derive(Debug, Clone)]
 pub struct Service {

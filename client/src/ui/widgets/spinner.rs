@@ -2,11 +2,11 @@ use std::time::Instant;
 
 use once_cell::sync::Lazy;
 use tui::backend::Backend;
+use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Span;
 use tui::widgets::Paragraph;
-use tui::Frame;
 
 use crate::ui::widgets::{Renderable, Size};
 

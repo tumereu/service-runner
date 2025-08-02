@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::thread::JoinHandle;
+
 use crate::config::{Block, Config};
 use crate::models::{GetBlock, OutputKey, OutputStore, Profile, Service};
 use crate::runner::file_watcher::FileWatcherState;
+use crate::runner::service_worker::AsyncOperationHandle;
 use crate::ui::UIState;
-use std::thread::JoinHandle;
-use crate::runner::service_worker::{AsyncOperationHandle};
 
 pub struct SystemState {
     pub current_profile: Option<Profile>,

@@ -1,13 +1,14 @@
-use log::info;
-use serde::Deserialize;
 use std::error::Error;
-use std::fmt::{format, Display, Formatter};
-use std::fs::{read_to_string, File};
+use std::fmt::{Display, Formatter};
+use std::fs::{File, read_to_string};
 use std::io::BufReader;
 use std::path::Path;
-use walkdir::WalkDir;
 use Vec;
-use nix::libc::fork;
+
+use log::info;
+use serde::Deserialize;
+use walkdir::WalkDir;
+
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
 use crate::config::Settings;
 

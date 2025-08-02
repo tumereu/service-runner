@@ -1,8 +1,9 @@
 use log::info;
+
 use crate::config::WorkDefinition;
 use crate::models::{BlockAction, BlockStatus, WorkStep};
+use crate::runner::service_worker::AsyncOperationStatus;
 use crate::runner::service_worker::block_worker::BlockWorker;
-use crate::runner::service_worker::{AsyncOperationStatus};
 use crate::runner::service_worker::work_handler::WorkHandler;
 use crate::system_state::OperationType;
 

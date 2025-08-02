@@ -5,9 +5,9 @@ use tui::Terminal;
 
 pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 
+use crate::SystemState;
 use crate::ui::screens::profile_select::render_profile_select;
 use crate::ui::screens::view_profile::render_view_profile;
-use crate::SystemState;
 
 mod screens;
 mod state;

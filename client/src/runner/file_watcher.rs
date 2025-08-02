@@ -1,14 +1,15 @@
-use crate::config::AutomationTrigger;
-use crate::runner::automation::{enqueue_automation, process_pending_automations};
-use crate::system_state::SystemState;
-use log::{error, info, trace};
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use log::{error, info, trace};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+
+use crate::config::AutomationTrigger;
+use crate::runner::automation::{enqueue_automation, process_pending_automations};
+use crate::system_state::SystemState;
 
 pub struct FileWatcherState {
     pub profile_name: String,

@@ -1,5 +1,4 @@
 use crate::models::Action;
-
 use crate::system_state::SystemState;
 use crate::ui::CurrentScreen;
 

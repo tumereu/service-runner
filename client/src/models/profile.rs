@@ -1,7 +1,5 @@
 use std::convert::Into;
 
-use serde::{Deserialize, Serialize};
-
 use crate::config::{ProfileDefinition, ServiceDefinition};
 use crate::models::Service;
 

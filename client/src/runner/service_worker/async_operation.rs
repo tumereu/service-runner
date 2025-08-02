@@ -1,12 +1,14 @@
-use crate::config::ExecutableEntry;
-use crate::models::{OutputKey, OutputKind, OutputLine};
-use log::{error, info};
+use std::{io, thread};
 use std::io::{BufRead, BufReader};
 use std::ops::Neg;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
-use std::{io, thread};
+
+use log::{error, info};
+
+use crate::config::ExecutableEntry;
+use crate::models::{OutputKey, OutputKind};
 use crate::system_state::SystemState;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

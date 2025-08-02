@@ -1,10 +1,12 @@
 use std::process::Child;
-use crate::models::{BlockAction, BlockStatus, GetBlock, Service};
-use crate::system_state::{BlockOperationKey, OperationType, SystemState};
 use std::sync::{Arc, Mutex};
+
 use log::{debug, error};
-use crate::config::{Block, ExecutableEntry};
-use crate::runner::service_worker::{AsyncOperationHandle, AsyncOperationStatus, create_cmd, CtrlOutputWriter, ProcessWrapper, WorkResult, WorkWrapper};
+
+use crate::config::Block;
+use crate::models::{BlockAction, BlockStatus, GetBlock, Service};
+use crate::runner::service_worker::{AsyncOperationHandle, AsyncOperationStatus, CtrlOutputWriter, ProcessWrapper, WorkResult, WorkWrapper};
+use crate::system_state::{BlockOperationKey, OperationType, SystemState};
 
 pub struct BlockWorker {
     system_state: Arc<Mutex<SystemState>>,

@@ -2,6 +2,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+pub use async_operation::*;
+
+use crate::runner::service_worker::block_processor::BlockProcessor;
+use crate::runner::service_worker::block_worker::BlockWorker;
 use crate::system_state::SystemState;
 
 mod async_operation;
@@ -10,10 +14,6 @@ mod block_worker;
 mod block_processor;
 mod req_checker;
 mod utils;
-
-pub use async_operation::*;
-use crate::runner::service_worker::block_processor::BlockProcessor;
-use crate::runner::service_worker::block_worker::BlockWorker;
 
 pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {

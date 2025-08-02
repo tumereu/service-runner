@@ -1,8 +1,8 @@
 use std::cmp::min;
 
 use tui::backend::Backend;
-use tui::layout::Rect;
 use tui::Frame;
+use tui::layout::Rect;
 
 pub use cell::*;
 pub use flow::*;

@@ -1,11 +1,12 @@
 use std::net::TcpListener;
 use std::path::Path;
-use std::time::Duration;
-use crate::config::{HttpMethod, RequiredStatus, Requirement};
-use crate::runner::service_worker::block_worker::BlockWorker;
+
 use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
+
+use crate::config::{HttpMethod, RequiredStatus, Requirement};
 use crate::models::BlockStatus;
+use crate::runner::service_worker::block_worker::BlockWorker;
 use crate::runner::service_worker::utils::format_reqwest_error;
 use crate::runner::service_worker::WorkResult;
 use crate::system_state::OperationType;

@@ -1,5 +1,6 @@
-use crate::config::{ProfileDefinition, ServiceDefinition};
 use serde_derive::Deserialize;
+
+use crate::config::{ProfileDefinition, ServiceDefinition};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Settings {

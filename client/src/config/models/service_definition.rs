@@ -1,6 +1,8 @@
 use std::time::Duration;
-use crate::config::{AutomationEntry, ExecutableEntry, Requirement, HttpMethod};
+
 use serde_derive::{Deserialize, Serialize};
+
+use crate::config::{AutomationEntry, ExecutableEntry, HttpMethod, Requirement};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

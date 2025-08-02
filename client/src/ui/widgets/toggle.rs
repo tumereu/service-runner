@@ -1,8 +1,9 @@
-use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 use tui::backend::Backend;
+use tui::Frame;
 use tui::layout::Rect;
 use tui::style::Color;
-use tui::Frame;
+
+use crate::ui::widgets::{Cell, Dir, Flow, IntoCell, Renderable, Size, Text};
 
 #[derive(Debug, Default)]
 pub struct Toggle {
