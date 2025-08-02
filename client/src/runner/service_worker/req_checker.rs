@@ -25,7 +25,7 @@ impl RequirementChecker for BlockWorker {
             Requirement::Http {
                 url,
                 method,
-                timeout_millis,
+                timeout,
                 status,
             } => {
                 let http_client = HttpClient::new();
@@ -42,7 +42,7 @@ impl RequirementChecker for BlockWorker {
                         },
                         url,
                     )
-                    .timeout(Duration::from_millis(*timeout_millis))
+                    .timeout(timeout.clone())
                     .send();
 
                 // TODO include http call in logs, also block and service id?
@@ -111,7 +111,7 @@ impl RequirementChecker for BlockWorker {
                                 BlockStatus::Error => *required_status == RequiredStatus::Error,
                             }
                         })
-                        .unwrap_or(false);
+                        .unwrap_or(false)
                 });
 
                 result

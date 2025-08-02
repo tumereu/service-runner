@@ -46,7 +46,8 @@ impl BlockWorker {
     }
 
     pub fn query_service<R, F>(&self, query: F) -> R where F: FnOnce(&Service) -> R {
-        let service = self.system_state.lock().unwrap()
+        let state = self.system_state.lock().unwrap();
+        let service = state
             .get_service(&self.service_id)
             .unwrap();
 
@@ -54,8 +55,8 @@ impl BlockWorker {
     }
 
     pub fn query_block<R, F>(&self, query: F) -> R where F: FnOnce(&Block) -> R {
-        let block = self.system_state.lock().unwrap()
-            .get_service(&self.service_id)
+        let state = self.system_state.lock().unwrap();
+        let block = state.get_service(&self.service_id)
             .unwrap()
             .get_block(&self.block_id)
             .unwrap();
@@ -63,12 +64,12 @@ impl BlockWorker {
         query(block)
     }
 
-    pub fn get_action(&self) -> BlockAction {
-        self.query_service(|service| service.get_block_action(&self.block_id).unwrap().clone())
+    pub fn get_action(&self) -> Option<BlockAction> {
+        self.query_service(|service| service.get_block_action(&self.block_id))
     }
 
     pub fn get_block_status(&self) -> BlockStatus {
-        self.query_service(|service| service.get_block_status(&self.block_id).unwrap().clone())
+        self.query_service(|service| service.get_block_status(&self.block_id))
     }
 
     pub fn get_operation_status(&self, operation_type: OperationType) -> Option<AsyncOperationStatus> {
@@ -96,7 +97,7 @@ impl BlockWorker {
     {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
-        match self.get_operation_status(operation_type) {
+        match self.get_operation_status(operation_type.clone()) {
             Some(AsyncOperationStatus::Running) => {
                 debug!("Stopping current operation for {debug_id}");
                 self.system_state
@@ -144,7 +145,7 @@ impl BlockWorker {
     pub fn clear_stopped_operation(&self, operation_type: OperationType) {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
-        match self.get_operation_status(operation_type) {
+        match self.get_operation_status(operation_type.clone()) {
             Some(AsyncOperationStatus::Running) => {
                 error!("Received request to clear stopped operation for {debug_id} but operation is still running")
             }
