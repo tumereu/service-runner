@@ -1,6 +1,6 @@
 use crate::config::WorkDefinition;
 use crate::models::{BlockStatus, OutputKey, OutputKind, WorkStep};
-use crate::runner::service_worker::process_wrapper::{create_cmd, ProcessWrapper};
+use crate::runner::service_worker::async_operation::{create_cmd, ProcessWrapper};
 use crate::runner::service_worker::{
     AsyncOperationHandle, AsyncOperationStatus, CtrlOutputWriter,
 };

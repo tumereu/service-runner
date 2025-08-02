@@ -6,6 +6,8 @@ use crate::runner::service_worker::block_worker::BlockWorker;
 use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
 use crate::models::BlockStatus;
+use crate::runner::service_worker::utils::format_reqwest_error;
+use crate::runner::service_worker::WorkResult;
 use crate::system_state::OperationType;
 
 pub enum RequirementCheckResult {
@@ -43,17 +45,36 @@ impl RequirementChecker for BlockWorker {
                                 HttpMethod::DELETE => Method::DELETE,
                                 HttpMethod::OPTIONS => Method::OPTIONS,
                             },
-                            url,
+                            &url,
                         )
                         .timeout(timeout.clone())
                         .send();
 
-                    // TODO output to logs
-                    if let Ok(response) = result {
-                        let response_status: u16 = response.status().into();
-                        response_status != status
-                    } else {
-                        false
+                    match result {
+                        Ok(response) if response.status().as_u16() == status => {
+                            WorkResult {
+                                successful: true,
+                                output: vec![
+                                    format!("Req OK: {method} {url} responded with status {status}")
+                                ]
+                            }
+                        }
+                        Ok(response) => {
+                            let response_status: u16 = response.status().as_u16();
+
+                            WorkResult {
+                                successful: false,
+                                output: vec![
+                                    format!("Req fail: {method} {url} responded with status {response_status} != {status}")
+                                ]
+                            }
+                        }
+                        Err(error) => {
+                            WorkResult {
+                                successful: false,
+                                output: vec![format_reqwest_error(&error)]
+                            }
+                        }
                     }
                 }, OperationType::Check);
             }
@@ -65,21 +86,31 @@ impl RequirementChecker for BlockWorker {
 
                 // TODO output to logs
                 self.perform_async_work(move || {
-                    TcpListener::bind(format!("{host}:{port}")).is_err()
+                    let successful = TcpListener::bind(format!("{host}:{port}")).is_err();
+
+                    WorkResult {
+                        successful,
+                        output: if successful {
+                            vec![format!("Req OK: successsfully bound to {host}:{port}")]
+                        } else {
+                            vec![format!("Req fail: could not bind to {host}:{port}")]
+                        }
+                    }
                 }, OperationType::Check);
             }
-            Requirement::Dependency { service: required_service, block: block_ref, status: required_status } => {
-                let result = self.query_system(|system| {
+            Requirement::Dependency { service, block: block_ref, status: required_status } => {
+                let required_service = service.unwrap_or(self.service_id.clone());
+
+                let successful = self.query_system(|system| {
                     system.iter_services()
                         // Find the service the prerequisite refers to
-                        .find(|service| match &required_service {
-                            // Default to the service itself
-                            None => service.definition.id == self.service_id,
-                            Some(req_service_id) => &service.definition.id == req_service_id
-                        })
+                        .find(|service| service.definition.id == required_service)
                         .map(|service| {
-                            // Check that the status is acceptable according to the required status of the prereq
+                            // Check that the status is acceptable according to the required status of the prerequisite
                             match service.get_block_status(&block_ref) {
+                                // There's a queued action on the service, its true status is not yet resolved. Fail
+                                // the check
+                                _ if service.get_block_action(&block_ref).is_some() => false,
                                 BlockStatus::Initial => required_status == RequiredStatus::Initial,
                                 BlockStatus::Working { .. } => required_status == RequiredStatus::Working,
                                 BlockStatus::Ok => required_status == RequiredStatus::Ok,
@@ -90,14 +121,22 @@ impl RequirementChecker for BlockWorker {
                 });
 
                 self.perform_async_work(move || {
-                    result
+                    WorkResult {
+                        successful,
+                        output: if successful {
+                            vec![format!("Req OK: {required_service}.{block_ref} is in status {required_status}")]
+                        } else {
+                            vec![format!("Req fail: {required_service}.{block_ref} is not in status {required_status}")]
+                        }
+                    }
                 }, OperationType::Check);
             }
             Requirement::File { paths } => {
                 let workdir = self.query_service(|service| service.definition.dir.clone());
 
                 self.perform_async_work(move || {
-                   let mut errors = Vec::new();
+                    let mut output = Vec::new();
+                    let mut success = true;
 
                     for path in paths {
                         // Resolve real path: if not absolute, join with workdir
@@ -112,13 +151,14 @@ impl RequirementChecker for BlockWorker {
                         let pattern_str = match full_pattern.to_str() {
                             Some(s) => s.to_owned(),
                             None => {
-                                errors.push(format!("Could not convert path to string: {:?}. This indicates a bug in the runner", full_pattern));
+                                output.push(format!("Could not convert path to string: {:?}. This indicates a bug in the runner", full_pattern));
+                                success = false;
                                 continue;
                             }
                         };
 
                         // Convert the create path into a glob
-                        match glob::glob(&pattern_str) {
+                        success = match glob::glob(&pattern_str) {
                             Ok(entries) => {
                                 let mut matched_any = false;
                                 for entry in entries {
@@ -130,22 +170,29 @@ impl RequirementChecker for BlockWorker {
                                             }
                                         }
                                         Err(e) => {
-                                            // e is a GlobError (e.g., I/O error while reading a directory)
-                                            errors.push(format!("Unexpected IO error when checking {}: {}", pattern_str, e));
+                                            output.push(format!("Req fail: unexpected IO error when checking {}: {}", pattern_str, e));
                                         }
                                     }
                                 }
-                                if !matched_any {
-                                    errors.push(format!("No file or directory could be found using {}", pattern_str));
+                                if matched_any {
+                                    output.push(format!("Req OK: {} exists", pattern_str));
+                                } else {
+                                    output.push(format!("Req fail: no file/dir found with '{}'", pattern_str));
                                 }
+
+                                matched_any
                             }
-                            Err(e) => {
-                                errors.push(format!("Error in configuration: glob pattern is invalid `{}`: {}", pattern_str, e));
+                            Err(_) => {
+                                output.push(format!("Req fail: invalid glob pattern '{}'", pattern_str));
+                                false
                             }
-                        }
+                        } && success
                     }
 
-                    errors.is_empty()
+                    WorkResult {
+                        successful: success,
+                        output
+                    }
                 }, OperationType::Check);
             }
         }

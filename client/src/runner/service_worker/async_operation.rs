@@ -9,36 +9,6 @@ use std::time::{Duration, Instant};
 use std::{io, thread};
 use crate::system_state::SystemState;
 
-pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
-where
-    S: AsRef<str>,
-{
-    let mut cmd = Command::new(entry.executable.clone());
-    cmd.args(entry.args.clone());
-    if let Some(dir) = dir {
-        cmd.current_dir(dir.as_ref());
-    }
-    entry.env.iter().for_each(|(key, value)| {
-        // Substitute environment variables if placeholders are used in the env entry
-        // TODO clean error handling, bubble error up and process in a nice way above
-        let parsed = subst::substitute(value, &subst::Env)
-            .expect(&format!("No variable found to substitute in env variable {}", value));
-
-        cmd.env(key.clone(), parsed);
-    });
-    cmd.stdin(Stdio::null());
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
-
-    // Set process group
-    if cfg!(target_os = "linux") {
-        use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
-    }
-
-    cmd
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum AsyncOperationStatus {
     Running,
@@ -79,19 +49,26 @@ impl WorkWrapper {
         service_id: String,
         block_id: String,
         work: F
-    ) -> WorkWrapper where F : (FnOnce() -> bool) + Send + 'static {
+    ) -> WorkWrapper where F : (FnOnce() -> WorkResult) + Send + 'static {
         let wrapper = WorkWrapper {
             status: Arc::new(Mutex::new(AsyncOperationStatus::Running)),
         };
         let status = wrapper.status.clone();
+        let state_arc_copy = state_arc.clone();
+        let service_id_copy = service_id.clone();
         
         let thread = thread::spawn(move || {
             let result = work();
-            if result {
+
+            if result.successful {
                 *status.lock().unwrap() = AsyncOperationStatus::Ok
             } else {
                 *status.lock().unwrap() = AsyncOperationStatus::Failed
             }
+            let mut state = state_arc_copy.lock().unwrap();
+            result.output.into_iter().for_each(|output| {
+                state.add_ctrl_output(&service_id_copy, output);
+            })
         });
 
         {
@@ -104,6 +81,11 @@ impl WorkWrapper {
         
         wrapper
     }
+}
+
+pub struct WorkResult {
+    pub successful: bool,
+    pub output: Vec<String>
 }
 
 pub struct ProcessWrapper {
@@ -311,4 +293,34 @@ impl CtrlOutputWriter for MutexGuard<'_, SystemState> {
             str,
         );
     }
+}
+
+pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
+    where
+        S: AsRef<str>,
+{
+    let mut cmd = Command::new(entry.executable.clone());
+    cmd.args(entry.args.clone());
+    if let Some(dir) = dir {
+        cmd.current_dir(dir.as_ref());
+    }
+    entry.env.iter().for_each(|(key, value)| {
+        // Substitute environment variables if placeholders are used in the env entry
+        // TODO clean error handling, bubble error up and process in a nice way above
+        let parsed = subst::substitute(value, &subst::Env)
+            .expect(&format!("No variable found to substitute in env variable {}", value));
+
+        cmd.env(key.clone(), parsed);
+    });
+    cmd.stdin(Stdio::null());
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
+    // Set process group
+    if cfg!(target_os = "linux") {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+
+    cmd
 }

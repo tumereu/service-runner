@@ -6,7 +6,7 @@ import os
 def simulate_assemble():
     print()
     print("Assembling artifacts..", flush=True)
-    time.sleep(random.uniform(1, 3))
+    time.sleep(random.uniform(2, 3))
 
     os.makedirs("build", exist_ok=True)
     artifact_path = os.path.join("build", "build-artifact.example")

@@ -4,7 +4,7 @@ use crate::system_state::{BlockOperationKey, OperationType, SystemState};
 use std::sync::{Arc, Mutex};
 use log::{debug, error};
 use crate::config::{Block, ExecutableEntry};
-use crate::runner::service_worker::{AsyncOperationHandle, AsyncOperationStatus, create_cmd, CtrlOutputWriter, ProcessWrapper, WorkWrapper};
+use crate::runner::service_worker::{AsyncOperationHandle, AsyncOperationStatus, create_cmd, CtrlOutputWriter, ProcessWrapper, WorkResult, WorkWrapper};
 
 pub struct BlockWorker {
     system_state: Arc<Mutex<SystemState>>,
@@ -167,7 +167,7 @@ impl BlockWorker {
         }
     }
 
-    pub fn perform_async_work<F>(&self, work: F, operation_type: OperationType) where F: FnOnce() -> bool + Send + 'static {
+    pub fn perform_async_work<F>(&self, work: F, operation_type: OperationType) where F: FnOnce() -> WorkResult + Send + 'static {
         let wrapper = WorkWrapper::wrap(
             self.system_state.clone(),
             self.service_id.clone(),
