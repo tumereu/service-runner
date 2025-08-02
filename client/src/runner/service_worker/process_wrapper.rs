@@ -1,15 +1,12 @@
 use crate::config::ExecutableEntry;
 use crate::models::{OutputKey, OutputKind, OutputLine};
-use log::{debug, error, info};
+use log::{error, info};
 use std::io::{BufRead, BufReader};
 use std::ops::Neg;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use std::{io, thread};
-use std::collections::VecDeque;
-use std::fmt::format;
-use std::thread::JoinHandle;
 use crate::system_state::SystemState;
 
 pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
@@ -118,9 +115,9 @@ pub struct ProcessWrapper {
 impl ProcessWrapper {
     pub fn wrap(
         state_arc: Arc<Mutex<SystemState>>,
-        process: Child,
         service_id: String,
         block_id: String,
+        process: Child,
     ) -> ProcessWrapper {
         let thread_prefix = format!("{service_id}.{block_id}");
         let handler = ProcessWrapper {

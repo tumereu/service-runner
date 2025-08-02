@@ -1,15 +1,17 @@
+use std::process::Child;
 use crate::models::{BlockAction, BlockStatus, GetBlock, Service};
-use crate::system_state::SystemState;
+use crate::system_state::{BlockOperationKey, OperationType, SystemState};
 use std::sync::{Arc, Mutex};
 use log::{debug, error};
-use crate::config::Block;
-use crate::runner::service_worker::{AsyncOperationStatus, CtrlOutputWriter, WorkWrapper};
+use crate::config::{Block, ExecutableEntry};
+use crate::runner::service_worker::{AsyncOperationHandle, AsyncOperationStatus, create_cmd, CtrlOutputWriter, ProcessWrapper, WorkWrapper};
 
 pub struct BlockWorker {
     system_state: Arc<Mutex<SystemState>>,
     pub service_id: String,
     pub block_id: String,
 }
+
 impl BlockWorker {
     pub fn new(system_state: Arc<Mutex<SystemState>>, service_id: String, block_id: String) -> Self {
         Self {
@@ -33,17 +35,17 @@ impl BlockWorker {
         });
     }
 
-    pub fn update_service<F>(&self, update: F) where F : FnOnce(&mut Service) {
+    pub fn update_service<F>(&self, update: F) where F: FnOnce(&mut Service) {
         self.system_state.lock().unwrap().update_service(&self.service_id, update);
     }
 
-    pub fn query_system<R, F>(&self, query: F) -> R where F : FnOnce(&SystemState) -> R {
+    pub fn query_system<R, F>(&self, query: F) -> R where F: FnOnce(&SystemState) -> R {
         let state = self.system_state.lock().unwrap();
 
         query(&state)
     }
 
-    pub fn query_service<R, F>(&self, query: F) -> R where F : FnOnce(&Service) -> R {
+    pub fn query_service<R, F>(&self, query: F) -> R where F: FnOnce(&Service) -> R {
         let service = self.system_state.lock().unwrap()
             .get_service(&self.service_id)
             .unwrap();
@@ -51,7 +53,7 @@ impl BlockWorker {
         query(service)
     }
 
-    pub fn query_block<R, F>(&self, query: F) -> R where F : FnOnce(&Block) -> R {
+    pub fn query_block<R, F>(&self, query: F) -> R where F: FnOnce(&Block) -> R {
         let block = self.system_state.lock().unwrap()
             .get_service(&self.service_id)
             .unwrap()
@@ -69,11 +71,15 @@ impl BlockWorker {
         self.query_service(|service| service.get_block_status(&self.block_id).unwrap().clone())
     }
 
-    pub fn get_operation_status(&self) -> Option<AsyncOperationStatus> {
+    pub fn get_operation_status(&self, operation_type: OperationType) -> Option<AsyncOperationStatus> {
         self.system_state
             .lock()
             .unwrap()
-            .get_block_operation(&self.service_id, &self.block_id)
+            .get_block_operation(&BlockOperationKey {
+                service_id: self.service_id.clone(),
+                block_id: self.block_id.clone(),
+                operation_type,
+            })
             .map(|operation| operation.status())
     }
 
@@ -83,19 +89,24 @@ impl BlockWorker {
     /// - executes the given function if the block has no stored operation.
     pub fn stop_operation_and_then<F>(
         &self,
+        operation_type: OperationType,
         execute: F,
     ) where
         F: FnOnce(),
     {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
-        match self.get_operation_status() {
+        match self.get_operation_status(operation_type) {
             Some(AsyncOperationStatus::Running) => {
                 debug!("Stopping current operation for {debug_id}");
                 self.system_state
                     .lock()
                     .unwrap()
-                    .get_block_operation(&self.service_id, &self.block_id)
+                    .get_block_operation(&BlockOperationKey {
+                        service_id: self.service_id.clone(),
+                        block_id: self.block_id.clone(),
+                        operation_type: operation_type.clone(),
+                    })
                     .iter()
                     .for_each(|operation| operation.stop());
             }
@@ -105,7 +116,11 @@ impl BlockWorker {
                 self.system_state
                     .lock()
                     .unwrap()
-                    .set_block_operation(&self.service_id, &self.block_id, None)
+                    .set_block_operation(BlockOperationKey {
+                        service_id: self.service_id.clone(),
+                        block_id: self.block_id.clone(),
+                        operation_type: operation_type.clone(),
+                    }, None)
             }
             None => {
                 execute();
@@ -113,10 +128,23 @@ impl BlockWorker {
         }
     }
 
-    pub fn clear_stopped_operation(&self) {
+    /// Similar to `stop_operation_and_then`, but stops operations of all types and only after that executes the given
+    /// function.
+    pub fn stop_all_operations_and_then<F>(
+        &self,
+        execute: F,
+    ) where
+        F: FnOnce(),
+    {
+        self.stop_operation_and_then(OperationType::Work, || {
+            self.stop_operation_and_then(OperationType::Check, execute);
+        });
+    }
+
+    pub fn clear_stopped_operation(&self, operation_type: OperationType) {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
-        match self.get_operation_status() {
+        match self.get_operation_status(operation_type) {
             Some(AsyncOperationStatus::Running) => {
                 error!("Received request to clear stopped operation for {debug_id} but operation is still running")
             }
@@ -126,7 +154,11 @@ impl BlockWorker {
                 self.system_state
                     .lock()
                     .unwrap()
-                    .set_block_operation(&self.service_id, &self.block_id, None);
+                    .set_block_operation(BlockOperationKey {
+                        service_id: self.service_id.clone(),
+                        block_id: self.block_id.clone(),
+                        operation_type: operation_type.clone(),
+                    }, None);
             }
             None => {
                 // No need to do anything, no operation to remove
@@ -134,19 +166,45 @@ impl BlockWorker {
         }
     }
 
-    pub fn perform_async_work<F>(&self, work: F) where F : FnOnce() -> bool {
-        WorkWrapper::wrap(
+    pub fn perform_async_work<F>(&self, work: F, operation_type: OperationType) where F: FnOnce() -> bool {
+        let wrapper = WorkWrapper::wrap(
             self.system_state.clone(),
             self.service_id.clone(),
             self.block_id.clone(),
             work,
+        );
+        self.system_state.lock().unwrap().set_block_operation(
+            BlockOperationKey {
+                service_id: self.service_id.clone(),
+                block_id: self.block_id.clone(),
+                operation_type
+            },
+            Some(AsyncOperationHandle::Work(wrapper)),
+        );
+    }
+
+    pub fn register_external_work(&self, handle: Child, operation_type: OperationType) {
+        let wrapper = ProcessWrapper::wrap(
+            self.system_state.clone(),
+            self.service_id.clone(),
+            self.block_id.clone(),
+            handle,
+        );
+
+        self.system_state.lock().unwrap().set_block_operation(
+            BlockOperationKey {
+                service_id: self.service_id.clone(),
+                block_id: self.block_id.clone(),
+                operation_type
+            },
+            Some(AsyncOperationHandle::Process(wrapper)),
         );
     }
 
     pub fn add_ctrl_output(&self, output: String) {
         self.system_state.lock().unwrap().add_ctrl_output(
             &self.service_id,
-            output
+            output,
         );
     }
 }

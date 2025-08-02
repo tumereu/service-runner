@@ -1,18 +1,13 @@
-use std::net::TcpListener;
-use crate::config::{HttpMethod, RequiredStatus, Requirement, WorkDefinition};
-use crate::models::{BlockStatus, GetBlock, OutputKey, OutputKind, WorkStep};
+use crate::config::WorkDefinition;
+use crate::models::{BlockStatus, OutputKey, OutputKind, WorkStep};
 use crate::runner::service_worker::process_wrapper::{create_cmd, ProcessWrapper};
 use crate::runner::service_worker::{
-    AsyncOperationHandle, AsyncOperationStatus, CtrlOutputWriter, WorkWrapper,
+    AsyncOperationHandle, AsyncOperationStatus, CtrlOutputWriter,
 };
-use crate::system_state::SystemState;
+use crate::system_state::OperationType;
 use crate::utils::format_err;
-use log::{debug, error};
-use reqwest::blocking::Client as HttpClient;
-use reqwest::Method;
-use std::sync::{Arc, Mutex};
+use log::error;
 use std::time::{Duration, Instant};
-use crate::models::WorkStep::Initial;
 use crate::runner::service_worker::block_worker::BlockWorker;
 use crate::runner::service_worker::req_checker::RequirementChecker;
 
@@ -22,9 +17,10 @@ pub trait WorkHandler {
 
 impl WorkHandler for BlockWorker {
     fn handle_work(&self) {
-        let block_status = self.get_block_status();
-        let operation_status = self.get_operation_status();
         let work_dir = self.query_service(|service| service.definition.dir.clone());
+        let block_status = self.get_block_status();
+        let check_status = self.get_operation_status(OperationType::Check);
+        let work_status = self.get_operation_status(OperationType::Work);
 
         let (step, skip_if_healthy) = match block_status {
             BlockStatus::Working {
@@ -50,7 +46,7 @@ impl WorkHandler for BlockWorker {
             // Ensure that there's no lingering process. There should not be if other actions are handled correctly,
             // but some defensive programming here doesn't hurt.
             WorkStep::Initial => {
-                self.stop_operation_and_then(|| {
+                self.stop_all_operations_and_then(|| {
                     self.update_status(
                         BlockStatus::Working {
                             skip_if_healthy,
@@ -77,7 +73,7 @@ impl WorkHandler for BlockWorker {
             } => {
                 let current_requirement = self.query_block(|block| block.prerequisites.get(checks_completed).clone());
 
-                match (operation_status, current_requirement) {
+                match (check_status, current_requirement) {
                     (_, None) if skip_if_healthy => {
                         self.update_status(
                             BlockStatus::Working {
@@ -99,10 +95,10 @@ impl WorkHandler for BlockWorker {
                         );
                     }
                     (None, Some(requirement)) => {
-                        self.perform_async_work(|| self.check_requirement(&requirement));
+                        self.perform_async_work(|| self.check_requirement(&requirement), OperationType::Check);
                     }
                     (Some(AsyncOperationStatus::Failed), _) => {
-                        self.clear_stopped_operation();
+                        self.clear_stopped_operation(OperationType::Check);
                         self.update_status(
                             BlockStatus::Working {
                                 skip_if_healthy,
@@ -115,7 +111,7 @@ impl WorkHandler for BlockWorker {
                     }
                     (Some(AsyncOperationStatus::Ok), _) => {
                         // Increment the amount of successful checks
-                        self.clear_stopped_operation();
+                        self.clear_stopped_operation(OperationType::Check);
                         self.update_status(
                             BlockStatus::Working {
                                 skip_if_healthy,
@@ -138,7 +134,7 @@ impl WorkHandler for BlockWorker {
                 });
                 let has_health_checks = self.query_block(|block| !block.health.requirements.is_empty());
 
-                match (operation_status, current_requirement) {
+                match (check_status, current_requirement) {
                     // If the block has no health checks then we must not treat "all requirements passed" as a free
                     // ticket to skip work, but we must always execute the blocks work.
                     (_, None) if !has_health_checks => self.update_status(
@@ -156,11 +152,11 @@ impl WorkHandler for BlockWorker {
                     ),
                     // No ongoing process, still requirements to check => start the check for the next one
                     (None, Some(requirement)) => {
-                        self.perform_async_work(|| self.check_requirement(&requirement));
+                        self.perform_async_work(|| self.check_requirement(&requirement), OperationType::Check);
                     }
                     // Health check failed, we must fully perform the block's work. Move into the appropriate state
                     (Some(AsyncOperationStatus::Failed), _) => {
-                        self.clear_stopped_operation();
+                        self.clear_stopped_operation(OperationType::Check);
                         self.update_status(
                             BlockStatus::Working {
                                 skip_if_healthy,
@@ -172,7 +168,7 @@ impl WorkHandler for BlockWorker {
                     }
                     (Some(AsyncOperationStatus::Ok), _) => {
                         // Increment the amount of successful checks
-                        self.clear_stopped_operation();
+                        self.clear_stopped_operation(OperationType::Check);
                         self.update_status(
                             BlockStatus::Working {
                                 skip_if_healthy,
@@ -191,52 +187,145 @@ impl WorkHandler for BlockWorker {
 
             WorkStep::PerformWork { steps_completed } => {
                 match self.query_block(|block| block.work.clone()) {
-                    WorkDefinition::CommandSeq { commands } => {
-                        let next_command = &commands[steps_completed];
-                        let mut command = create_cmd(
-                            next_command,
-                            Some(work_dir),
-                        );
+                    WorkDefinition::CommandSeq { commands: executable_entries } => {
+                        let next_executable = executable_entries.get(steps_completed);
 
-                        self.add_ctrl_output(
-                            format!("Exec: {next_command}"),
-                        );
-
-                        match command.spawn() {
-                            Ok(process_handle) => {
-                                let wrapper = ProcessWrapper::wrap(
-                                    state_arc.clone(),
-                                    process_handle,
-                                    service_id.to_owned(),
-                                    block_id.to_owned(),
+                        match (work_status, next_executable) {
+                            // Not performing any work, no more work to perform => move to post-work health check
+                            (_, None) => self.update_status(
+                                BlockStatus::Working {
+                                    skip_if_healthy,
+                                    step: WorkStep::PostWorkHealthCheck {
+                                        start_time: Instant::now(),
+                                        checks_completed: 0,
+                                        last_failure: None,
+                                    }
+                                },
+                            ),
+                            // No ongoing process, but some work left to perform. Attempt to spawn a child process
+                            (None, Some(executable)) => {
+                                let mut command = create_cmd(
+                                    executable,
+                                    Some(work_dir),
                                 );
+                                self.add_ctrl_output(format!("Exec: {next_executable}"));
 
-                                let mut state = state_arc.lock().unwrap();
-                                state.set_block_operation(
-                                    service_id,
-                                    block_id,
-                                    Some(AsyncOperationHandle::Process(wrapper)),
-                                );
+                                match command.spawn() {
+                                    Ok(process_handle) => {
+                                        self.register_external_work(process_handle, OperationType::Work);
+                                    }
+                                    Err(error) => {
+                                        self.update_status(BlockStatus::Error);
+                                        self.add_ctrl_output(format_err!("Failed to spawn child process", error));
+                                    }
+                                }
                             }
-                            Err(error) => {
-                                let mut state = state_arc.lock().unwrap();
-                                state.update_service(&service_id, |service| {
-                                    service.update_block_status(&block_id, BlockStatus::Error)
-                                });
-
-                                state.add_output(
-                                    &OutputKey {
-                                        name: OutputKey::CTL.into(),
-                                        service_ref: service_id.to_owned(),
-                                        kind: OutputKind::Compile,
+                            // A work operation has failed. Move into error state
+                            (Some(AsyncOperationStatus::Failed), _) => {
+                                self.clear_stopped_operation(OperationType::Work);
+                                self.update_status(BlockStatus::Error);
+                            }
+                            (Some(AsyncOperationStatus::Ok), _) => {
+                                // Increment the number of commands successfully completed
+                                self.clear_stopped_operation(OperationType::Work);
+                                self.update_status(
+                                    BlockStatus::Working {
+                                        skip_if_healthy,
+                                        step: WorkStep::PerformWork {
+                                            steps_completed: steps_completed + 1,
+                                        },
                                     },
-                                    format_err!("Failed to spawn child process", error),
                                 );
                             }
+                            (Some(AsyncOperationStatus::Running), _) => {
+                                // Do nothing, wait for the current work to finish
+                            }
+
                         }
                     }
                     WorkDefinition::Process { executable } => {
-                        // TODO handle
+                        let mut command = create_cmd(
+                            &executable,
+                            Some(work_dir),
+                        );
+                        self.add_ctrl_output(format!("Exec: {next_executable}"));
+
+                        match command.spawn() {
+                            Ok(process_handle) => {
+                                // Process launched successfully, move to post-work health check
+                                self.register_external_work(process_handle, OperationType::Work);
+                                self.update_status(BlockStatus::Working {
+                                    skip_if_healthy,
+                                    step: WorkStep::PostWorkHealthCheck {
+                                        start_time: Instant::now(),
+                                        checks_completed: 0,
+                                        last_failure: None,
+                                    }
+                                })
+                            }
+                            Err(error) => {
+                                self.update_status(BlockStatus::Error);
+                                self.add_ctrl_output(format_err!("Failed to spawn child process", error));
+                            }
+                        }
+                    }
+                }
+            }
+
+            WorkStep::PostWorkHealthCheck { start_time, checks_completed, last_failure } => {
+                let current_requirement = self.query_block(|block| {
+                    block.health.requirements.get(checks_completed).clone()
+                });
+                let timeout = self.query_block(|block| block.health.timeout.clone());
+
+                match (check_status, current_requirement, last_failure) {
+                    // If there are no more (or at all) requirements to check, then we can finally consider the
+                    // block healthy
+                    (_, None, _) => self.update_status(BlockStatus::Ok),
+                    // We have failed at least one health check and have exceeded the timout.
+                    (_, _, Some(_)) if Instant::now().duration_since(start_time) > timeout => {
+                        // TODO should this kill the process or not?
+                        self.stop_all_operations_and_then(|| self.update_status(BlockStatus::Error));
+                    }
+                    (_, _, Some(failure_time)) if Instant::now().duration_since(failure_time) < POST_WORK_HEALTH_FAILURE_WAIT => {
+                        // We have failed at least once a short time ago. Just wait for time to elapse so that we dont
+                        // spam health checks constantly
+                    }
+                    // No ongoing check, still have requirements to check => start the next check
+                    (None, Some(requirement), _) => {
+                        self.perform_async_work(|| self.check_requirement(&requirement), OperationType::Check);
+                    }
+                    // Health check failed, we must fully perform the block's work. Move into the appropriate state
+                    (Some(AsyncOperationStatus::Failed), _, _) => {
+                        self.clear_stopped_operation(OperationType::Check);
+                        self.update_status(
+                            BlockStatus::Working {
+                                skip_if_healthy,
+                                step: WorkStep::PostWorkHealthCheck {
+                                    start_time,
+                                    checks_completed: 0,
+                                    last_failure: Some(Instant::now()),
+                                },
+                            },
+                        );
+                    }
+                    // Current check is successful, increment the amount of successful checks
+                    (Some(AsyncOperationStatus::Ok), _, _) => {
+                        // Increment the amount of successful checks
+                        self.clear_stopped_operation(OperationType::Check);
+                        self.update_status(
+                            BlockStatus::Working {
+                                skip_if_healthy,
+                                step: WorkStep::PostWorkHealthCheck {
+                                    start_time,
+                                    last_failure,
+                                    checks_completed: checks_completed + 1,
+                                },
+                            },
+                        );
+                    }
+                    (Some(AsyncOperationStatus::Running), _, _) => {
+                        // Do nothing, wait for the async check to finish
                     }
                 }
             }
@@ -245,3 +334,4 @@ impl WorkHandler for BlockWorker {
 }
 
 const PRE_REQ_FAILURE_WAIT: Duration = Duration::from_millis(500);
+const POST_WORK_HEALTH_FAILURE_WAIT: Duration = Duration::from_millis(3000);

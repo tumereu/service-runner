@@ -1,3 +1,4 @@
+use std::time::Duration;
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -7,7 +8,8 @@ pub enum Requirement {
     Http {
         url: String,
         method: HttpMethod,
-        timeout_millis: u64,
+        #[serde(with = "humantime_serde")]
+        timeout: Duration,
         status: u16,
     },
     

@@ -1,3 +1,4 @@
+use std::time::Duration;
 use crate::config::{AutomationEntry, ExecutableEntry, Requirement, HttpMethod};
 use serde_derive::{Deserialize, Serialize};
 
@@ -26,8 +27,8 @@ pub struct Block {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub struct HealthCheckConfig {
-    #[serde(default)]
-    pub timeout_millis: u64,
+    #[serde(default, with = "humantime_serde")]
+    pub timeout: Duration,
     pub requirements: Vec<Requirement>
 }
 
