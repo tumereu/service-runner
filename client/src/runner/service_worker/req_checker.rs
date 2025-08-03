@@ -1,11 +1,12 @@
 use std::net::TcpListener;
 use std::path::Path;
-
+use std::sync::{Arc, Mutex};
 use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
 
-use crate::config::{HttpMethod, RequiredStatus, Requirement};
+use crate::config::{HttpMethod, Requirement};
 use crate::models::BlockStatus;
+use crate::rhai::RHAI_ENGINE;
 use crate::runner::service_worker::block_worker::BlockWorker;
 use crate::runner::service_worker::utils::format_reqwest_error;
 use crate::runner::service_worker::WorkResult;
@@ -100,38 +101,26 @@ impl RequirementChecker for BlockWorker {
                     }
                 }, OperationType::Check, silent);
             }
-            Requirement::BlockDependency { service, block: block_ref, status: required_status } => {
-                let required_service = service.unwrap_or(self.service_id.clone());
-
-                let successful = self.query_system(|system| {
-                    system.iter_services()
-                        // Find the service the prerequisite refers to
-                        .find(|service| service.definition.id == required_service)
-                        .map(|service| {
-                            // Check that the status is acceptable according to the required status of the prerequisite
-                            match service.get_block_status(&block_ref) {
-                                // There's a queued action on the service, its true status is not yet resolved. Fail
-                                // the check
-                                _ if service.get_block_action(&block_ref).is_some() => false,
-                                BlockStatus::Initial => required_status == RequiredStatus::Initial,
-                                BlockStatus::Working { .. } => required_status == RequiredStatus::Working,
-                                BlockStatus::Ok => required_status == RequiredStatus::Ok,
-                                BlockStatus::Error => required_status == RequiredStatus::Error,
-                            }
-                        })
-                        .unwrap_or(false)
-                });
-
-                self.perform_async_work(move || {
-                    WorkResult {
-                        successful,
-                        output: if successful {
-                            vec![format!("Req OK: {required_service}.{block_ref} is in status {required_status}")]
-                        } else {
-                            vec![format!("Req fail: {required_service}.{block_ref} is not in status {required_status}")]
-                        }
+            Requirement::StateQuery { query } => {
+                let mut scope = self.create_rhai_scope();
+                // TODO currently evaluation is performed synchronously. Move engine to a worker thread to allow for
+                // longer scripts?
+                let result = match RHAI_ENGINE.eval_with_scope::<bool>(&mut scope, &query) {
+                    Ok(value) => WorkResult {
+                        successful: value,
+                        output: vec![
+                            format!("Query evaluated to {value}")
+                        ]
+                    },
+                    Err(e) => WorkResult {
+                        successful: false,
+                        output: vec![
+                            format!("Error processing expression: {e:?}")
+                        ]
                     }
-                }, OperationType::Check, silent);
+                };
+
+                self.perform_async_work(move || result, OperationType::Check, silent);
             }
             Requirement::File { paths } => {
                 let workdir = self.query_service(|service| service.definition.dir.clone());

@@ -24,41 +24,9 @@ pub enum Requirement {
         paths: Vec<String>
     },
 
-    #[serde(rename = "dependency")]
-    BlockDependency {
-        #[serde(default)]
-        service: Option<String>,
-        block: String,
-        #[serde(default)]
-        status: RequiredStatus,
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-#[serde(deny_unknown_fields)]
-pub enum RequiredStatus {
-    #[serde(rename = "initial")]
-    Initial,
-    #[serde(rename = "working")]
-    Working,
-    #[serde(rename = "ok")]
-    Ok,
-    #[serde(rename = "error")]
-    Error,
-}
-impl Default for RequiredStatus {
-    fn default() -> Self {
-        Self::Ok
-    }
-}
-impl Display for RequiredStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Initial => f.write_str("Initial"),
-            Self::Working => f.write_str("Working"),
-            Self::Ok => f.write_str("Ok"),
-            Self::Error => f.write_str("Error"),
-        }
+    #[serde(rename = "state")]
+    StateQuery {
+        query: String,
     }
 }
 

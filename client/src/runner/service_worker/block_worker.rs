@@ -5,6 +5,7 @@ use log::{debug, error};
 
 use crate::config::Block;
 use crate::models::{BlockAction, BlockStatus, GetBlock, Service};
+use crate::rhai::{populate_rhai_scope};
 use crate::runner::service_worker::{AsyncOperationHandle, AsyncOperationStatus, CtrlOutputWriter, ProcessWrapper, WorkResult, WorkWrapper};
 use crate::system_state::{BlockOperationKey, OperationType, SystemState};
 
@@ -214,5 +215,14 @@ impl BlockWorker {
             &self.service_id,
             output,
         );
+    }
+
+    pub fn create_rhai_scope(&self) -> rhai::Scope {
+        let mut scope = rhai::Scope::new();
+        let state = self.system_state.lock().unwrap();
+
+        populate_rhai_scope(&mut scope, &state, &self.service_id);
+
+        scope
     }
 }

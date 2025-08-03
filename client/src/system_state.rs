@@ -72,6 +72,16 @@ impl SystemState {
             })
     }
 
+    pub fn has_block_operations(&self, service_id: &str, block_id: &str) -> bool {
+        [OperationType::Check, OperationType::Work].iter().any(|operation_type| {
+            self.get_block_operation(&BlockOperationKey {
+                service_id: service_id.to_owned(),
+                block_id: block_id.to_string(),
+                operation_type: operation_type.clone(),
+            }).is_some()
+        })
+    }
+
     pub fn set_block_operation(&mut self, key: BlockOperationKey, process: Option<AsyncOperationHandle>) {
         match process {
             Some(process) => self.async_operations.insert(key, process),

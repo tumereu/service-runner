@@ -25,8 +25,8 @@ blocks:
       args:
         - run.py
     prerequisites:
-      - type: dependency
-        block: build
+      - type: state
+        query: self.build.status == OK
     status_line:
       symbol: Run
       slot: 10
@@ -40,3 +40,7 @@ blocks:
           method: GET
           url: http://localhost:8000/status
           status: 200
+tasks:
+  - id: "Clean restart"
+    steps:
+      - action: cancel("build")

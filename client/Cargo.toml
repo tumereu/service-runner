@@ -26,6 +26,8 @@ serde_yaml = "0.9.34+deprecated"
 humantime-serde = "1.1.1"
 toml = "0.8.19"
 
+rhai = "1.16.3"
+
 subst = "0.3.8"
 glob = "0.3.1"
 

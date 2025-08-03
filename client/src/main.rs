@@ -28,6 +28,7 @@ mod models;
 mod runner;
 mod utils;
 pub mod config;
+mod rhai;
 
 fn main() -> Result<(), Box<dyn Error>> {
     simple_logging::log_to_file("service_runner.log", LevelFilter::Debug)?;
