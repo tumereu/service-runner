@@ -109,13 +109,13 @@ impl RequirementChecker for BlockWorker {
                     Ok(value) => WorkResult {
                         successful: value,
                         output: vec![
-                            format!("Query evaluated to {value}")
+                            format!("Query '{query}' => {value}")
                         ]
                     },
                     Err(e) => WorkResult {
                         successful: false,
                         output: vec![
-                            format!("Error processing expression: {e:?}")
+                            format!("Error processing expression in query '{query}': {e:?}")
                         ]
                     }
                 };

@@ -26,7 +26,7 @@ blocks:
         - run.py
     prerequisites:
       - type: state
-        query: self.build.status == OK
+        query: self.blocks.build.status == OK
     status_line:
       symbol: Run
       slot: 10
