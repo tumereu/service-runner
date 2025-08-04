@@ -14,6 +14,7 @@ mod service_block_context;
 mod block_processor;
 mod requirement_checker;
 mod work_context;
+mod sequence_executor;
 
 pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {

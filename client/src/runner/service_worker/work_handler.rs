@@ -10,6 +10,7 @@ use crate::runner::service_worker::{
 use crate::runner::service_worker::concurrent_operation::create_cmd;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::requirement_checker::{RequirementCheckResult, RequirementChecker};
+use crate::runner::service_worker::sequence_executor::{create_cmd, SequenceExecutor};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::system_state::OperationType;
 use crate::utils::format_err;
@@ -67,7 +68,7 @@ impl WorkHandler for ServiceBlockContext {
             } => {
                 let result = RequirementChecker {
                     all_requirements: self.query_block(|block| block.prerequisites.clone()),
-                    current_requirement_idx: checks_completed,
+                    completed_count: checks_completed,
                     timeout: None,
                     failure_wait_time: PRE_REQ_FAILURE_WAIT,
                     start_time,
@@ -129,7 +130,7 @@ impl WorkHandler for ServiceBlockContext {
             WorkStep::PreWorkHealthCheck { start_time, checks_completed } => {
                 let result = RequirementChecker {
                     all_requirements: self.query_block(|block| block.health.requirements.clone()),
-                    current_requirement_idx: checks_completed,
+                    completed_count: checks_completed,
                     timeout: Some(Duration::from_secs(0)),
                     failure_wait_time: Duration::from_secs(0),
                     start_time,
@@ -173,6 +174,14 @@ impl WorkHandler for ServiceBlockContext {
             WorkStep::PerformWork { steps_completed } => {
                 match self.query_block(|block| block.work.clone()) {
                     WorkDefinition::CommandSeq { commands: executable_entries } => {
+                        SequenceExecutor {
+                            sequence: ,
+                            completed_count: usize,
+                            start_time: Instant,
+                            last_recoverable_failure: Option<Instant>,
+                            context: &'a W,
+                            workdir: String,
+                        }
                         let next_executable = executable_entries.get(steps_completed);
 
                         match (work_status, next_executable) {
@@ -256,7 +265,7 @@ impl WorkHandler for ServiceBlockContext {
             WorkStep::PostWorkHealthCheck { start_time, checks_completed, last_failure } => {
                 let result = RequirementChecker {
                     all_requirements: self.query_block(|block| block.health.requirements.clone()),
-                    current_requirement_idx: checks_completed,
+                    completed_count: checks_completed,
                     timeout: Some(self.query_block(|block| block.health.timeout.clone())),
                     failure_wait_time: POST_WORK_HEALTH_FAILURE_WAIT,
                     start_time,

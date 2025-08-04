@@ -308,33 +308,3 @@ impl CtrlOutputWriter for MutexGuard<'_, SystemState> {
         );
     }
 }
-
-pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
-    where
-        S: AsRef<str>,
-{
-    let mut cmd = Command::new(entry.executable.clone());
-    cmd.args(entry.args.clone());
-    if let Some(dir) = dir {
-        cmd.current_dir(dir.as_ref());
-    }
-    entry.env.iter().for_each(|(key, value)| {
-        // Substitute environment variables if placeholders are used in the env entry
-        // TODO clean error handling, bubble error up and process in a nice way above
-        let parsed = subst::substitute(value, &subst::Env)
-            .expect(&format!("No variable found to substitute in env variable {}", value));
-
-        cmd.env(key.clone(), parsed);
-    });
-    cmd.stdin(Stdio::null());
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
-
-    // Set process group
-    if cfg!(target_os = "linux") {
-        use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
-    }
-
-    cmd
-}

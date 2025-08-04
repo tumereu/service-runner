@@ -3,7 +3,7 @@ use reqwest::Method;
 use std::net::TcpListener;
 use std::path::Path;
 use std::time::{Duration, Instant};
-use crate::config::{HttpMethod, Requirement};
+use crate::config::{ExecutableEntry, HttpMethod, Requirement};
 use crate::rhai::RHAI_ENGINE;
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 use crate::runner::service_worker::work_context::WorkContext;
@@ -17,9 +17,10 @@ pub enum RequirementCheckResult {
     Timeout,
 }
 
+
 pub struct RequirementChecker<'a, W: WorkContext> {
     pub all_requirements: Vec<Requirement>,
-    pub current_requirement_idx: usize,
+    pub completed_count: usize,
     pub timeout: Option<Duration>,
     pub failure_wait_time: Duration,
     pub start_time: Instant,
@@ -29,7 +30,7 @@ pub struct RequirementChecker<'a, W: WorkContext> {
 }
 impl<'a, W: WorkContext> RequirementChecker<'a, W> {
     pub fn check_requirements(self) -> RequirementCheckResult {
-        let current_requirement = self.all_requirements.get(self.current_requirement_idx).cloned();
+        let current_requirement = self.all_requirements.get(self.completed_count).cloned();
         let check_status = self.context.get_concurrent_operation_status(OperationType::Check);
 
         match (check_status.clone(), current_requirement, self.last_failure) {
@@ -266,4 +267,14 @@ pub fn format_reqwest_error(err: &reqwest::Error) -> String {
 
     // Fall back to a generic error message
     format!("Unexpected error: {}", err)
+}
+
+
+pub enum SequenceEntry {
+    ExecutableEntry(ExecutableEntry),
+    RhaiScript(String),
+    WaitRequirement {
+        timeout: Duration,
+        requirement: Requirement,
+    },
 }
