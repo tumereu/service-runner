@@ -8,7 +8,7 @@ use crate::models::{BlockAction, BlockStatus, GetBlock, Service};
 use crate::rhai::populate_rhai_scope;
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
-    AsyncOperationHandle, AsyncOperationStatus, CtrlOutputWriter, ProcessWrapper, WorkResult,
+    AsyncOperationHandle, ConcurrentOperationStatus, CtrlOutputWriter, ProcessWrapper, WorkResult,
     WorkWrapper,
 };
 use crate::system_state::{BlockOperationKey, OperationType, SystemState};
@@ -96,21 +96,6 @@ impl ServiceBlockContext {
         self.query_service(|service| service.get_block_status(&self.block_id))
     }
 
-    pub fn get_operation_status(
-        &self,
-        operation_type: OperationType,
-    ) -> Option<AsyncOperationStatus> {
-        self.system_state
-            .lock()
-            .unwrap()
-            .get_block_operation(&BlockOperationKey {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
-                operation_type,
-            })
-            .map(|operation| operation.status())
-    }
-
     /// A call to this will do one (and only one of the following) of the following.
     /// - Issue a stop signal to the current operation of this block, if it is running, or
     /// - remove the current block operation from system state if it exists and is stopped, or
@@ -121,8 +106,8 @@ impl ServiceBlockContext {
     {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
-        match self.get_operation_status(operation_type.clone()) {
-            Some(AsyncOperationStatus::Running) => {
+        match self.get_concurrent_operation_status(operation_type.clone()) {
+            Some(ConcurrentOperationStatus::Running) => {
                 debug!("Stopping current operation for {debug_id}");
                 self.system_state
                     .lock()
@@ -167,11 +152,11 @@ impl ServiceBlockContext {
     pub fn clear_stopped_operation(&self, operation_type: OperationType) {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
-        match self.get_operation_status(operation_type.clone()) {
-            Some(AsyncOperationStatus::Running) => {
+        match self.get_concurrent_operation_status(operation_type.clone()) {
+            Some(ConcurrentOperationStatus::Running) => {
                 error!("Received request to clear stopped operation for {debug_id} but operation is still running")
             }
-            Some(AsyncOperationStatus::Failed | AsyncOperationStatus::Ok) => {
+            Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
                 debug!("Removing stopped operation for {debug_id}");
 
                 self.system_state.lock().unwrap().set_block_operation(
@@ -187,61 +172,6 @@ impl ServiceBlockContext {
                 // No need to do anything, no operation to remove
             }
         }
-    }
-
-    pub fn perform_async_work<F>(&self, work: F, operation_type: OperationType, silent: bool)
-    where
-        F: FnOnce() -> WorkResult + Send + 'static,
-    {
-        let wrapper = WorkWrapper::wrap(
-            self.system_state.clone(),
-            self.service_id.clone(),
-            self.block_id.clone(),
-            silent,
-            work,
-        );
-        self.system_state.lock().unwrap().set_block_operation(
-            BlockOperationKey {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
-                operation_type,
-            },
-            Some(AsyncOperationHandle::Work(wrapper)),
-        );
-    }
-
-    pub fn register_external_work(&self, handle: Child, operation_type: OperationType) {
-        let wrapper = ProcessWrapper::wrap(
-            self.system_state.clone(),
-            self.service_id.clone(),
-            self.block_id.clone(),
-            handle,
-        );
-
-        self.system_state.lock().unwrap().set_block_operation(
-            BlockOperationKey {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
-                operation_type,
-            },
-            Some(AsyncOperationHandle::Process(wrapper)),
-        );
-    }
-
-    pub fn add_ctrl_output(&self, output: String) {
-        self.system_state
-            .lock()
-            .unwrap()
-            .add_ctrl_output(&self.service_id, output);
-    }
-
-    pub fn create_rhai_scope(&self) -> rhai::Scope {
-        let mut scope = rhai::Scope::new();
-        let state = self.system_state.lock().unwrap();
-
-        populate_rhai_scope(&mut scope, &state, &self.service_id);
-
-        scope
     }
 }
 
@@ -262,11 +192,11 @@ impl WorkContext for &ServiceBlockContext {
     fn clear_concurrent_operation(&self, operation_type: OperationType) {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
-        match self.get_operation_status(operation_type.clone()) {
-            Some(AsyncOperationStatus::Running) => {
+        match self.get_concurrent_operation_status(operation_type.clone()) {
+            Some(ConcurrentOperationStatus::Running) => {
                 error!("Received request to clear stopped operation for {debug_id} but operation is still running")
             }
-            Some(AsyncOperationStatus::Failed | AsyncOperationStatus::Ok) => {
+            Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
                 debug!("Removing stopped operation for {debug_id}");
 
                 self.system_state.lock().unwrap().set_block_operation(
@@ -290,7 +220,7 @@ impl WorkContext for &ServiceBlockContext {
         })
     }
 
-    fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<AsyncOperationStatus> {
+    fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<ConcurrentOperationStatus> {
         self.system_state
             .lock()
             .unwrap()
@@ -348,5 +278,12 @@ impl WorkContext for &ServiceBlockContext {
         populate_rhai_scope(&mut scope, &state, &self.service_id);
 
         scope
+    }
+
+    fn add_ctrl_output(&self, output: String) {
+        self.system_state
+            .lock()
+            .unwrap()
+            .add_ctrl_output(&self.service_id, output);
     }
 }

@@ -2,18 +2,17 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-pub use async_operation::*;
+pub use concurrent_operation::*;
 
 use crate::runner::service_worker::block_processor::BlockProcessor;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::system_state::SystemState;
 
-mod async_operation;
+mod concurrent_operation;
 mod work_handler;
 mod service_block_context;
 mod block_processor;
-mod req_checker;
-mod utils;
+mod requirement_checker;
 mod work_context;
 
 pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {

@@ -1,5 +1,5 @@
 use std::process::Child;
-use crate::runner::service_worker::{AsyncOperationStatus, WorkResult};
+use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 use crate::system_state::{OperationType};
 
 pub trait WorkContext {
@@ -9,7 +9,7 @@ pub trait WorkContext {
     
     fn stop_all_concurrent_operations(&self);
     
-    fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<AsyncOperationStatus>;
+    fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<ConcurrentOperationStatus>;
 
     fn perform_async_work<F>(
         &self, work: F,
@@ -20,4 +20,6 @@ pub trait WorkContext {
     fn register_external_process(&self, handle: Child, operation_type: OperationType);
 
     fn create_rhai_scope(&self) -> rhai::Scope;
+
+    fn add_ctrl_output(&self, output: String);
 }

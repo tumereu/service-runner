@@ -13,7 +13,7 @@ use crate::models::{OutputKey, OutputKind};
 use crate::system_state::SystemState;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum AsyncOperationStatus {
+pub enum ConcurrentOperationStatus {
     Running,
     Ok,
     Failed,
@@ -24,7 +24,7 @@ pub enum AsyncOperationHandle {
     Work(WorkWrapper),
 }
 impl AsyncOperationHandle {
-    pub fn status(&self) -> AsyncOperationStatus {
+    pub fn status(&self) -> ConcurrentOperationStatus {
         match self {
             AsyncOperationHandle::Process(wrapper) => wrapper.status.lock().unwrap().clone(),
             AsyncOperationHandle::Work(wrapper) => wrapper.status.lock().unwrap().clone(),
@@ -44,7 +44,7 @@ impl AsyncOperationHandle {
 }
 
 pub struct WorkWrapper {
-    pub status: Arc<Mutex<AsyncOperationStatus>>,
+    pub status: Arc<Mutex<ConcurrentOperationStatus>>,
 }
 impl WorkWrapper {
     pub fn wrap<F>(
@@ -55,7 +55,7 @@ impl WorkWrapper {
         work: F
     ) -> WorkWrapper where F : (FnOnce() -> WorkResult) + Send + 'static {
         let wrapper = WorkWrapper {
-            status: Arc::new(Mutex::new(AsyncOperationStatus::Running)),
+            status: Arc::new(Mutex::new(ConcurrentOperationStatus::Running)),
         };
         let status = wrapper.status.clone();
         let state_arc_copy = state_arc.clone();
@@ -65,9 +65,9 @@ impl WorkWrapper {
             let result = work();
 
             if result.successful {
-                *status.lock().unwrap() = AsyncOperationStatus::Ok
+                *status.lock().unwrap() = ConcurrentOperationStatus::Ok
             } else {
-                *status.lock().unwrap() = AsyncOperationStatus::Failed
+                *status.lock().unwrap() = ConcurrentOperationStatus::Failed
             }
 
             if !silent {
@@ -99,7 +99,7 @@ pub struct ProcessWrapper {
     pub handle: Arc<Mutex<Child>>,
     pub service_id: String,
     pub block_id: String,
-    pub status: Arc<Mutex<AsyncOperationStatus>>,
+    pub status: Arc<Mutex<ConcurrentOperationStatus>>,
     force_exit: Arc<Mutex<bool>>,
 }
 impl ProcessWrapper {
@@ -115,7 +115,7 @@ impl ProcessWrapper {
             service_id,
             block_id,
             force_exit: Arc::new(Mutex::new(false)),
-            status: Arc::new(Mutex::new(AsyncOperationStatus::Running)),
+            status: Arc::new(Mutex::new(ConcurrentOperationStatus::Running)),
         };
 
         let mut new_threads = vec![
@@ -153,9 +153,9 @@ impl ProcessWrapper {
 
                         let mut exit_status = status_arc.lock().unwrap();
                         *exit_status = if success {
-                            AsyncOperationStatus::Ok
+                            ConcurrentOperationStatus::Ok
                         } else {
-                            AsyncOperationStatus::Failed
+                            ConcurrentOperationStatus::Failed
                         }
                     })
                 },

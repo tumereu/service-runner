@@ -2,8 +2,9 @@ use log::info;
 
 use crate::config::WorkDefinition;
 use crate::models::{BlockAction, BlockStatus, WorkStep};
-use crate::runner::service_worker::AsyncOperationStatus;
+use crate::runner::service_worker::ConcurrentOperationStatus;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
+use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::work_handler::WorkHandler;
 use crate::system_state::OperationType;
 
@@ -109,8 +110,8 @@ impl BlockProcessor for ServiceBlockContext {
                     WorkDefinition::Process { .. } => true,
                 });
 
-                match self.get_operation_status(OperationType::Work) {
-                    Some(AsyncOperationStatus::Running) => {
+                match self.get_concurrent_operation_status(OperationType::Work) {
+                    Some(ConcurrentOperationStatus::Running) => {
                         // Everything is OK
                     }
                     _ if require_live_process => {

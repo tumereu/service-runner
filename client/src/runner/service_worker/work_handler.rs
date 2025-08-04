@@ -5,11 +5,12 @@ use log::{debug, error};
 use crate::config::WorkDefinition;
 use crate::models::{BlockStatus, WorkStep};
 use crate::runner::service_worker::{
-    AsyncOperationStatus, CtrlOutputWriter,
+    ConcurrentOperationStatus, CtrlOutputWriter,
 };
-use crate::runner::service_worker::async_operation::create_cmd;
+use crate::runner::service_worker::concurrent_operation::create_cmd;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
-use crate::runner::service_worker::req_checker::{RequirementCheckResult, RequirementChecker};
+use crate::runner::service_worker::requirement_checker::{RequirementCheckResult, RequirementChecker};
+use crate::runner::service_worker::work_context::WorkContext;
 use crate::system_state::OperationType;
 use crate::utils::format_err;
 
@@ -21,8 +22,7 @@ impl WorkHandler for ServiceBlockContext {
     fn handle_work(&self) {
         let work_dir = self.query_service(|service| service.definition.dir.clone());
         let block_status = self.get_block_status();
-        let check_status = self.get_operation_status(OperationType::Check);
-        let work_status = self.get_operation_status(OperationType::Work);
+        let work_status = self.get_concurrent_operation_status(OperationType::Work);
 
         let (step) = match block_status {
             BlockStatus::Working {
@@ -196,7 +196,7 @@ impl WorkHandler for ServiceBlockContext {
 
                                 match command.spawn() {
                                     Ok(process_handle) => {
-                                        self.register_external_work(process_handle, OperationType::Work);
+                                        self.register_external_process(process_handle, OperationType::Work);
                                     }
                                     Err(error) => {
                                         self.update_status(BlockStatus::Error);
@@ -205,11 +205,11 @@ impl WorkHandler for ServiceBlockContext {
                                 }
                             }
                             // A work operation has failed. Move into error state
-                            (Some(AsyncOperationStatus::Failed), _) => {
+                            (Some(ConcurrentOperationStatus::Failed), _) => {
                                 self.clear_stopped_operation(OperationType::Work);
                                 self.update_status(BlockStatus::Error);
                             }
-                            (Some(AsyncOperationStatus::Ok), _) => {
+                            (Some(ConcurrentOperationStatus::Ok), _) => {
                                 // Increment the number of commands successfully completed
                                 self.clear_stopped_operation(OperationType::Work);
                                 self.update_status(
@@ -220,10 +220,9 @@ impl WorkHandler for ServiceBlockContext {
                                     },
                                 );
                             }
-                            (Some(AsyncOperationStatus::Running), _) => {
+                            (Some(ConcurrentOperationStatus::Running), _) => {
                                 // Do nothing, wait for the current work to finish
                             }
-
                         }
                     }
                     WorkDefinition::Process { command: executable } => {
@@ -236,7 +235,7 @@ impl WorkHandler for ServiceBlockContext {
                         match command.spawn() {
                             Ok(process_handle) => {
                                 // Process launched successfully, move to post-work health check
-                                self.register_external_work(process_handle, OperationType::Work);
+                                self.register_external_process(process_handle, OperationType::Work);
                                 self.update_status(BlockStatus::Working {
                                     step: WorkStep::PostWorkHealthCheck {
                                         start_time: Instant::now(),
@@ -255,9 +254,6 @@ impl WorkHandler for ServiceBlockContext {
             }
 
             WorkStep::PostWorkHealthCheck { start_time, checks_completed, last_failure } => {
-                let current_requirement = self.query_block(|block| {
-                    block.health.requirements.get(checks_completed).map(|req| req.clone())
-                });
                 let result = RequirementChecker {
                     all_requirements: self.query_block(|block| block.health.requirements.clone()),
                     current_requirement_idx: checks_completed,
@@ -272,7 +268,7 @@ impl WorkHandler for ServiceBlockContext {
                 match result {
                     // If the block is a process and we do not have a live process running, then immediately stop all
                     // work and enter error state
-                    _ if is_process && !matches!(work_status, Some(AsyncOperationStatus::Running)) => {
+                    _ if is_process && !matches!(work_status, Some(ConcurrentOperationStatus::Running)) => {
                         self.stop_all_operations_and_then(|| {
                             self.add_ctrl_output("External process has terminated unexpectedly.".to_owned());
                             self.update_status(BlockStatus::Error)
@@ -305,7 +301,7 @@ impl WorkHandler for ServiceBlockContext {
                         );
                     }
                     RequirementCheckResult::Working => {
-                        // Nothing to do, intentioanlly empty.
+                        // Nothing to do, empty on purpose.
                     }
                 }
             }

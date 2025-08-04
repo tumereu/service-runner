@@ -5,8 +5,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 use crate::config::{HttpMethod, Requirement};
 use crate::rhai::RHAI_ENGINE;
-use crate::runner::service_worker::utils::format_reqwest_error;
-use crate::runner::service_worker::{AsyncOperationStatus, WorkResult};
+use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::system_state::OperationType;
 
@@ -42,11 +41,11 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                 Instant::now().duration_since(self.start_time) > timeout
             }).unwrap_or(false) => {
                 match check_status {
-                    Some(AsyncOperationStatus::Running) => {
+                    Some(ConcurrentOperationStatus::Running) => {
                         self.context.stop_concurrent_operation(OperationType::Check);
                         RequirementCheckResult::Working
                     }
-                    Some(AsyncOperationStatus::Failed) | Some(AsyncOperationStatus::Ok) => {
+                    Some(ConcurrentOperationStatus::Failed) | Some(ConcurrentOperationStatus::Ok) => {
                         self.context.clear_concurrent_operation(OperationType::Check);
                         RequirementCheckResult::Working
                     }
@@ -67,16 +66,16 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
             }
             // A check has failed, but we have not yet exceeded the timeout. Clear the operation and returned
             // corresponding status
-            (Some(AsyncOperationStatus::Failed), _, _) => {
+            (Some(ConcurrentOperationStatus::Failed), _, _) => {
                 self.context.clear_concurrent_operation(OperationType::Check);
                 RequirementCheckResult::CurrentCheckFailed
             }
             // Current check is successful, the system can move onto the next check.
-            (Some(AsyncOperationStatus::Ok), _, _) => {
+            (Some(ConcurrentOperationStatus::Ok), _, _) => {
                 self.context.clear_concurrent_operation(OperationType::Check);
                 RequirementCheckResult::CurrentCheckOk
             }
-            (Some(AsyncOperationStatus::Running), _, _) => {
+            (Some(ConcurrentOperationStatus::Running), _, _) => {
                 // Do nothing, wait for the async check to finish
                 RequirementCheckResult::Working
             }
@@ -245,4 +244,26 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
             }
         };
     }
+}
+
+/// Turns a `reqwest::Error` into a clean, human-readable string.
+pub fn format_reqwest_error(err: &reqwest::Error) -> String {
+    if err.is_connect() {
+        return format!("Connection error: {}", err);
+    }
+    if err.is_timeout() {
+        return "Request timed out.".to_string();
+    }
+    if err.is_request() {
+        return format!("Request build error: {}", err);
+    }
+    if err.is_body() {
+        return format!("Body error: {}", err);
+    }
+    if err.is_decode() {
+        return format!("Response decoding error: {}", err);
+    }
+
+    // Fall back to a generic error message
+    format!("Unexpected error: {}", err)
 }
