@@ -3,14 +3,14 @@ use log::info;
 use crate::config::WorkDefinition;
 use crate::models::{BlockAction, BlockStatus, WorkStep};
 use crate::runner::service_worker::AsyncOperationStatus;
-use crate::runner::service_worker::block_worker::BlockWorker;
+use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::work_handler::WorkHandler;
 use crate::system_state::OperationType;
 
 pub trait BlockProcessor {
     fn process_block(&self);
 }
-impl BlockProcessor for BlockWorker {
+impl BlockProcessor for ServiceBlockContext {
     fn process_block(&self) {
         let service_enabled = self.query_service(|service| service.enabled);
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
@@ -53,8 +53,7 @@ impl BlockProcessor for BlockWorker {
                     self.clear_current_action();
                     self.update_status(
                         BlockStatus::Working {
-                            skip_if_healthy: false,
-                            step: WorkStep::default(),
+                            step: WorkStep::Initial { skip_work_if_healthy: false },
                         },
                     );
                 });
@@ -66,8 +65,7 @@ impl BlockProcessor for BlockWorker {
 
                 self.update_status(
                     BlockStatus::Working {
-                        skip_if_healthy: true,
-                        step: WorkStep::default(),
+                        step: WorkStep::Initial { skip_work_if_healthy: true },
                     },
                 );
             }

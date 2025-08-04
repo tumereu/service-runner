@@ -5,15 +5,16 @@ use std::time::Duration;
 pub use async_operation::*;
 
 use crate::runner::service_worker::block_processor::BlockProcessor;
-use crate::runner::service_worker::block_worker::BlockWorker;
+use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::system_state::SystemState;
 
 mod async_operation;
 mod work_handler;
-mod block_worker;
+mod service_block_context;
 mod block_processor;
 mod req_checker;
 mod utils;
+mod work_context;
 
 pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
@@ -47,7 +48,7 @@ fn work_services(state_arc: Arc<Mutex<SystemState>>) {
     stages_to_work
         .into_iter()
         .for_each(|(service_id, block_id)| {
-            BlockWorker::new(
+            ServiceBlockContext::new(
                 state_arc.clone(),
                 service_id,
                 block_id,

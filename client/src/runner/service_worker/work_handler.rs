@@ -8,8 +8,8 @@ use crate::runner::service_worker::{
     AsyncOperationStatus, CtrlOutputWriter,
 };
 use crate::runner::service_worker::async_operation::create_cmd;
-use crate::runner::service_worker::block_worker::BlockWorker;
-use crate::runner::service_worker::req_checker::RequirementChecker;
+use crate::runner::service_worker::service_block_context::ServiceBlockContext;
+use crate::runner::service_worker::req_checker::{RequirementCheckResult, RequirementChecker};
 use crate::system_state::OperationType;
 use crate::utils::format_err;
 
@@ -17,18 +17,17 @@ pub trait WorkHandler {
     fn handle_work(&self);
 }
 
-impl WorkHandler for BlockWorker {
+impl WorkHandler for ServiceBlockContext {
     fn handle_work(&self) {
         let work_dir = self.query_service(|service| service.definition.dir.clone());
         let block_status = self.get_block_status();
         let check_status = self.get_operation_status(OperationType::Check);
         let work_status = self.get_operation_status(OperationType::Work);
 
-        let (step, skip_if_healthy) = match block_status {
+        let (step) = match block_status {
             BlockStatus::Working {
                 step,
-                skip_if_healthy,
-            } => (step, skip_if_healthy),
+            } => step,
             _ => {
                 error!("ERROR: invoked work-processing function with invalid block status {block_status:?}");
                 return;
@@ -41,17 +40,17 @@ impl WorkHandler for BlockWorker {
             // Processes require that the work is in running-state in order for them to be healthy
             WorkDefinition::Process { .. } => true,
         });
-        let skip_if_healthy = skip_if_healthy && !is_process;
 
         match step {
             // Ensure that there's no lingering process. There should not be if other actions are handled correctly,
             // but some defensive programming here doesn't hurt.
-            WorkStep::Initial => {
+            WorkStep::Initial { skip_work_if_healthy } => {
                 self.stop_all_operations_and_then(|| {
                     self.update_status(
                         BlockStatus::Working {
-                            skip_if_healthy,
                             step: WorkStep::PrerequisiteCheck {
+                                skip_work_if_healthy,
+                                start_time: Instant::now(),
                                 checks_completed: 0,
                                 last_failure: None,
                             },
@@ -61,128 +60,112 @@ impl WorkHandler for BlockWorker {
             }
 
             WorkStep::PrerequisiteCheck {
-                last_failure: Some(failure_time),
-                ..
-            } if Instant::now().duration_since(failure_time) < PRE_REQ_FAILURE_WAIT => {
-                // Intentionally empty: we've checked prerequisites recently and failed, so just hold on and wait until
-                // an appropriate time has elapsed. The prereqs will be checked again in a future iteration.
-            }
-
-            WorkStep::PrerequisiteCheck {
+                skip_work_if_healthy,
+                start_time,
                 checks_completed,
-                ..
+                last_failure,
             } => {
-                let current_requirement = self.query_block(|block| {
-                    block.prerequisites.get(checks_completed).map(|req| req.clone())
-                });
+                let result = RequirementChecker {
+                    all_requirements: self.query_block(|block| block.prerequisites.clone()),
+                    current_requirement_idx: checks_completed,
+                    timeout: None,
+                    failure_wait_time: PRE_REQ_FAILURE_WAIT,
+                    start_time,
+                    last_failure,
+                    context: &self,
+                    workdir: self.query_service(|service| service.definition.dir.clone()),
+                }.check_requirements();
 
-                match (check_status, current_requirement) {
-                    (_, None) if skip_if_healthy => {
+                match result {
+                    RequirementCheckResult::Working => {
+                        // Do nothing intentionally, we're still processing
+                    }
+                    RequirementCheckResult::AllOk => {
                         self.update_status(
                             BlockStatus::Working {
-                                skip_if_healthy,
-                                step: WorkStep::PreWorkHealthCheck {
-                                    checks_completed: 0,
+                                step: if skip_work_if_healthy && !is_process {
+                                    WorkStep::PreWorkHealthCheck {
+                                        start_time: Instant::now(),
+                                        checks_completed: 0,
+                                    }
+                                } else {
+                                    WorkStep::PerformWork {
+                                        steps_completed: 0
+                                    }
                                 },
                             },
                         );
                     }
-                    (_, None) => {
+                    RequirementCheckResult::CurrentCheckOk => {
                         self.update_status(
                             BlockStatus::Working {
-                                skip_if_healthy,
-                                step: WorkStep::PerformWork {
-                                    steps_completed: 0
-                                },
-                            },
-                        );
-                    }
-                    (None, Some(requirement)) => {
-                        self.check_requirement(&requirement, true);
-                    }
-                    (Some(AsyncOperationStatus::Failed), _) => {
-                        self.clear_stopped_operation(OperationType::Check);
-                        self.update_status(
-                            BlockStatus::Working {
-                                skip_if_healthy,
                                 step: WorkStep::PrerequisiteCheck {
-                                    checks_completed: 0,
-                                    last_failure: Some(Instant::now()),
-                                },
-                            },
-                        );
-                    }
-                    (Some(AsyncOperationStatus::Ok), _) => {
-                        // Increment the amount of successful checks
-                        self.clear_stopped_operation(OperationType::Check);
-                        self.update_status(
-                            BlockStatus::Working {
-                                skip_if_healthy,
-                                step: WorkStep::PrerequisiteCheck {
+                                    start_time,
+                                    skip_work_if_healthy,
                                     checks_completed: checks_completed + 1,
                                     last_failure: None,
                                 },
                             },
                         );
                     }
-                    (Some(AsyncOperationStatus::Running), _) => {
-                        // Do nothing, wait for the async check to finish
-                    }
-                }
-            }
-
-            WorkStep::PreWorkHealthCheck { checks_completed } => {
-                let current_requirement = self.query_block(|block| {
-                    block.health.requirements.get(checks_completed).map(|req| req.clone())
-                });
-                let has_health_checks = self.query_block(|block| !block.health.requirements.is_empty());
-
-                match (check_status, current_requirement) {
-                    // If the block has no health checks then we must not treat "all requirements passed" as a free
-                    // ticket to skip work, but we must always execute the blocks work.
-                    (_, None) if !has_health_checks => self.update_status(
-                        BlockStatus::Working {
-                            skip_if_healthy,
-                            step: WorkStep::PerformWork {
-                                steps_completed: 0,
-                            },
-                        },
-                    ),
-                    // Otherwise, if there is no current requirement then we know that all of them have been
-                    // successfully checked
-                    (_, None) => self.update_status(
-                        BlockStatus::Ok,
-                    ),
-                    // No ongoing process, still requirements to check => start the check for the next one
-                    (None, Some(requirement)) => {
-                        self.check_requirement(&requirement, false);
-                    }
-                    // Health check failed, we must fully perform the block's work. Move into the appropriate state
-                    (Some(AsyncOperationStatus::Failed), _) => {
-                        self.clear_stopped_operation(OperationType::Check);
+                    RequirementCheckResult::CurrentCheckFailed => {
                         self.update_status(
                             BlockStatus::Working {
-                                skip_if_healthy,
-                                step: WorkStep::PerformWork {
-                                    steps_completed: 0,
+                                step: WorkStep::PrerequisiteCheck {
+                                    skip_work_if_healthy,
+                                    start_time,
+                                    checks_completed: 0,
+                                    last_failure: Some(Instant::now()),
                                 },
                             },
                         );
                     }
-                    (Some(AsyncOperationStatus::Ok), _) => {
-                        // Increment the amount of successful checks
-                        self.clear_stopped_operation(OperationType::Check);
+                    RequirementCheckResult::Timeout => {
+                        error!("Prerequisite check timed out, even though timeout should not be possible");
+                    }
+                }
+            }
+
+            WorkStep::PreWorkHealthCheck { start_time, checks_completed } => {
+                let result = RequirementChecker {
+                    all_requirements: self.query_block(|block| block.health.requirements.clone()),
+                    current_requirement_idx: checks_completed,
+                    timeout: Some(Duration::from_secs(0)),
+                    failure_wait_time: Duration::from_secs(0),
+                    start_time,
+                    last_failure: None,
+                    context: &self,
+                    workdir: self.query_service(|service| service.definition.dir.clone()),
+                }.check_requirements();
+
+                match result {
+                    RequirementCheckResult::Working => {
+                        // Do nothing intentionally, we're still processing
+                    }
+                    RequirementCheckResult::AllOk => {
+                        // The block is healthy, we can move to OK status
+                        self.update_status(BlockStatus::Ok);
+                    }
+                    RequirementCheckResult::CurrentCheckOk => {
+                        // One check completed, move to check the next one
                         self.update_status(
                             BlockStatus::Working {
-                                skip_if_healthy,
                                 step: WorkStep::PreWorkHealthCheck {
+                                    start_time,
                                     checks_completed: checks_completed + 1,
                                 },
                             },
                         );
                     }
-                    (Some(AsyncOperationStatus::Running), _) => {
-                        // Do nothing, wait for the async check to finish
+                    RequirementCheckResult::CurrentCheckFailed | RequirementCheckResult::Timeout => {
+                        // If any check fails, then we must perform the work. Move to the appropriate state
+                        self.update_status(
+                            BlockStatus::Working {
+                                step: WorkStep::PerformWork {
+                                    steps_completed: 0,
+                                },
+                            },
+                        );
                     }
                 }
             }
@@ -196,7 +179,6 @@ impl WorkHandler for BlockWorker {
                             // Not performing any work, no more work to perform => move to post-work health check
                             (_, None) => self.update_status(
                                 BlockStatus::Working {
-                                    skip_if_healthy,
                                     step: WorkStep::PostWorkHealthCheck {
                                         start_time: Instant::now(),
                                         checks_completed: 0,
@@ -232,7 +214,6 @@ impl WorkHandler for BlockWorker {
                                 self.clear_stopped_operation(OperationType::Work);
                                 self.update_status(
                                     BlockStatus::Working {
-                                        skip_if_healthy,
                                         step: WorkStep::PerformWork {
                                             steps_completed: steps_completed + 1,
                                         },
@@ -257,7 +238,6 @@ impl WorkHandler for BlockWorker {
                                 // Process launched successfully, move to post-work health check
                                 self.register_external_work(process_handle, OperationType::Work);
                                 self.update_status(BlockStatus::Working {
-                                    skip_if_healthy,
                                     step: WorkStep::PostWorkHealthCheck {
                                         start_time: Instant::now(),
                                         checks_completed: 0,
@@ -278,12 +258,21 @@ impl WorkHandler for BlockWorker {
                 let current_requirement = self.query_block(|block| {
                     block.health.requirements.get(checks_completed).map(|req| req.clone())
                 });
-                let timeout = self.query_block(|block| block.health.timeout.clone());
+                let result = RequirementChecker {
+                    all_requirements: self.query_block(|block| block.health.requirements.clone()),
+                    current_requirement_idx: checks_completed,
+                    timeout: Some(self.query_block(|block| block.health.timeout.clone())),
+                    failure_wait_time: POST_WORK_HEALTH_FAILURE_WAIT,
+                    start_time,
+                    last_failure,
+                    context: &self,
+                    workdir: self.query_service(|service| service.definition.dir.clone()),
+                }.check_requirements();
 
-                match (check_status, current_requirement, last_failure) {
+                match result {
                     // If the block is a process and we do not have a live process running, then immediately stop all
                     // work and enter error state
-                    (_, _, _) if is_process && !matches!(work_status, Some(AsyncOperationStatus::Running)) => {
+                    _ if is_process && !matches!(work_status, Some(AsyncOperationStatus::Running)) => {
                         self.stop_all_operations_and_then(|| {
                             self.add_ctrl_output("External process has terminated unexpectedly.".to_owned());
                             self.update_status(BlockStatus::Error)
@@ -291,41 +280,11 @@ impl WorkHandler for BlockWorker {
                     }
                     // If there are no more (or at all) requirements to check, then we can finally consider the
                     // block healthy
-                    (_, None, _) => self.update_status(BlockStatus::Ok),
-                    // We have failed at least one health check and have exceeded the timout.
-                    (_, _, Some(_)) if Instant::now().duration_since(start_time) > timeout => {
-                        // TODO should this kill the process or not?
-                        self.stop_all_operations_and_then(|| self.update_status(BlockStatus::Error));
-                    }
-                    (_, _, Some(failure_time)) if Instant::now().duration_since(failure_time) < POST_WORK_HEALTH_FAILURE_WAIT => {
-                        // We have failed at least once a short time ago. Just wait for time to elapse so that we dont
-                        // spam health checks constantly
-                    }
-                    // No ongoing check, still have requirements to check => start the next check
-                    (None, Some(requirement), _) => {
-                        self.check_requirement(&requirement, false);
-                    }
-                    // Health check failed, we must fully perform the block's work. Move into the appropriate state
-                    (Some(AsyncOperationStatus::Failed), _, _) => {
-                        self.clear_stopped_operation(OperationType::Check);
+                    RequirementCheckResult::AllOk => self.update_status(BlockStatus::Ok),
+                    RequirementCheckResult::Timeout => self.update_status(BlockStatus::Error),
+                    RequirementCheckResult::CurrentCheckOk => {
                         self.update_status(
                             BlockStatus::Working {
-                                skip_if_healthy,
-                                step: WorkStep::PostWorkHealthCheck {
-                                    start_time,
-                                    checks_completed: 0,
-                                    last_failure: Some(Instant::now()),
-                                },
-                            },
-                        );
-                    }
-                    // Current check is successful, increment the amount of successful checks
-                    (Some(AsyncOperationStatus::Ok), _, _) => {
-                        // Increment the amount of successful checks
-                        self.clear_stopped_operation(OperationType::Check);
-                        self.update_status(
-                            BlockStatus::Working {
-                                skip_if_healthy,
                                 step: WorkStep::PostWorkHealthCheck {
                                     start_time,
                                     last_failure,
@@ -334,8 +293,19 @@ impl WorkHandler for BlockWorker {
                             },
                         );
                     }
-                    (Some(AsyncOperationStatus::Running), _, _) => {
-                        // Do nothing, wait for the async check to finish
+                    RequirementCheckResult::CurrentCheckFailed => {
+                        self.update_status(
+                            BlockStatus::Working {
+                                step: WorkStep::PostWorkHealthCheck {
+                                    start_time,
+                                    checks_completed: 0,
+                                    last_failure: Some(Instant::now()),
+                                },
+                            },
+                        );
+                    }
+                    RequirementCheckResult::Working => {
+                        // Nothing to do, intentioanlly empty.
                     }
                 }
             }

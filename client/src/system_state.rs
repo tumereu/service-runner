@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::thread::JoinHandle;
 
 use crate::config::{Block, Config};
-use crate::models::{GetBlock, OutputKey, OutputStore, Profile, Service};
+use crate::models::{BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service};
 use crate::runner::file_watcher::FileWatcherState;
 use crate::runner::service_worker::AsyncOperationHandle;
 use crate::ui::UIState;
@@ -55,10 +55,13 @@ impl SystemState {
         self.async_operations.get(key)
     }
 
-    pub fn has_operations(&self, service_id: &str) -> bool {
+    pub fn is_processing(&self, service_id: &str) -> bool {
         self.get_service(service_id)
             .iter()
-            .flat_map(|service| service.definition.blocks.iter().map(|block| block.id.clone()))
+            .flat_map(|service| {
+                service.definition.blocks.iter().map(|block| block.id.clone())
+                    .filter(|block_id| !matches!(service.get_block_status(&block_id), BlockStatus::Ok))
+            })
             .flat_map(|block_id| [
                 (block_id.clone(), OperationType::Check),
                 (block_id.clone(), OperationType::Work),

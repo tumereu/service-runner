@@ -61,11 +61,6 @@ impl From<ServiceDefinition> for Service {
 pub enum BlockStatus {
     Initial,
     Working {
-        /// If `true`, then the actual work step will be skipped if the block is deemed healthy
-        /// before execution. If `false`, then pre-work health checks will not be performed and work
-        /// is always performed. Has no effect if the block is a non-detatched process -- such blocks must always be
-        /// executed.
-        skip_if_healthy: bool,
         step: WorkStep,
     },
     Ok,
@@ -74,12 +69,25 @@ pub enum BlockStatus {
 
 #[derive(Debug, Clone)]
 pub enum WorkStep {
-    Initial,
+    Initial {
+        /// If `true`, then the actual work step will be skipped if the block is deemed healthy
+        /// before execution. If `false`, then pre-work health checks will not be performed and work
+        /// is always performed. Has no effect if the block is a non-detatched process -- such blocks must always be
+        /// executed.
+        skip_work_if_healthy: bool,
+    },
     PrerequisiteCheck {
+        /// If `true`, then the actual work step will be skipped if the block is deemed healthy
+        /// before execution. If `false`, then pre-work health checks will not be performed and work
+        /// is always performed. Has no effect if the block is a non-detatched process -- such blocks must always be
+        /// executed.
+        skip_work_if_healthy: bool,
+        start_time: Instant,
         checks_completed: usize,
         last_failure: Option<Instant>,
     },
     PreWorkHealthCheck {
+        start_time: Instant,
         checks_completed: usize,
     },
     PerformWork {
@@ -90,11 +98,6 @@ pub enum WorkStep {
         checks_completed: usize,
         last_failure: Option<Instant>,
     },
-}
-impl Default for WorkStep {
-    fn default() -> Self {
-        Self::Initial
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

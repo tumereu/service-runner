@@ -1,33 +1,89 @@
-use std::net::TcpListener;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
 use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
-
+use std::net::TcpListener;
+use std::path::Path;
+use std::time::{Duration, Instant};
 use crate::config::{HttpMethod, Requirement};
-use crate::models::BlockStatus;
 use crate::rhai::RHAI_ENGINE;
-use crate::runner::service_worker::block_worker::BlockWorker;
 use crate::runner::service_worker::utils::format_reqwest_error;
-use crate::runner::service_worker::WorkResult;
+use crate::runner::service_worker::{AsyncOperationStatus, WorkResult};
+use crate::runner::service_worker::work_context::WorkContext;
 use crate::system_state::OperationType;
 
 pub enum RequirementCheckResult {
-    Ok,
-    Failed,
-    Async,
+    AllOk,
+    CurrentCheckOk,
+    Working,
+    CurrentCheckFailed,
+    Timeout,
 }
 
-pub trait RequirementChecker {
-    fn check_requirement(&self, requirement: &Requirement, silent: bool);
+pub struct RequirementChecker<'a, W: WorkContext> {
+    pub all_requirements: Vec<Requirement>,
+    pub current_requirement_idx: usize,
+    pub timeout: Option<Duration>,
+    pub failure_wait_time: Duration,
+    pub start_time: Instant,
+    pub last_failure: Option<Instant>,
+    pub context: &'a W,
+    pub workdir: String,
 }
+impl<'a, W: WorkContext> RequirementChecker<'a, W> {
+    pub fn check_requirements(self) -> RequirementCheckResult {
+        let current_requirement = self.all_requirements.get(self.current_requirement_idx).cloned();
+        let check_status = self.context.get_concurrent_operation_status(OperationType::Check);
 
-impl RequirementChecker for BlockWorker {
-    fn check_requirement(
-        &self,
-        requirement: &Requirement,
-        silent: bool,
-    ) {
+        match (check_status.clone(), current_requirement, self.last_failure) {
+            // If there are no more requirements to check (or there never were any at all), then we can consider the
+            // check successful
+            (_, None, _) => RequirementCheckResult::AllOk,
+            // We have failed at least one health check, a timeout is defined, and we have exceeded it
+            (_, _, Some(_)) if self.timeout.map(|timeout| {
+                Instant::now().duration_since(self.start_time) > timeout
+            }).unwrap_or(false) => {
+                match check_status {
+                    Some(AsyncOperationStatus::Running) => {
+                        self.context.stop_concurrent_operation(OperationType::Check);
+                        RequirementCheckResult::Working
+                    }
+                    Some(AsyncOperationStatus::Failed) | Some(AsyncOperationStatus::Ok) => {
+                        self.context.clear_concurrent_operation(OperationType::Check);
+                        RequirementCheckResult::Working
+                    }
+                    None => RequirementCheckResult::Timeout,
+                }
+            }
+            (_, _, Some(failure_time))
+                if Instant::now().duration_since(failure_time) < self.failure_wait_time =>
+            {
+                // We have failed at least once a short time ago. Wait for at least the specified wait time so that
+                // checks are not constantly spammed.
+                RequirementCheckResult::Working
+            }
+            // No ongoing check, still have requirements to check => start the next check
+            (None, Some(requirement), _) => {
+                self.check_requirement(&requirement, false);
+                RequirementCheckResult::Working
+            }
+            // A check has failed, but we have not yet exceeded the timeout. Clear the operation and returned
+            // corresponding status
+            (Some(AsyncOperationStatus::Failed), _, _) => {
+                self.context.clear_concurrent_operation(OperationType::Check);
+                RequirementCheckResult::CurrentCheckFailed
+            }
+            // Current check is successful, the system can move onto the next check.
+            (Some(AsyncOperationStatus::Ok), _, _) => {
+                self.context.clear_concurrent_operation(OperationType::Check);
+                RequirementCheckResult::CurrentCheckOk
+            }
+            (Some(AsyncOperationStatus::Running), _, _) => {
+                // Do nothing, wait for the async check to finish
+                RequirementCheckResult::Working
+            }
+        }
+    }
+
+    fn check_requirement(&self, requirement: &Requirement, silent: bool) {
         match requirement.clone() {
             Requirement::Http {
                 url,
@@ -35,7 +91,7 @@ impl RequirementChecker for BlockWorker {
                 timeout,
                 status,
             } => {
-                self.perform_async_work(move || {
+                self.context.perform_async_work(move || {
                     let http_client = HttpClient::new();
 
                     let result = http_client
@@ -84,48 +140,49 @@ impl RequirementChecker for BlockWorker {
             Requirement::Port { port, host } => {
                 let host = match host {
                     Some(host) => host.clone(),
-                    None => "127.0.0.1".to_owned()
+                    None => "127.0.0.1".to_owned(),
                 };
 
-                // TODO output to logs
-                self.perform_async_work(move || {
-                    let successful = TcpListener::bind(format!("{host}:{port}")).is_err();
+                self.context.perform_async_work(
+                    move || {
+                        let successful = TcpListener::bind(format!("{host}:{port}")).is_err();
 
-                    WorkResult {
-                        successful,
-                        output: if successful {
-                            vec![format!("Req OK: successsfully bound to {host}:{port}")]
-                        } else {
-                            vec![format!("Req fail: could not bind to {host}:{port}")]
+                        WorkResult {
+                            successful,
+                            output: if successful {
+                                vec![format!("Req OK: successsfully bound to {host}:{port}")]
+                            } else {
+                                vec![format!("Req fail: could not bind to {host}:{port}")]
+                            },
                         }
-                    }
-                }, OperationType::Check, silent);
+                    },
+                    OperationType::Check,
+                    silent,
+                );
             }
             Requirement::StateQuery { query } => {
-                let mut scope = self.create_rhai_scope();
+                let mut scope = self.context.create_rhai_scope();
                 // TODO currently evaluation is performed synchronously. Move engine to a worker thread to allow for
                 // longer scripts?
                 let result = match RHAI_ENGINE.eval_with_scope::<bool>(&mut scope, &query) {
                     Ok(value) => WorkResult {
                         successful: value,
-                        output: vec![
-                            format!("Query '{query}' => {value}")
-                        ]
+                        output: vec![format!("Query '{query}' => {value}")],
                     },
                     Err(e) => WorkResult {
                         successful: false,
-                        output: vec![
-                            format!("Error processing expression in query '{query}': {e:?}")
-                        ]
-                    }
+                        output: vec![format!(
+                            "Error processing expression in query '{query}': {e:?}"
+                        )],
+                    },
                 };
 
-                self.perform_async_work(move || result, OperationType::Check, silent);
+                self.context.perform_async_work(move || result, OperationType::Check, silent);
             }
             Requirement::File { paths } => {
-                let workdir = self.query_service(|service| service.definition.dir.clone());
+                let workdir = self.workdir.clone();
 
-                self.perform_async_work(move || {
+                self.context.perform_async_work(move || {
                     let mut output = Vec::new();
                     let mut success = true;
 

@@ -226,7 +226,7 @@ fn service_list(
             .map(|(index, service)| {
                 // FIXME resolve from service properlycjBjj
                 let show_output = true;
-                let is_processing = system_state.has_operations(&service.definition.id);
+                let is_processing = system_state.is_processing(&service.definition.id);
 
                 let start_elements = vec![
                     // Service name

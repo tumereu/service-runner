@@ -5,7 +5,6 @@ use serde_derive::{Deserialize, Serialize};
 use crate::config::{AutomationEntry, ExecutableEntry, HttpMethod, Requirement};
 
 // TODO validate :
-//      - id should not be "self"
 //      - block or task ids/names should be unique
 //      - ids should be at most 23 characters long to support SmartString
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -65,5 +64,9 @@ pub struct TaskDefinition {
 pub enum TaskStep {
     Command { command: ExecutableEntry },
     Action { action: String },
-    Wait(HealthCheckConfig),
+    Wait { 
+        #[serde(with = "humantime_serde")]
+        timeout: Duration,
+        requirement: Requirement,
+    },
 }
