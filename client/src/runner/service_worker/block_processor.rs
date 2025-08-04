@@ -115,7 +115,7 @@ impl BlockProcessor for ServiceBlockContext {
                         // Everything is OK
                     }
                     _ if require_live_process => {
-                        // We don't have a live process but our work is of a type that it requires one. Likely the
+                        // We don't have a live process and our work is of a type that it requires one. Likely the
                         // process has crashed or has been killed. Enter error-state
                         self.add_ctrl_output("External process has terminated unexpectedly.".to_owned());
                         self.update_status(BlockStatus::Error);

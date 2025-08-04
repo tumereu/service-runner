@@ -53,9 +53,12 @@ pub enum WorkDefinition {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TaskDefinitionId(pub String);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct TaskDefinition {
-    pub id: String,
+    pub id: TaskDefinitionId,
     pub steps: Vec<TaskStep>,
 }
 

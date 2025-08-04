@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::thread::JoinHandle;
-
+use itertools::izip;
 use crate::config::{Block, Config};
-use crate::models::{BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service};
+use crate::models::{BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId};
 use crate::runner::file_watcher::FileWatcherState;
-use crate::runner::service_worker::AsyncOperationHandle;
+use crate::runner::service_worker::ConcurrentOperationHandle;
 use crate::ui::UIState;
 
 pub struct SystemState {
@@ -15,7 +15,7 @@ pub struct SystemState {
     pub should_exit: bool,
     pub active_threads: Vec<(String, JoinHandle<()>)>,
     pub file_watchers: Option<FileWatcherState>,
-    async_operations: HashMap<BlockOperationKey, AsyncOperationHandle>,
+    concurrent_operations: HashMap<BlockOperationKey, ConcurrentOperationHandle>,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -42,7 +42,7 @@ impl SystemState {
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
             file_watchers: None,
-            async_operations: HashMap::new(),
+            concurrent_operations: HashMap::new(),
             config,
         }
     }
@@ -51,8 +51,8 @@ impl SystemState {
         self.current_profile.as_ref().map(|profile| profile.definition.id.as_str())
     }
 
-    pub fn get_block_operation(&self, key: &BlockOperationKey) -> Option<&AsyncOperationHandle> {
-        self.async_operations.get(key)
+    pub fn get_block_operation(&self, key: &BlockOperationKey) -> Option<&ConcurrentOperationHandle> {
+        self.concurrent_operations.get(key)
     }
 
     pub fn is_processing(&self, service_id: &str) -> bool {
@@ -85,10 +85,10 @@ impl SystemState {
         })
     }
 
-    pub fn set_block_operation(&mut self, key: BlockOperationKey, process: Option<AsyncOperationHandle>) {
+    pub fn set_block_operation(&mut self, key: BlockOperationKey, process: Option<ConcurrentOperationHandle>) {
         match process {
-            Some(process) => self.async_operations.insert(key, process),
-            None => self.async_operations.remove(&key),
+            Some(process) => self.concurrent_operations.insert(key, process),
+            None => self.concurrent_operations.remove(&key),
         };
     }
 
@@ -103,6 +103,16 @@ impl SystemState {
                         service.definition.id == service_id
                     })
             })
+    }
+
+    pub fn get_task(&self, id: &TaskId) -> Option<&Task> {
+        let task = self.current_profile.as_ref()
+            .and_then(|profile| profile.task_id_to_idx.get(id).cloned())
+            .and_then(|idx| {
+                self.current_profile.as_ref().and_then(|profile| profile.tasks.get(idx))
+            });
+
+        task
     }
 
     pub fn get_service_block(&self, service_id: &str, block_id: &str) -> Option<&Block> {
@@ -128,6 +138,21 @@ impl SystemState {
 
         if let Some(service) = service_option {
             update(service);
+        }
+    }
+
+    pub fn update_task<F>(&mut self, id: &TaskId, update: F)
+    where
+        F: FnOnce(&mut Task),
+    {
+        let task_option = self.current_profile.as_ref()
+            .and_then(|profile| profile.task_id_to_idx.get(id).cloned())
+            .and_then(|idx| {
+                self.current_profile.as_mut().and_then(|profile| profile.tasks.get_mut(idx))
+            });
+
+        if let Some(task) = task_option {
+            update(task);
         }
     }
 

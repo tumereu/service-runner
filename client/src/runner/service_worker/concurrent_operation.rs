@@ -19,23 +19,23 @@ pub enum ConcurrentOperationStatus {
     Failed,
 }
 
-pub enum AsyncOperationHandle {
+pub enum ConcurrentOperationHandle {
     Process(ProcessWrapper),
     Work(WorkWrapper),
 }
-impl AsyncOperationHandle {
+impl ConcurrentOperationHandle {
     pub fn status(&self) -> ConcurrentOperationStatus {
         match self {
-            AsyncOperationHandle::Process(wrapper) => wrapper.status.lock().unwrap().clone(),
-            AsyncOperationHandle::Work(wrapper) => wrapper.status.lock().unwrap().clone(),
+            ConcurrentOperationHandle::Process(wrapper) => wrapper.status.lock().unwrap().clone(),
+            ConcurrentOperationHandle::Work(wrapper) => wrapper.status.lock().unwrap().clone(),
         }
     }
 
     /// Signals to this operation that it should stop
     pub fn stop(&self) {
         match self {
-            AsyncOperationHandle::Process(wrapper) => wrapper.stop(),
-            AsyncOperationHandle::Work(_) => {
+            ConcurrentOperationHandle::Process(wrapper) => wrapper.stop(),
+            ConcurrentOperationHandle::Work(_) => {
                 // Work is intended for short-lived operations, and cannot be stopped. It should
                 // finish soon on its own
             }

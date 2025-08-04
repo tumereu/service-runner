@@ -9,7 +9,7 @@ use crate::runner::service_worker::{
 };
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::requirement_checker::{RequirementCheckResult, RequirementChecker};
-use crate::runner::service_worker::sequence_executor::{create_cmd, WorkExecutionResult, WorkSequenceExecutor};
+use crate::runner::service_worker::work_sequence_executor::{create_cmd, WorkExecutionResult, WorkSequenceExecutor};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::system_state::OperationType;
 use crate::utils::format_err;
@@ -183,8 +183,8 @@ impl WorkHandler for ServiceBlockContext {
                             context: &self,
                             workdir: self.query_service(|service| service.definition.dir.clone()),
                         }.exec_next();
-                        
-                        match result { 
+
+                        match result {
                             // No recoverable failures here, go into error for any kind of issue
                             WorkExecutionResult::Failed | WorkExecutionResult::RecoverableFailure => {
                                 self.update_status(BlockStatus::Error);

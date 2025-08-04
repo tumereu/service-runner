@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 
 use log::{debug, error};
 
-use crate::config::Block;
-use crate::models::{BlockAction, BlockStatus, GetBlock, Service};
+use crate::config::{Block, TaskDefinitionId};
+use crate::models::{BlockAction, BlockStatus, GetBlock, Service, Task, TaskAction, TaskId, TaskStatus};
 use crate::rhai::populate_rhai_scope;
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
@@ -13,46 +13,44 @@ use crate::runner::service_worker::{
 };
 use crate::system_state::{BlockOperationKey, OperationType, SystemState};
 
-pub struct ServiceBlockContext {
+pub struct TaskContext {
     system_state: Arc<Mutex<SystemState>>,
-    pub service_id: String,
-    pub block_id: String,
+    pub task_id: TaskId,
+    pub definition_id: TaskDefinitionId,
 }
-impl ServiceBlockContext {
+impl TaskContext {
     pub fn new(
         system_state: Arc<Mutex<SystemState>>,
-        service_id: String,
-        block_id: String,
+        task_id: TaskId,
+        definition_id: TaskDefinitionId,
     ) -> Self {
         Self {
             system_state,
-            service_id,
-            block_id,
+            task_id,
+            definition_id,
         }
     }
 
     pub fn clear_current_action(&self) {
         let mut state = self.system_state.lock().unwrap();
-        state.update_service(&self.service_id, |service| {
-            service.update_block_action(&self.block_id, None)
-        })
-    }
-
-    pub fn update_status(&self, status: BlockStatus) {
-        let mut state = self.system_state.lock().unwrap();
-        state.update_service(&self.service_id, |service| {
-            service.update_block_status(&self.block_id, status)
+        state.update_task(&self.task_id, |task| {
+            task.action = None;
         });
     }
 
-    pub fn update_service<F>(&self, update: F)
+    pub fn update_status(&self, status: TaskStatus) {
+        let mut state = self.system_state.lock().unwrap();
+        state.update_task(&self.task_id, |task| {
+            task.status = status;
+        });
+    }
+
+    pub fn update_task<F>(&mut self, update: F)
     where
-        F: FnOnce(&mut Service),
+        F: FnOnce(&mut Task),
     {
-        self.system_state
-            .lock()
-            .unwrap()
-            .update_service(&self.service_id, update);
+        let mut state = self.system_state.lock().unwrap();
+        state.update_task(&self.task_id, update);
     }
 
     pub fn query_system<R, F>(&self, query: F) -> R
@@ -64,118 +62,26 @@ impl ServiceBlockContext {
         query(&state)
     }
 
-    pub fn query_service<R, F>(&self, query: F) -> R
+    pub fn query_task<R, F>(&self, query: F) -> R
     where
-        F: FnOnce(&Service) -> R,
+        F: FnOnce(&Task) -> R,
     {
         let state = self.system_state.lock().unwrap();
-        let service = state.get_service(&self.service_id).unwrap();
+        let task = state.get_task(&self.task_id).unwrap();
 
-        query(service)
+        query(task)
     }
 
-    pub fn query_block<R, F>(&self, query: F) -> R
-    where
-        F: FnOnce(&Block) -> R,
-    {
-        let state = self.system_state.lock().unwrap();
-        let block = state
-            .get_service(&self.service_id)
-            .unwrap()
-            .get_block(&self.block_id)
-            .unwrap();
-
-        query(block)
+    pub fn get_action(&self) -> Option<TaskAction> {
+        self.query_task(|task| task.action.clone())
     }
 
-    pub fn get_action(&self) -> Option<BlockAction> {
-        self.query_service(|service| service.get_block_action(&self.block_id))
-    }
-
-    pub fn get_block_status(&self) -> BlockStatus {
-        self.query_service(|service| service.get_block_status(&self.block_id))
-    }
-
-    /// A call to this will do one (and only one of the following) of the following.
-    /// - Issue a stop signal to the current operation of this block, if it is running, or
-    /// - remove the current block operation from system state if it exists and is stopped, or
-    /// - executes the given function if the block has no stored operation.
-    pub fn stop_operation_and_then<F>(&self, operation_type: OperationType, execute: F)
-    where
-        F: FnOnce(),
-    {
-        let debug_id = format!("{}.{}", self.service_id, self.block_id);
-
-        match self.get_concurrent_operation_status(operation_type.clone()) {
-            Some(ConcurrentOperationStatus::Running) => {
-                debug!("Stopping current operation for {debug_id}");
-                self.system_state
-                    .lock()
-                    .unwrap()
-                    .get_block_operation(&BlockOperationKey {
-                        service_id: self.service_id.clone(),
-                        block_id: self.block_id.clone(),
-                        operation_type: operation_type.clone(),
-                    })
-                    .iter()
-                    .for_each(|operation| operation.stop());
-            }
-            Some(status) => {
-                debug!("Current operation for {debug_id} has stopped ({status:?}), removing it");
-
-                self.system_state.lock().unwrap().set_block_operation(
-                    BlockOperationKey {
-                        service_id: self.service_id.clone(),
-                        block_id: self.block_id.clone(),
-                        operation_type: operation_type.clone(),
-                    },
-                    None,
-                )
-            }
-            None => {
-                execute();
-            }
-        }
-    }
-
-    /// Similar to `stop_operation_and_then`, but stops operations of all types and only after that executes the given
-    /// function.
-    pub fn stop_all_operations_and_then<F>(&self, execute: F)
-    where
-        F: FnOnce(),
-    {
-        self.stop_operation_and_then(OperationType::Work, || {
-            self.stop_operation_and_then(OperationType::Check, execute);
-        });
-    }
-
-    pub fn clear_stopped_operation(&self, operation_type: OperationType) {
-        let debug_id = format!("{}.{}", self.service_id, self.block_id);
-
-        match self.get_concurrent_operation_status(operation_type.clone()) {
-            Some(ConcurrentOperationStatus::Running) => {
-                error!("Received request to clear stopped operation for {debug_id} but operation is still running")
-            }
-            Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
-                debug!("Removing stopped operation for {debug_id}");
-
-                self.system_state.lock().unwrap().set_block_operation(
-                    BlockOperationKey {
-                        service_id: self.service_id.clone(),
-                        block_id: self.block_id.clone(),
-                        operation_type: operation_type.clone(),
-                    },
-                    None,
-                );
-            }
-            None => {
-                // No need to do anything, no operation to remove
-            }
-        }
+    pub fn get_status(&self) -> TaskStatus {
+        self.query_task(|task| task.status.clone())
     }
 }
 
-impl WorkContext for &ServiceBlockContext {
+impl WorkContext for &TaskContext {
     fn stop_concurrent_operation(&self, operation_type: OperationType) {
         self.system_state
             .lock()
