@@ -7,10 +7,9 @@ use crate::models::{BlockStatus, WorkStep};
 use crate::runner::service_worker::{
     ConcurrentOperationStatus, CtrlOutputWriter,
 };
-use crate::runner::service_worker::concurrent_operation::create_cmd;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::requirement_checker::{RequirementCheckResult, RequirementChecker};
-use crate::runner::service_worker::sequence_executor::{create_cmd, SequenceExecutor};
+use crate::runner::service_worker::sequence_executor::{create_cmd, WorkExecutionResult, WorkSequenceExecutor};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::system_state::OperationType;
 use crate::utils::format_err;
@@ -91,6 +90,7 @@ impl WorkHandler for ServiceBlockContext {
                                     }
                                 } else {
                                     WorkStep::PerformWork {
+                                        current_step_started: Instant::now(),
                                         steps_completed: 0
                                     }
                                 },
@@ -163,6 +163,7 @@ impl WorkHandler for ServiceBlockContext {
                         self.update_status(
                             BlockStatus::Working {
                                 step: WorkStep::PerformWork {
+                                    current_step_started: Instant::now(),
                                     steps_completed: 0,
                                 },
                             },
@@ -171,66 +172,44 @@ impl WorkHandler for ServiceBlockContext {
                 }
             }
 
-            WorkStep::PerformWork { steps_completed } => {
+            WorkStep::PerformWork { steps_completed, current_step_started: step_started } => {
                 match self.query_block(|block| block.work.clone()) {
                     WorkDefinition::CommandSeq { commands: executable_entries } => {
-                        SequenceExecutor {
-                            sequence: ,
-                            completed_count: usize,
-                            start_time: Instant,
-                            last_recoverable_failure: Option<Instant>,
-                            context: &'a W,
-                            workdir: String,
-                        }
-                        let next_executable = executable_entries.get(steps_completed);
-
-                        match (work_status, next_executable) {
-                            // Not performing any work, no more work to perform => move to post-work health check
-                            (_, None) => self.update_status(
-                                BlockStatus::Working {
+                        let result = WorkSequenceExecutor {
+                            sequence: executable_entries.iter().map(|entry| entry.clone().into()).collect(),
+                            completed_count: steps_completed,
+                            start_time: step_started,
+                            last_recoverable_failure: None,
+                            context: &self,
+                            workdir: self.query_service(|service| service.definition.dir.clone()),
+                        }.exec_next();
+                        
+                        match result { 
+                            // No recoverable failures here, go into error for any kind of issue
+                            WorkExecutionResult::Failed | WorkExecutionResult::RecoverableFailure => {
+                                self.update_status(BlockStatus::Error);
+                            }
+                            WorkExecutionResult::EntryOk => {
+                                self.update_status(
+                                    BlockStatus::Working {
+                                        step: WorkStep::PerformWork {
+                                            current_step_started: Instant::now(),
+                                            steps_completed: steps_completed + 1,
+                                        },
+                                    },
+                                )
+                            },
+                            WorkExecutionResult::AllOk => {
+                                self.update_status(BlockStatus::Working {
                                     step: WorkStep::PostWorkHealthCheck {
                                         start_time: Instant::now(),
                                         checks_completed: 0,
                                         last_failure: None,
                                     }
-                                },
-                            ),
-                            // No ongoing process, but some work left to perform. Attempt to spawn a child process
-                            (None, Some(executable)) => {
-                                let mut command = create_cmd(
-                                    executable,
-                                    Some(work_dir),
-                                );
-                                self.add_ctrl_output(format!("Exec: {executable}"));
-
-                                match command.spawn() {
-                                    Ok(process_handle) => {
-                                        self.register_external_process(process_handle, OperationType::Work);
-                                    }
-                                    Err(error) => {
-                                        self.update_status(BlockStatus::Error);
-                                        self.add_ctrl_output(format_err!("Failed to spawn child process", error));
-                                    }
-                                }
+                                })
                             }
-                            // A work operation has failed. Move into error state
-                            (Some(ConcurrentOperationStatus::Failed), _) => {
-                                self.clear_stopped_operation(OperationType::Work);
-                                self.update_status(BlockStatus::Error);
-                            }
-                            (Some(ConcurrentOperationStatus::Ok), _) => {
-                                // Increment the number of commands successfully completed
-                                self.clear_stopped_operation(OperationType::Work);
-                                self.update_status(
-                                    BlockStatus::Working {
-                                        step: WorkStep::PerformWork {
-                                            steps_completed: steps_completed + 1,
-                                        },
-                                    },
-                                );
-                            }
-                            (Some(ConcurrentOperationStatus::Running), _) => {
-                                // Do nothing, wait for the current work to finish
+                            WorkExecutionResult::Working => {
+                                // Nothing to do but wait
                             }
                         }
                     }

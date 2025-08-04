@@ -91,6 +91,7 @@ pub enum WorkStep {
         checks_completed: usize,
     },
     PerformWork {
+        current_step_started: Instant,
         steps_completed: usize,
     },
     PostWorkHealthCheck {

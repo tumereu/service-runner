@@ -11,7 +11,7 @@ use crate::runner::service_worker::work_context::WorkContext;
 use crate::system_state::OperationType;
 use crate::utils::format_err;
 
-pub enum SequenceExecutionResult {
+pub enum WorkExecutionResult {
     EntryOk,
     AllOk,
     Working,
@@ -19,27 +19,27 @@ pub enum SequenceExecutionResult {
     Failed,
 }
 
-pub struct SequenceExecutor<'a, W: WorkContext> {
-    pub sequence: Vec<SequenceEntry>,
+pub struct WorkSequenceExecutor<'a, W: WorkContext> {
+    pub sequence: Vec<WorkSequenceEntry>,
     pub completed_count: usize,
     pub start_time: Instant,
     pub last_recoverable_failure: Option<Instant>,
     pub context: &'a W,
     pub workdir: String,
 }
-impl<'a, W: WorkContext> SequenceExecutor<'a, W> {
-    pub fn exec_next(self) -> SequenceExecutionResult {
+impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
+    pub fn exec_next(self) -> WorkExecutionResult {
         let next_entry = &self.sequence.get(self.completed_count);
 
         match next_entry {
-            None => SequenceExecutionResult::AllOk,
-            Some(SequenceEntry::ExecutableEntry(entry)) => self.handle_executable_entry(entry),
-            Some(SequenceEntry::RhaiScript(script)) => self.handle_rhai_script(script),
-            Some(SequenceEntry::WaitRequirement { timeout, requirement }) => self.handle_requirement(timeout, requirement),
+            None => WorkExecutionResult::AllOk,
+            Some(WorkSequenceEntry::ExecutableEntry(entry)) => self.handle_executable_entry(entry),
+            Some(WorkSequenceEntry::RhaiScript(script)) => self.handle_rhai_script(script),
+            Some(WorkSequenceEntry::WaitRequirement { timeout, requirement }) => self.handle_requirement(timeout, requirement),
         }
     }
 
-    fn handle_executable_entry(&self, entry: &ExecutableEntry) -> SequenceExecutionResult {
+    fn handle_executable_entry(&self, entry: &ExecutableEntry) -> WorkExecutionResult {
         match self.context.get_concurrent_operation_status(OperationType::Work) {
             None => {
                 let mut command = create_cmd(entry, Some(self.workdir.clone()));
@@ -48,37 +48,37 @@ impl<'a, W: WorkContext> SequenceExecutor<'a, W> {
                 match command.spawn() {
                     Ok(process_handle) => {
                         self.context.register_external_process(process_handle, OperationType::Work);
-                        SequenceExecutionResult::Working
+                        WorkExecutionResult::Working
                     }
                     Err(error) => {
                         self.context.add_ctrl_output(format_err!("Failed to spawn child process", error));
-                        SequenceExecutionResult::Failed
+                        WorkExecutionResult::Failed
                     }
                 }
             }
-            Some(ConcurrentOperationStatus::Running) => SequenceExecutionResult::Working,
+            Some(ConcurrentOperationStatus::Running) => WorkExecutionResult::Working,
             Some(ConcurrentOperationStatus::Ok) => {
                 self.context.clear_concurrent_operation(OperationType::Work);
-                SequenceExecutionResult::EntryOk
+                WorkExecutionResult::EntryOk
             }
             Some(ConcurrentOperationStatus::Failed) => {
                 self.context.clear_concurrent_operation(OperationType::Work);
-                SequenceExecutionResult::Failed
+                WorkExecutionResult::Failed
             }
         }
     }
 
-    fn handle_rhai_script(&self, script: &String) -> SequenceExecutionResult {
+    fn handle_rhai_script(&self, script: &String) -> WorkExecutionResult {
         let mut scope = self.context.create_rhai_scope();
         // TODO currently evaluation is performed synchronously. Move engine to a worker thread to allow for
         //      longer scripts?
         match RHAI_ENGINE.eval_with_scope::<bool>(&mut scope, script) {
-            Ok(_) => SequenceExecutionResult::EntryOk,
-            Err(_) => SequenceExecutionResult::Failed,
+            Ok(_) => WorkExecutionResult::EntryOk,
+            Err(_) => WorkExecutionResult::Failed,
         }
     }
 
-    fn handle_requirement(&self, timeout: &Duration, requirement: &Requirement) -> SequenceExecutionResult {
+    fn handle_requirement(&self, timeout: &Duration, requirement: &Requirement) -> WorkExecutionResult {
         let result = RequirementChecker {
             all_requirements: vec![requirement.clone()],
             completed_count: 0,
@@ -91,15 +91,15 @@ impl<'a, W: WorkContext> SequenceExecutor<'a, W> {
         }.check_requirements();
 
         match result {
-            RequirementCheckResult::AllOk | RequirementCheckResult::CurrentCheckOk => SequenceExecutionResult::EntryOk,
-            RequirementCheckResult::CurrentCheckFailed => SequenceExecutionResult::RecoverableFailure,
-            RequirementCheckResult::Timeout => SequenceExecutionResult::Failed,
-            RequirementCheckResult::Working => SequenceExecutionResult::Working,
+            RequirementCheckResult::AllOk | RequirementCheckResult::CurrentCheckOk => WorkExecutionResult::EntryOk,
+            RequirementCheckResult::CurrentCheckFailed => WorkExecutionResult::RecoverableFailure,
+            RequirementCheckResult::Timeout => WorkExecutionResult::Failed,
+            RequirementCheckResult::Working => WorkExecutionResult::Working,
         }
     }
 }
 
-pub enum SequenceEntry {
+pub enum WorkSequenceEntry {
     ExecutableEntry(ExecutableEntry),
     RhaiScript(String),
     WaitRequirement {
@@ -107,17 +107,17 @@ pub enum SequenceEntry {
         requirement: Requirement,
     },
 }
-impl Into<SequenceEntry> for ExecutableEntry {
-    fn into(self) -> SequenceEntry {
-        SequenceEntry::ExecutableEntry(self)
+impl Into<WorkSequenceEntry> for ExecutableEntry {
+    fn into(self) -> WorkSequenceEntry {
+        WorkSequenceEntry::ExecutableEntry(self)
     }
 }
-impl Into<SequenceEntry> for TaskStep {
-    fn into(self) -> SequenceEntry {
+impl Into<WorkSequenceEntry> for TaskStep {
+    fn into(self) -> WorkSequenceEntry {
         match self {
-            TaskStep::Command { command } => SequenceEntry::ExecutableEntry(command),
-            TaskStep::Action { action } => SequenceEntry::RhaiScript(action),
-            TaskStep::Wait { timeout, requirement } => SequenceEntry::WaitRequirement {
+            TaskStep::Command { command } => WorkSequenceEntry::ExecutableEntry(command),
+            TaskStep::Action { action } => WorkSequenceEntry::RhaiScript(action),
+            TaskStep::Wait { timeout, requirement } => WorkSequenceEntry::WaitRequirement {
                 timeout,
                 requirement,
             },
