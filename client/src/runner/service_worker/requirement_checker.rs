@@ -31,7 +31,7 @@ pub struct RequirementChecker<'a, W: WorkContext> {
 impl<'a, W: WorkContext> RequirementChecker<'a, W> {
     pub fn check_requirements(self) -> RequirementCheckResult {
         let current_requirement = self.all_requirements.get(self.completed_count).cloned();
-        let check_status = self.context.get_concurrent_operation_status(OperationType::Check);
+        let check_status = self.context.get_concurrent_operation_status();
 
         match (check_status.clone(), current_requirement, self.last_failure) {
             // If there are no more requirements to check (or there never were any at all), then we can consider the
@@ -43,11 +43,11 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
             }).unwrap_or(false) => {
                 match check_status {
                     Some(ConcurrentOperationStatus::Running) => {
-                        self.context.stop_concurrent_operation(OperationType::Check);
+                        self.context.stop_concurrent_operation();
                         RequirementCheckResult::Working
                     }
                     Some(ConcurrentOperationStatus::Failed) | Some(ConcurrentOperationStatus::Ok) => {
-                        self.context.clear_concurrent_operation(OperationType::Check);
+                        self.context.clear_concurrent_operation();
                         RequirementCheckResult::Working
                     }
                     None => RequirementCheckResult::Timeout,
@@ -62,18 +62,18 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
             }
             // No ongoing check, still have requirements to check => start the next check
             (None, Some(requirement), _) => {
-                self.check_requirement(&requirement, false);
+                self.check_requirement(&requirement);
                 RequirementCheckResult::Working
             }
             // A check has failed, but we have not yet exceeded the timeout. Clear the operation and returned
             // corresponding status
             (Some(ConcurrentOperationStatus::Failed), _, _) => {
-                self.context.clear_concurrent_operation(OperationType::Check);
+                self.context.clear_concurrent_operation();
                 RequirementCheckResult::CurrentCheckFailed
             }
             // Current check is successful, the system can move onto the next check.
             (Some(ConcurrentOperationStatus::Ok), _, _) => {
-                self.context.clear_concurrent_operation(OperationType::Check);
+                self.context.clear_concurrent_operation();
                 RequirementCheckResult::CurrentCheckOk
             }
             (Some(ConcurrentOperationStatus::Running), _, _) => {
@@ -83,7 +83,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
         }
     }
 
-    fn check_requirement(&self, requirement: &Requirement, silent: bool) {
+    fn check_requirement(&self, requirement: &Requirement) {
         match requirement.clone() {
             Requirement::Http {
                 url,
@@ -135,7 +135,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                             }
                         }
                     }
-                }, OperationType::Check, silent);
+                });
             }
             Requirement::Port { port, host } => {
                 let host = match host {
@@ -156,8 +156,6 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                             },
                         }
                     },
-                    OperationType::Check,
-                    silent,
                 );
             }
             Requirement::StateQuery { query } => {
@@ -177,7 +175,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                     },
                 };
 
-                self.context.perform_concurrent_work(move || result, OperationType::Check, silent);
+                self.context.perform_concurrent_work(move || result);
             }
             Requirement::File { paths } => {
                 let workdir = self.workdir.clone();
@@ -241,7 +239,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                         successful: success,
                         output
                     }
-                }, OperationType::Check, silent);
+                });
             }
         };
     }

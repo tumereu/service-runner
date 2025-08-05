@@ -6,10 +6,10 @@ blocks:
     commands:
       - executable: /usr/bin/python3
         args:
-          - simulate-build.py
+          - build.py
       - executable: /usr/bin/python3
         args:
-          - simulate-assemble.py
+          - assemble.py
     status_line:
       symbol: Bld
       slot: 20
@@ -41,6 +41,10 @@ blocks:
           url: http://localhost:8000/status
           status: 200
 tasks:
-  - id: "Clean restart"
+  - id: "clean-build"
     steps:
       - action: cancel("build")
+      - executable: /usr/bin/python3
+        args:
+          - clean.py
+      - action: rerun("build")

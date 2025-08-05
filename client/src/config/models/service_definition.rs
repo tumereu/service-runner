@@ -66,7 +66,10 @@ pub struct TaskDefinition {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum TaskStep {
-    Command { command: ExecutableEntry },
+    Command {
+        #[serde(flatten)]
+        command: ExecutableEntry
+    },
     Action { action: String },
     Wait { 
         #[serde(with = "humantime_serde")]

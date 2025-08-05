@@ -6,16 +6,23 @@ pub use concurrent_operation::*;
 use crate::models::TaskStatus;
 use crate::runner::service_worker::block_processor::BlockProcessor;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
+use crate::runner::service_worker::task_context::TaskContext;
 use crate::system_state::SystemState;
 
+use crate::runner::service_worker::{
+    ConcurrentOperationStatus,
+};
+use crate::runner::service_worker::task_processor::TaskProcessor;
+use crate::runner::service_worker::work_context::WorkContext;
+
 mod concurrent_operation;
-mod work_handler;
 mod service_block_context;
 mod block_processor;
 mod requirement_checker;
 mod work_context;
 mod work_sequence_executor;
 mod task_context;
+mod task_processor;
 
 pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
@@ -48,9 +55,8 @@ fn work_services(state_arc: Arc<Mutex<SystemState>>) {
         let state = state_arc.lock().unwrap();
         
         state.current_profile.iter().flat_map(|profile| profile.tasks.iter())
-            .enumerate()
-            .filter(|(_, task)| matches!(task.status, TaskStatus::Running { .. }))
-            .map(|(idx, task)| (idx, task.definition_id.clone()))
+            .filter(|task| matches!(task.status, TaskStatus::Running { .. }))
+            .map(|task| (task.id, task.definition_id.clone()))
             .collect::<Vec<_>>()
     };
 
@@ -66,7 +72,11 @@ fn work_services(state_arc: Arc<Mutex<SystemState>>) {
             ).process_block();
         });
     
-    tasks_to_work.into_iter().for_each(|task| {
-        
+    tasks_to_work.into_iter().for_each(|(task_id, definition_id)| {
+        TaskContext::new(
+            state_arc.clone(),
+            task_id,
+            definition_id
+        ).process_task();
     })
 }

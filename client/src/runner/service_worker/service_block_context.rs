@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 
@@ -99,87 +100,18 @@ impl ServiceBlockContext {
         self.query_service(|service| service.get_block_status(&self.block_id))
     }
 
-    /// A call to this will do one (and only one of the following) of the following.
-    /// - Issue a stop signal to the current operation of this block, if it is running, or
-    /// - remove the current block operation from system state if it exists and is stopped, or
-    /// - executes the given function if the block has no stored operation.
-    pub fn stop_operation_and_then<F>(&self, operation_type: OperationType, execute: F)
-    where
-        F: FnOnce(),
-    {
-        let debug_id = format!("{}.{}", self.service_id, self.block_id);
-
-        match self.get_concurrent_operation_status(operation_type.clone()) {
-            Some(ConcurrentOperationStatus::Running) => {
-                debug!("Stopping current operation for {debug_id}");
-                self.system_state
-                    .lock()
-                    .unwrap()
-                    .get_concurrent_operation(&ConcurrentOperationKey::Block {
-                        service_id: self.service_id.clone(),
-                        block_id: self.block_id.clone(),
-                        operation_type: operation_type.clone(),
-                    })
-                    .iter()
-                    .for_each(|operation| operation.stop());
-            }
-            Some(status) => {
-                debug!("Current operation for {debug_id} has stopped ({status:?}), removing it");
-
-                self.system_state.lock().unwrap().set_concurrent_operation(
-                    ConcurrentOperationKey::Block {
-                        service_id: self.service_id.clone(),
-                        block_id: self.block_id.clone(),
-                        operation_type: operation_type.clone(),
-                    },
-                    None,
-                )
-            }
-            None => {
-                execute();
-            }
-        }
+    pub fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<ConcurrentOperationStatus> {
+        self.system_state
+            .lock()
+            .unwrap()
+            .get_concurrent_operation(&ConcurrentOperationKey::Block {
+                service_id: self.service_id.clone(),
+                block_id: self.block_id.clone(),
+                operation_type,
+            }).map(|operation| operation.status())
     }
 
-    /// Similar to `stop_operation_and_then`, but stops operations of all types and only after that executes the given
-    /// function.
-    pub fn stop_all_operations_and_then<F>(&self, execute: F)
-    where
-        F: FnOnce(),
-    {
-        self.stop_operation_and_then(OperationType::Work, || {
-            self.stop_operation_and_then(OperationType::Check, execute);
-        });
-    }
-
-    pub fn clear_stopped_operation(&self, operation_type: OperationType) {
-        let debug_id = format!("{}.{}", self.service_id, self.block_id);
-
-        match self.get_concurrent_operation_status(operation_type.clone()) {
-            Some(ConcurrentOperationStatus::Running) => {
-                error!("Received request to clear stopped operation for {debug_id} but operation is still running")
-            }
-            Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
-                debug!("Removing stopped operation for {debug_id}");
-
-                self.system_state.lock().unwrap().set_concurrent_operation(
-                    ConcurrentOperationKey::Block {
-                        service_id: self.service_id.clone(),
-                        block_id: self.block_id.clone(),
-                        operation_type: operation_type.clone(),
-                    },
-                    None,
-                );
-            }
-            None => {
-                // No need to do anything, no operation to remove
-            }
-        }
-    }
-}
-
-impl WorkContext for &ServiceBlockContext {
-    fn stop_concurrent_operation(&self, operation_type: OperationType) {
+    pub fn stop_concurrent_operation(&self, operation_type: OperationType) {
         self.system_state
             .lock()
             .unwrap()
@@ -192,10 +124,50 @@ impl WorkContext for &ServiceBlockContext {
             .for_each(|operation| operation.stop());
     }
 
-    fn clear_concurrent_operation(&self, operation_type: OperationType) {
+    pub fn clear_all_operations(&self) {
+        panic!("FIXME implement")
+    }
+
+    pub fn create_work_context(&self, operation_type: OperationType, silent: bool) -> BlockWorkContext {
+        BlockWorkContext {
+            block_context: self,
+            operation_type,
+            silent,
+        }
+    }
+}
+
+pub struct BlockWorkContext<'a> {
+    block_context: &'a ServiceBlockContext,
+    operation_type: OperationType,
+    silent: bool
+}
+impl<'a> Deref for BlockWorkContext<'a> {
+    type Target = &'a ServiceBlockContext;
+
+    fn deref(&self) -> &Self::Target {
+        &self.block_context
+    }
+}
+
+impl WorkContext for &BlockWorkContext<'_> {
+    fn stop_concurrent_operation(&self) {
+        self.block_context.system_state
+            .lock()
+            .unwrap()
+            .get_concurrent_operation(&ConcurrentOperationKey::Block {
+                service_id: self.service_id.clone(),
+                block_id: self.block_id.clone(),
+                operation_type: self.operation_type.clone(),
+            })
+            .iter()
+            .for_each(|operation| operation.stop());
+    }
+
+    fn clear_concurrent_operation(&self) {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
 
-        match self.get_concurrent_operation_status(operation_type.clone()) {
+        match self.get_concurrent_operation_status() {
             Some(ConcurrentOperationStatus::Running) => {
                 error!("Received request to clear stopped operation for {debug_id} but operation is still running")
             }
@@ -206,7 +178,7 @@ impl WorkContext for &ServiceBlockContext {
                     ConcurrentOperationKey::Block {
                         service_id: self.service_id.clone(),
                         block_id: self.block_id.clone(),
-                        operation_type: operation_type.clone(),
+                        operation_type: self.operation_type.clone(),
                     },
                     None,
                 );
@@ -217,25 +189,19 @@ impl WorkContext for &ServiceBlockContext {
         }
     }
 
-    fn stop_all_concurrent_operations(&self) {
-        [OperationType::Work, OperationType::Check].into_iter().for_each(|operation_type| {
-            self.stop_concurrent_operation(operation_type);
-        })
-    }
-
-    fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<ConcurrentOperationStatus> {
+    fn get_concurrent_operation_status(&self) -> Option<ConcurrentOperationStatus> {
         self.system_state
             .lock()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),
-                operation_type,
+                operation_type: self.operation_type.clone(),
             })
             .map(|operation| operation.status())
     }
 
-    fn perform_concurrent_work<F>(&self, work: F, operation_type: OperationType, silent: bool)
+    fn perform_concurrent_work<F>(&self, work: F)
     where
         F: FnOnce() -> WorkResult + Send + 'static,
     {
@@ -243,20 +209,20 @@ impl WorkContext for &ServiceBlockContext {
             self.system_state.clone(),
             Some(self.service_id.clone()),
             self.block_id.clone(),
-            silent,
+            self.silent,
             work,
         );
         self.system_state.lock().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),
-                operation_type,
+                operation_type: self.operation_type.clone(),
             },
             Some(ConcurrentOperationHandle::Work(wrapper)),
         );
     }
 
-    fn register_external_process(&self, handle: Child, operation_type: OperationType) {
+    fn register_external_process(&self, handle: Child) {
         let wrapper = ProcessWrapper::wrap(
             self.system_state.clone(),
             Some(self.service_id.clone()),
@@ -268,7 +234,7 @@ impl WorkContext for &ServiceBlockContext {
             ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),
-                operation_type,
+                operation_type: self.operation_type.clone(),
             },
             Some(ConcurrentOperationHandle::Process(wrapper)),
         );

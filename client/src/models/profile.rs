@@ -33,11 +33,11 @@ impl Profile {
         }
     }
     
-    pub fn spawn_task(&mut self, task_definition_id: &TaskDefinitionId, service_id: Option<&str>) {
-        let task_def = match service_id { 
+    pub fn spawn_task(&mut self, task_definition_id: &TaskDefinitionId, service_id: Option<String>) {
+        let task_def = match service_id.as_ref() { 
             None => self.definition.tasks.iter().find(|task| &task.id == task_definition_id),
             Some(service_id) => self.services
-                .iter().find(|service| service.definition.id == service_id)
+                .iter().find(|service| &service.definition.id == service_id)
                 .and_then(|service| {
                     service.definition.tasks.iter().find(|task| &task.id == task_definition_id)
                 })
@@ -53,7 +53,7 @@ impl Profile {
                 definition_id: task_def.id.clone(),
                 status: Default::default(),
                 start_time: Instant::now(),
-                service_id: service_id.map(|id| id.to_owned()),
+                service_id: service_id.clone(),
                 action: None,
             });
             if self.tasks.len() > MAX_RETAINED_TASKS {

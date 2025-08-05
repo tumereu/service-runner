@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crossterm::event::{Event, KeyCode, KeyModifiers, poll as poll_events, read as read_event};
 use log::debug;
-
+use crate::config::TaskDefinitionId;
 use crate::models::{Action, Action::*, BlockAction, get_active_outputs, Profile};
 use crate::runner::process_action::process_action;
 use crate::SystemState;
@@ -82,6 +82,16 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                 },
                 KeyCode::Char('a') => {
                     // FIXME toggle automation
+                }
+                KeyCode::Char('d') => {
+                    // TODO this is just a test
+                    let mut state = system.lock().unwrap();
+                    state.current_profile.iter_mut().for_each(|profile| {
+                        profile.spawn_task(
+                            &TaskDefinitionId("clean-build".to_owned()),
+                            selected_service_id.clone(),
+                        )
+                    });
                 }
 
                 // Toggling should-run

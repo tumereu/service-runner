@@ -40,14 +40,14 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
     }
 
     fn handle_executable_entry(&self, entry: &ExecutableEntry) -> WorkExecutionResult {
-        match self.context.get_concurrent_operation_status(OperationType::Work) {
+        match self.context.get_concurrent_operation_status() {
             None => {
                 let mut command = create_cmd(entry, Some(self.workdir.clone()));
                 self.context.add_system_output(format!("Exec: {entry}"));
 
                 match command.spawn() {
                     Ok(process_handle) => {
-                        self.context.register_external_process(process_handle, OperationType::Work);
+                        self.context.register_external_process(process_handle);
                         WorkExecutionResult::Working
                     }
                     Err(error) => {
@@ -58,11 +58,11 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
             }
             Some(ConcurrentOperationStatus::Running) => WorkExecutionResult::Working,
             Some(ConcurrentOperationStatus::Ok) => {
-                self.context.clear_concurrent_operation(OperationType::Work);
+                self.context.clear_concurrent_operation();
                 WorkExecutionResult::EntryOk
             }
             Some(ConcurrentOperationStatus::Failed) => {
-                self.context.clear_concurrent_operation(OperationType::Work);
+                self.context.clear_concurrent_operation();
                 WorkExecutionResult::Failed
             }
         }

@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 
@@ -101,39 +102,47 @@ impl TaskContext {
     }
 }
 
-impl WorkContext for &TaskContext {
-    fn stop_concurrent_operation(&self, operation_type: OperationType) {
+pub struct TaskWorkContext<'a> {
+    task_context: &'a TaskContext,
+    silent: bool
+}
+impl<'a> Deref for TaskWorkContext<'a> {
+    type Target = &'a TaskContext;
+
+    fn deref(&self) -> &Self::Target {
+        &self.task_context
+    }
+}
+
+impl WorkContext for &TaskWorkContext<'_> {
+    fn stop_concurrent_operation(&self) {
         self.system_state
             .lock()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Task {
                 task_id: self.task_id.clone(),
-                operation_type,
             })
             .iter()
             .for_each(|operation| operation.stop());
     }
 
-    fn clear_concurrent_operation(&self, operation_type: OperationType) {
-        match self.get_concurrent_operation_status(operation_type.clone()) {
+    fn clear_concurrent_operation(&self) {
+        match self.get_concurrent_operation_status() {
             Some(ConcurrentOperationStatus::Running) => {
                 error!(
-                    "Received request to clear stopped operation {operation_type:?} for task {id} but operation is still running",
-                    operation_type = operation_type,
+                    "Received request to clear stopped operation for task {id} but operation is still running",
                     id = self.task_id,
                 )
             }
             Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
                 debug!(
-                    "Removing stopped operation of type {operation_type:?} for {id}",
-                    operation_type = operation_type,
+                    "Removing stopped operation of type for {id}",
                     id = self.task_id,
                 );
 
                 self.system_state.lock().unwrap().set_concurrent_operation(
                     ConcurrentOperationKey::Task {
                         task_id: self.task_id.clone(),
-                        operation_type: operation_type.clone(),
                     },
                     None,
                 );
@@ -144,24 +153,17 @@ impl WorkContext for &TaskContext {
         }
     }
 
-    fn stop_all_concurrent_operations(&self) {
-        [OperationType::Work, OperationType::Check].into_iter().for_each(|operation_type| {
-            self.stop_concurrent_operation(operation_type);
-        })
-    }
-
-    fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<ConcurrentOperationStatus> {
+    fn get_concurrent_operation_status(&self) -> Option<ConcurrentOperationStatus> {
         self.system_state
             .lock()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Task {
                 task_id: self.task_id.clone(),
-                operation_type,
             })
             .map(|operation| operation.status())
     }
 
-    fn perform_concurrent_work<F>(&self, work: F, operation_type: OperationType, silent: bool)
+    fn perform_concurrent_work<F>(&self, work: F)
     where
         F: FnOnce() -> WorkResult + Send + 'static,
     {
@@ -169,19 +171,18 @@ impl WorkContext for &TaskContext {
             self.system_state.clone(),
             self.query_task(|task| task.service_id.clone()),
             self.get_task_definition_id().0,
-            silent,
+            self.silent,
             work,
         );
         self.system_state.lock().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Task {
                 task_id: self.task_id.clone(),
-                operation_type,
             },
             Some(ConcurrentOperationHandle::Work(wrapper)),
         );
     }
 
-    fn register_external_process(&self, handle: Child, operation_type: OperationType) {
+    fn register_external_process(&self, handle: Child) {
         let wrapper = ProcessWrapper::wrap(
             self.system_state.clone(),
             self.query_task(|task| task.service_id.clone()),
@@ -192,7 +193,6 @@ impl WorkContext for &TaskContext {
         self.system_state.lock().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Task {
                 task_id: self.task_id.clone(),
-                operation_type,
             },
             Some(ConcurrentOperationHandle::Process(wrapper)),
         );

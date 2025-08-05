@@ -27,13 +27,10 @@ pub enum ConcurrentOperationKey {
         block_id: String,
         operation_type: OperationType,
     },
-    Task {
-        task_id: TaskId,
-        operation_type: OperationType,
-    }
+    Task { task_id: TaskId }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum OperationType {
     /// Operation type used by prerequisite and health checks
     Check,
