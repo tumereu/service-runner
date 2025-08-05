@@ -43,7 +43,7 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
         match self.context.get_concurrent_operation_status(OperationType::Work) {
             None => {
                 let mut command = create_cmd(entry, Some(self.workdir.clone()));
-                self.context.add_ctrl_output(format!("Exec: {entry}"));
+                self.context.add_system_output(format!("Exec: {entry}"));
 
                 match command.spawn() {
                     Ok(process_handle) => {
@@ -51,7 +51,7 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
                         WorkExecutionResult::Working
                     }
                     Err(error) => {
-                        self.context.add_ctrl_output(format_err!("Failed to spawn child process", error));
+                        self.context.add_system_output(format_err!("Failed to spawn child process", error));
                         WorkExecutionResult::Failed
                     }
                 }

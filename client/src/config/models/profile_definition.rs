@@ -6,6 +6,7 @@ use crate::config::TaskDefinition;
 pub struct ProfileDefinition {
     pub id: String,
     pub services: Vec<ServiceRef>,
+    #[serde(default)]
     pub tasks: Vec<TaskDefinition>,
 }
 

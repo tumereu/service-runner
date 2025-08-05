@@ -1,12 +1,14 @@
 use std::time::Instant;
+use derive_more::Display;
+use crate::config::TaskDefinitionId;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 pub struct TaskId(pub usize);
 
 #[derive(Debug, Clone)]
 pub struct Task {
     pub id: TaskId,
-    pub definition_id: String,
+    pub definition_id: TaskDefinitionId,
     pub service_id: Option<String>,
     pub status: TaskStatus,
     pub start_time: Instant,

@@ -4,14 +4,14 @@ use std::sync::{Arc, Mutex};
 use log::{debug, error};
 
 use crate::config::{Block, TaskDefinitionId};
-use crate::models::{BlockAction, BlockStatus, GetBlock, Service, Task, TaskAction, TaskId, TaskStatus};
+use crate::models::{BlockAction, BlockStatus, GetBlock, OutputKey, OutputKind, Service, Task, TaskAction, TaskId, TaskStatus};
 use crate::rhai::populate_rhai_scope;
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
-    ConcurrentOperationHandle, ConcurrentOperationStatus, CtrlOutputWriter, ProcessWrapper, WorkResult,
+    ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
     WorkWrapper,
 };
-use crate::system_state::{BlockOperationKey, OperationType, SystemState};
+use crate::system_state::{ConcurrentOperationKey, OperationType, SystemState};
 
 pub struct TaskContext {
     system_state: Arc<Mutex<SystemState>>,
@@ -47,7 +47,7 @@ impl TaskContext {
 
     pub fn update_task<F>(&mut self, update: F)
     where
-        F: FnOnce(&mut Task),
+        F: for<'a> FnOnce(&'a mut Task),
     {
         let mut state = self.system_state.lock().unwrap();
         state.update_task(&self.task_id, update);
@@ -55,16 +55,30 @@ impl TaskContext {
 
     pub fn query_system<R, F>(&self, query: F) -> R
     where
-        F: FnOnce(&SystemState) -> R,
+        F: for<'a> FnOnce(&'a SystemState) -> R,
+        R: 'static,
     {
         let state = self.system_state.lock().unwrap();
 
-        query(&state)
+        let result = query(&state);
+        drop(state);
+
+        result
+    }
+
+    pub fn update_system<R, F>(&self, query: F)
+    where
+        F: for<'a> FnOnce(&'a mut SystemState),
+    {
+        let mut state = self.system_state.lock().unwrap();
+
+        query(&mut state);
     }
 
     pub fn query_task<R, F>(&self, query: F) -> R
     where
         F: FnOnce(&Task) -> R,
+        R: 'static,
     {
         let state = self.system_state.lock().unwrap();
         let task = state.get_task(&self.task_id).unwrap();
@@ -79,6 +93,12 @@ impl TaskContext {
     pub fn get_status(&self) -> TaskStatus {
         self.query_task(|task| task.status.clone())
     }
+
+    fn get_task_definition_id(&self) -> TaskDefinitionId {
+        self.query_system(|system| {
+            system.get_task(&self.task_id).unwrap().definition_id.clone()
+        })
+    }
 }
 
 impl WorkContext for &TaskContext {
@@ -86,9 +106,8 @@ impl WorkContext for &TaskContext {
         self.system_state
             .lock()
             .unwrap()
-            .get_block_operation(&BlockOperationKey {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
+            .get_concurrent_operation(&ConcurrentOperationKey::Task {
+                task_id: self.task_id.clone(),
                 operation_type,
             })
             .iter()
@@ -96,19 +115,24 @@ impl WorkContext for &TaskContext {
     }
 
     fn clear_concurrent_operation(&self, operation_type: OperationType) {
-        let debug_id = format!("{}.{}", self.service_id, self.block_id);
-
         match self.get_concurrent_operation_status(operation_type.clone()) {
             Some(ConcurrentOperationStatus::Running) => {
-                error!("Received request to clear stopped operation for {debug_id} but operation is still running")
+                error!(
+                    "Received request to clear stopped operation {operation_type:?} for task {id} but operation is still running",
+                    operation_type = operation_type,
+                    id = self.task_id,
+                )
             }
             Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
-                debug!("Removing stopped operation for {debug_id}");
+                debug!(
+                    "Removing stopped operation of type {operation_type:?} for {id}",
+                    operation_type = operation_type,
+                    id = self.task_id,
+                );
 
-                self.system_state.lock().unwrap().set_block_operation(
-                    BlockOperationKey {
-                        service_id: self.service_id.clone(),
-                        block_id: self.block_id.clone(),
+                self.system_state.lock().unwrap().set_concurrent_operation(
+                    ConcurrentOperationKey::Task {
+                        task_id: self.task_id.clone(),
                         operation_type: operation_type.clone(),
                     },
                     None,
@@ -130,29 +154,27 @@ impl WorkContext for &TaskContext {
         self.system_state
             .lock()
             .unwrap()
-            .get_block_operation(&BlockOperationKey {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
+            .get_concurrent_operation(&ConcurrentOperationKey::Task {
+                task_id: self.task_id.clone(),
                 operation_type,
             })
             .map(|operation| operation.status())
     }
 
-    fn perform_async_work<F>(&self, work: F, operation_type: OperationType, silent: bool)
+    fn perform_concurrent_work<F>(&self, work: F, operation_type: OperationType, silent: bool)
     where
         F: FnOnce() -> WorkResult + Send + 'static,
     {
         let wrapper = WorkWrapper::wrap(
             self.system_state.clone(),
-            self.service_id.clone(),
-            self.block_id.clone(),
+            self.query_task(|task| task.service_id.clone()),
+            self.get_task_definition_id().0,
             silent,
             work,
         );
-        self.system_state.lock().unwrap().set_block_operation(
-            BlockOperationKey {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
+        self.system_state.lock().unwrap().set_concurrent_operation(
+            ConcurrentOperationKey::Task {
+                task_id: self.task_id.clone(),
                 operation_type,
             },
             Some(ConcurrentOperationHandle::Work(wrapper)),
@@ -162,15 +184,14 @@ impl WorkContext for &TaskContext {
     fn register_external_process(&self, handle: Child, operation_type: OperationType) {
         let wrapper = ProcessWrapper::wrap(
             self.system_state.clone(),
-            self.service_id.clone(),
-            self.block_id.clone(),
+            self.query_task(|task| task.service_id.clone()),
+            self.get_task_definition_id().0,
             handle,
         );
 
-        self.system_state.lock().unwrap().set_block_operation(
-            BlockOperationKey {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
+        self.system_state.lock().unwrap().set_concurrent_operation(
+            ConcurrentOperationKey::Task {
+                task_id: self.task_id.clone(),
                 operation_type,
             },
             Some(ConcurrentOperationHandle::Process(wrapper)),
@@ -181,15 +202,22 @@ impl WorkContext for &TaskContext {
         let mut scope = rhai::Scope::new();
         let state = self.system_state.lock().unwrap();
 
-        populate_rhai_scope(&mut scope, &state, &self.service_id);
+        populate_rhai_scope(&mut scope, &state, self.query_task(|task| task.service_id.clone()));
 
         scope
     }
 
-    fn add_ctrl_output(&self, output: String) {
+    fn add_system_output(&self, output: String) {
         self.system_state
             .lock()
             .unwrap()
-            .add_ctrl_output(&self.service_id, output);
+            .add_output(
+                &OutputKey {
+                    service_id: self.query_task(|task| task.service_id.clone()),
+                    source_name: self.get_task_definition_id().0,
+                    kind: OutputKind::System
+                },
+                output
+            );
     }
 }

@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, VecDeque};
 use std::convert::Into;
 use std::time::Instant;
 use log::error;
-use crate::config::{ProfileDefinition, ServiceDefinition};
+use crate::config::{ProfileDefinition, ServiceDefinition, TaskDefinitionId};
 use crate::models::{Service, TaskId};
 use crate::models::task::{Task, TaskStatus};
 
@@ -33,7 +33,7 @@ impl Profile {
         }
     }
     
-    pub fn spawn_task(&mut self, task_definition_id: &str, service_id: Option<&str>) {
+    pub fn spawn_task(&mut self, task_definition_id: &TaskDefinitionId, service_id: Option<&str>) {
         let task_def = match service_id { 
             None => self.definition.tasks.iter().find(|task| &task.id == task_definition_id),
             Some(service_id) => self.services

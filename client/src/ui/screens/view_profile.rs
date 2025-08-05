@@ -361,34 +361,35 @@ fn output_pane(
                         )
                         .into_iter()
                         .map(|(key, line)| {
-                            let service_idx = profile.services.iter()
-                                .enumerate()
-                                .find(|(_, service)| service.definition.id == key.service_ref)
-                                .unwrap().0;
+                            let color_idx = key.service_id
+                                .clone()
+                                .and_then(|service_id| {
+                                    profile.services.iter()
+                                        .enumerate()
+                                        .find(|(_, service)| service.definition.id == service_id)
+                                        .map(|(idx, _)| idx)
+                                }).unwrap_or(profile.services.len());
+                            let name = key.service_id.clone().unwrap_or(profile.definition.id.clone());
 
                             OutputLine {
                                 prefix: vec![
                                     LinePart {
                                         text: match key.kind {
-                                            OutputKind::Run => "r/",
-                                            OutputKind::Compile => "c/"
+                                            OutputKind::System => "i/",
+                                            OutputKind::ExtProcess => "c/"
                                         }.to_string(),
                                         color: match key.kind {
-                                            OutputKind::Run => Color::Rgb(0, 180, 0),
-                                            OutputKind::Compile => Color::Rgb(0, 120, 220)
+                                            OutputKind::System => Color::Rgb(0, 180, 0),
+                                            OutputKind::ExtProcess => Color::Rgb(0, 120, 220)
                                         }.into(),
                                     },
                                     LinePart {
-                                        text: format!("{name}/", name = key.name),
-                                        color: match key.name.as_str() {
-                                            OutputKey::STD => None,
-                                            OutputKey::CTL => Some(Color::Rgb(180, 0, 130)),
-                                            other => Some(hashed_color(other))
-                                        },
+                                        text: format!("{name}/"),
+                                        color: SERVICE_NAME_COLORS[color_idx % SERVICE_NAME_COLORS.len()].into(),
                                     },
                                     LinePart {
-                                        text: format!("{service} | ", service = key.service_ref.clone()),
-                                        color: SERVICE_NAME_COLORS[service_idx % SERVICE_NAME_COLORS.len()].into(),
+                                        text: format!("{name} | ", name = force_len(&key.source_name, 5)),
+                                        color: Some(hashed_color(&key.source_name))
                                     },
                                 ],
                                 parts: vec![
@@ -423,10 +424,23 @@ fn output_pane(
     }
 }
 
-fn hashed_color(text: &str) -> Color {
-    // Hash the service name to obtain a color for it
+fn hashed_color(name: &str) -> Color {
+    // Hash the name to obtain a color for it
     let mut hasher = DefaultHasher::new();
-    text.hash(&mut hasher);
+    name.hash(&mut hasher);
     let hash: usize = hasher.finish() as usize;
     SERVICE_NAME_COLORS[hash % SERVICE_NAME_COLORS.len()]
+}
+
+fn force_len(text: &str, len: usize) -> String {
+    let actual_len = text.chars().count();
+
+    if actual_len == len {
+        text.to_string()
+    } else if actual_len > len {
+        text.chars().take(len).collect()
+    } else {
+        let padding = " ".repeat(len - actual_len);
+        format!("{}{}", text, padding)
+    }
 }

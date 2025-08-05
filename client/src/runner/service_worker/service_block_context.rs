@@ -4,14 +4,14 @@ use std::sync::{Arc, Mutex};
 use log::{debug, error};
 
 use crate::config::Block;
-use crate::models::{BlockAction, BlockStatus, GetBlock, Service};
+use crate::models::{BlockAction, BlockStatus, GetBlock, OutputKey, OutputKind, Service};
 use crate::rhai::populate_rhai_scope;
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
-    ConcurrentOperationHandle, ConcurrentOperationStatus, CtrlOutputWriter, ProcessWrapper, WorkResult,
+    ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
     WorkWrapper,
 };
-use crate::system_state::{BlockOperationKey, OperationType, SystemState};
+use crate::system_state::{ConcurrentOperationKey, OperationType, SystemState};
 
 pub struct ServiceBlockContext {
     system_state: Arc<Mutex<SystemState>>,
@@ -31,6 +31,16 @@ impl ServiceBlockContext {
         }
     }
 
+    pub fn query_state< R, F>(&self, query: F) -> R
+    where
+        F: for<'a> FnOnce(&'a SystemState) -> R,
+        R: 'static,
+    {
+        let state = self.system_state.lock().unwrap();
+        let result = query(&*state);
+        result
+    }
+
     pub fn clear_current_action(&self) {
         let mut state = self.system_state.lock().unwrap();
         state.update_service(&self.service_id, |service| {
@@ -47,7 +57,7 @@ impl ServiceBlockContext {
 
     pub fn update_service<F>(&self, update: F)
     where
-        F: FnOnce(&mut Service),
+        F: for<'a> FnOnce(&'a mut Service),
     {
         self.system_state
             .lock()
@@ -55,18 +65,10 @@ impl ServiceBlockContext {
             .update_service(&self.service_id, update);
     }
 
-    pub fn query_system<R, F>(&self, query: F) -> R
-    where
-        F: FnOnce(&SystemState) -> R,
-    {
-        let state = self.system_state.lock().unwrap();
-
-        query(&state)
-    }
-
     pub fn query_service<R, F>(&self, query: F) -> R
     where
-        F: FnOnce(&Service) -> R,
+        F: for<'a> FnOnce(&'a Service) -> R,
+        R: 'static,
     {
         let state = self.system_state.lock().unwrap();
         let service = state.get_service(&self.service_id).unwrap();
@@ -76,7 +78,8 @@ impl ServiceBlockContext {
 
     pub fn query_block<R, F>(&self, query: F) -> R
     where
-        F: FnOnce(&Block) -> R,
+        F: for<'a> FnOnce(&'a Block) -> R,
+        R: 'static,
     {
         let state = self.system_state.lock().unwrap();
         let block = state
@@ -112,7 +115,7 @@ impl ServiceBlockContext {
                 self.system_state
                     .lock()
                     .unwrap()
-                    .get_block_operation(&BlockOperationKey {
+                    .get_concurrent_operation(&ConcurrentOperationKey::Block {
                         service_id: self.service_id.clone(),
                         block_id: self.block_id.clone(),
                         operation_type: operation_type.clone(),
@@ -123,8 +126,8 @@ impl ServiceBlockContext {
             Some(status) => {
                 debug!("Current operation for {debug_id} has stopped ({status:?}), removing it");
 
-                self.system_state.lock().unwrap().set_block_operation(
-                    BlockOperationKey {
+                self.system_state.lock().unwrap().set_concurrent_operation(
+                    ConcurrentOperationKey::Block {
                         service_id: self.service_id.clone(),
                         block_id: self.block_id.clone(),
                         operation_type: operation_type.clone(),
@@ -159,8 +162,8 @@ impl ServiceBlockContext {
             Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
                 debug!("Removing stopped operation for {debug_id}");
 
-                self.system_state.lock().unwrap().set_block_operation(
-                    BlockOperationKey {
+                self.system_state.lock().unwrap().set_concurrent_operation(
+                    ConcurrentOperationKey::Block {
                         service_id: self.service_id.clone(),
                         block_id: self.block_id.clone(),
                         operation_type: operation_type.clone(),
@@ -180,7 +183,7 @@ impl WorkContext for &ServiceBlockContext {
         self.system_state
             .lock()
             .unwrap()
-            .get_block_operation(&BlockOperationKey {
+            .get_concurrent_operation(&ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),
                 operation_type,
@@ -199,8 +202,8 @@ impl WorkContext for &ServiceBlockContext {
             Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
                 debug!("Removing stopped operation for {debug_id}");
 
-                self.system_state.lock().unwrap().set_block_operation(
-                    BlockOperationKey {
+                self.system_state.lock().unwrap().set_concurrent_operation(
+                    ConcurrentOperationKey::Block {
                         service_id: self.service_id.clone(),
                         block_id: self.block_id.clone(),
                         operation_type: operation_type.clone(),
@@ -224,7 +227,7 @@ impl WorkContext for &ServiceBlockContext {
         self.system_state
             .lock()
             .unwrap()
-            .get_block_operation(&BlockOperationKey {
+            .get_concurrent_operation(&ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),
                 operation_type,
@@ -232,19 +235,19 @@ impl WorkContext for &ServiceBlockContext {
             .map(|operation| operation.status())
     }
 
-    fn perform_async_work<F>(&self, work: F, operation_type: OperationType, silent: bool)
+    fn perform_concurrent_work<F>(&self, work: F, operation_type: OperationType, silent: bool)
     where
         F: FnOnce() -> WorkResult + Send + 'static,
     {
         let wrapper = WorkWrapper::wrap(
             self.system_state.clone(),
-            self.service_id.clone(),
+            Some(self.service_id.clone()),
             self.block_id.clone(),
             silent,
             work,
         );
-        self.system_state.lock().unwrap().set_block_operation(
-            BlockOperationKey {
+        self.system_state.lock().unwrap().set_concurrent_operation(
+            ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),
                 operation_type,
@@ -256,13 +259,13 @@ impl WorkContext for &ServiceBlockContext {
     fn register_external_process(&self, handle: Child, operation_type: OperationType) {
         let wrapper = ProcessWrapper::wrap(
             self.system_state.clone(),
-            self.service_id.clone(),
+            Some(self.service_id.clone()),
             self.block_id.clone(),
             handle,
         );
 
-        self.system_state.lock().unwrap().set_block_operation(
-            BlockOperationKey {
+        self.system_state.lock().unwrap().set_concurrent_operation(
+            ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),
                 operation_type,
@@ -275,15 +278,22 @@ impl WorkContext for &ServiceBlockContext {
         let mut scope = rhai::Scope::new();
         let state = self.system_state.lock().unwrap();
 
-        populate_rhai_scope(&mut scope, &state, &self.service_id);
+        populate_rhai_scope(&mut scope, &state, Some(self.service_id.clone()));
 
         scope
     }
 
-    fn add_ctrl_output(&self, output: String) {
+    fn add_system_output(&self, output: String) {
         self.system_state
             .lock()
             .unwrap()
-            .add_ctrl_output(&self.service_id, output);
+            .add_output(
+                &OutputKey {
+                    service_id: Some(self.service_id.clone()),
+                    source_name: self.block_id.clone(),
+                    kind: OutputKind::System
+                },
+                output
+            );
     }
 }

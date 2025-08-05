@@ -167,28 +167,17 @@ impl OutputStore {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct OutputKey {
-    pub name: String,
-    pub service_ref: String,
+    pub service_id: Option<String>,
+    pub source_name: String,
     pub kind: OutputKind,
-}
-impl OutputKey {
-    pub const STD: &'static str = "std";
-    pub const CTL: &'static str = "ctl";
-
-    pub fn new(name: String, service_ref: String, kind: OutputKind) -> Self {
-        OutputKey {
-            name,
-            service_ref,
-            kind,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum OutputKind {
-    // FIXME 
-    Compile,
-    Run,
+    /// Output from the service runner itself
+    System,
+    /// Output from a runnable child process 
+    ExtProcess
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

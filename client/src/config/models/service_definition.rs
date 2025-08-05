@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use serde_derive::{Deserialize, Serialize};
 
+use derive_more::{Display};
 use crate::config::{AutomationEntry, ExecutableEntry, HttpMethod, Requirement};
 
 // TODO validate :
@@ -52,7 +53,7 @@ pub enum WorkDefinition {
     Process { command: ExecutableEntry },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Display, Clone, PartialOrd, PartialEq, Eq, Hash)]
 pub struct TaskDefinitionId(pub String);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

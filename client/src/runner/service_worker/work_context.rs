@@ -11,7 +11,7 @@ pub trait WorkContext {
     
     fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<ConcurrentOperationStatus>;
 
-    fn perform_async_work<F>(
+    fn perform_concurrent_work<F>(
         &self, work: F,
         operation_type: OperationType,
         silent: bool,
@@ -21,5 +21,5 @@ pub trait WorkContext {
 
     fn create_rhai_scope(&self) -> rhai::Scope;
 
-    fn add_ctrl_output(&self, output: String);
+    fn add_system_output(&self, output: String);
 }

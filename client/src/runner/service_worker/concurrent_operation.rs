@@ -49,8 +49,8 @@ pub struct WorkWrapper {
 impl WorkWrapper {
     pub fn wrap<F>(
         state_arc: Arc<Mutex<SystemState>>,
-        service_id: String,
-        block_id: String,
+        service_id: Option<String>,
+        work_name: String,
         silent: bool,
         work: F
     ) -> WorkWrapper where F : (FnOnce() -> WorkResult) + Send + 'static {
@@ -59,8 +59,13 @@ impl WorkWrapper {
         };
         let status = wrapper.status.clone();
         let state_arc_copy = state_arc.clone();
-        let service_id_copy = service_id.clone();
-        
+        let output_key = OutputKey {
+            service_id: service_id.clone(),
+            source_name: work_name.clone(),
+            kind: OutputKind::System,
+        };
+        let full_name = service_id.map(|id| format!("{id}.{work_name}")).unwrap_or(work_name);
+
         let thread = thread::spawn(move || {
             let result = work();
 
@@ -73,7 +78,7 @@ impl WorkWrapper {
             if !silent {
                 let mut state = state_arc_copy.lock().unwrap();
                 result.output.into_iter().for_each(|output| {
-                    state.add_ctrl_output(&service_id_copy, output);
+                    state.add_output(&output_key, output);
                 });
             }
         });
@@ -81,7 +86,7 @@ impl WorkWrapper {
         {
             let mut state = state_arc.lock().unwrap();
             state.active_threads.push((
-                format!("{service_id}.{block_id}-work"),
+                format!("{full_name}-work"),
                 thread
             ));
         }
@@ -97,31 +102,31 @@ pub struct WorkResult {
 
 pub struct ProcessWrapper {
     pub handle: Arc<Mutex<Child>>,
-    pub service_id: String,
-    pub block_id: String,
+    pub service_id: Option<String>,
+    pub work_name: String,
     pub status: Arc<Mutex<ConcurrentOperationStatus>>,
     force_exit: Arc<Mutex<bool>>,
 }
 impl ProcessWrapper {
     pub fn wrap(
         state_arc: Arc<Mutex<SystemState>>,
-        service_id: String,
-        block_id: String,
+        service_id: Option<String>,
+        work_name: String,
         process: Child,
     ) -> ProcessWrapper {
-        let thread_prefix = format!("{service_id}.{block_id}");
         let handler = ProcessWrapper {
             handle: Arc::new(Mutex::new(process)),
-            service_id,
-            block_id,
+            service_id: service_id.clone(),
+            work_name: work_name.clone(),
             force_exit: Arc::new(Mutex::new(false)),
             status: Arc::new(Mutex::new(ConcurrentOperationStatus::Running)),
         };
+        let full_name = service_id.map(|id| format!("{id}.{work_name}")).unwrap_or(work_name.clone());
 
         let mut new_threads = vec![
             // Kill the process when the server exits and invoke the callback after the process finishes
             (
-                format!("{thread_prefix}-manager"),
+                format!("{full_name}-manager"),
                 {
                     let process_handle = handler.handle.clone();
                     let force_exit = handler.force_exit.clone();
@@ -162,23 +167,27 @@ impl ProcessWrapper {
             ),
             // Read stdout
             (
-                format!("{thread_prefix}-stdout"),
+                format!("{full_name}-stdout"),
                 {
                     let process_handle = handler.handle.clone();
                     let state_arc = state_arc.clone();
                     let service_id = handler.service_id.clone();
+                    let output_key = OutputKey {
+                        service_id: service_id.clone(),
+                        source_name: work_name.clone(),
+                        kind: OutputKind::ExtProcess,
+                    };
 
                     thread::spawn(move || {
                         let stream = {
                             let mut handle = process_handle.lock().unwrap();
                             handle.stdout.take().unwrap()
                         };
-                        let key = OutputKey::new(OutputKey::STD.into(), service_id.clone(), OutputKind::Run);
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
                                 let mut state = state_arc.lock().unwrap();
-                                state.output_store.add_output(&key, line);
+                                state.output_store.add_output(&output_key, line);
                             }
                         }
                     })
@@ -186,23 +195,27 @@ impl ProcessWrapper {
             ),
             // Read stderr
             (
-                format!("{thread_prefix}-stderr"),
+                format!("{full_name}-stderr"),
                 {
                     let process_handle = handler.handle.clone();
                     let state_arc = state_arc.clone();
                     let service_id = handler.service_id.clone();
+                    let output_key = OutputKey {
+                        service_id: service_id.clone(),
+                        source_name: work_name.clone(),
+                        kind: OutputKind::ExtProcess,
+                    };
 
                     thread::spawn(move || {
                         let stream = {
                             let mut handle = process_handle.lock().unwrap();
                             handle.stderr.take().unwrap()
                         };
-                        let key = OutputKey::new(OutputKey::STD.into(), service_id.clone(), OutputKind::Run);
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
                                 let mut state = state_arc.lock().unwrap();
-                                state.output_store.add_output(&key, line);
+                                state.output_store.add_output(&output_key, line);
                             }
                         }
                     })
@@ -289,22 +302,5 @@ impl ProcessWrapper {
         handle.kill().unwrap_or(());
         // Obtain exit status and invoke callback
         handle.wait()
-    }
-}
-
-// TODO move?
-pub trait CtrlOutputWriter {
-    fn add_ctrl_output(&mut self, service_name: &str, str: String);
-}
-impl CtrlOutputWriter for MutexGuard<'_, SystemState> {
-    fn add_ctrl_output(&mut self, service_name: &str, str: String) {
-        self.add_output(
-            &OutputKey {
-                name: OutputKey::CTL.into(),
-                service_ref: service_name.to_string(),
-                kind: OutputKind::Run,
-            },
-            str,
-        );
     }
 }

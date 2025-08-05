@@ -91,7 +91,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                 timeout,
                 status,
             } => {
-                self.context.perform_async_work(move || {
+                self.context.perform_concurrent_work(move || {
                     let http_client = HttpClient::new();
 
                     let result = http_client
@@ -143,7 +143,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                     None => "127.0.0.1".to_owned(),
                 };
 
-                self.context.perform_async_work(
+                self.context.perform_concurrent_work(
                     move || {
                         let successful = TcpListener::bind(format!("{host}:{port}")).is_err();
 
@@ -177,12 +177,12 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                     },
                 };
 
-                self.context.perform_async_work(move || result, OperationType::Check, silent);
+                self.context.perform_concurrent_work(move || result, OperationType::Check, silent);
             }
             Requirement::File { paths } => {
                 let workdir = self.workdir.clone();
 
-                self.context.perform_async_work(move || {
+                self.context.perform_concurrent_work(move || {
                     let mut output = Vec::new();
                     let mut success = true;
 

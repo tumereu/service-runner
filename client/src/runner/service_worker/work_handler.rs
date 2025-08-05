@@ -5,7 +5,7 @@ use log::{debug, error};
 use crate::config::WorkDefinition;
 use crate::models::{BlockStatus, WorkStep};
 use crate::runner::service_worker::{
-    ConcurrentOperationStatus, CtrlOutputWriter,
+    ConcurrentOperationStatus, 
 };
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::requirement_checker::{RequirementCheckResult, RequirementChecker};
@@ -218,7 +218,7 @@ impl WorkHandler for ServiceBlockContext {
                             &executable,
                             Some(work_dir),
                         );
-                        self.add_ctrl_output(format!("Exec: {executable}"));
+                        self.add_system_output(format!("Exec: {executable}"));
 
                         match command.spawn() {
                             Ok(process_handle) => {
@@ -234,7 +234,7 @@ impl WorkHandler for ServiceBlockContext {
                             }
                             Err(error) => {
                                 self.update_status(BlockStatus::Error);
-                                self.add_ctrl_output(format_err!("Failed to spawn child process", error));
+                                self.add_system_output(format_err!("Failed to spawn child process", error));
                             }
                         }
                     }
@@ -258,7 +258,7 @@ impl WorkHandler for ServiceBlockContext {
                     // work and enter error state
                     _ if is_process && !matches!(work_status, Some(ConcurrentOperationStatus::Running)) => {
                         self.stop_all_operations_and_then(|| {
-                            self.add_ctrl_output("External process has terminated unexpectedly.".to_owned());
+                            self.add_system_output("External process has terminated unexpectedly.".to_owned());
                             self.update_status(BlockStatus::Error)
                         });
                     }

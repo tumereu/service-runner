@@ -6,7 +6,7 @@ use rhai::module_resolvers::DummyModuleResolver;
 use rhai::packages::{Package, StandardPackage};
 use rhai::{Dynamic, Engine, Map, Scope};
 
-pub fn populate_rhai_scope(scope: &mut Scope, state: &SystemState, service_id: &str) {
+pub fn populate_rhai_scope(scope: &mut Scope, state: &SystemState, service_id: Option<String>) {
     state.iter_services().for_each(|service| {
         let mut blocks = Map::new();
         service.definition.blocks.iter().for_each(|block| {
@@ -23,7 +23,7 @@ pub fn populate_rhai_scope(scope: &mut Scope, state: &SystemState, service_id: &
             );
             block_map.insert(
                 "is_processing".into(),
-                state.has_block_operations(service_id, &block.id).into(),
+                state.has_block_operations(&service.definition.id, &block.id).into(),
             );
 
             blocks.insert(block.id.clone().into(), block_map.into());
@@ -33,8 +33,11 @@ pub fn populate_rhai_scope(scope: &mut Scope, state: &SystemState, service_id: &
         service_map.insert("blocks".into(), blocks.into());
 
         scope.push(service.definition.id.clone(), service_map.clone());
-        if service.definition.id == *service_id {
-            scope.push("self", service_map);
+        match service_id.as_ref() {
+            Some(service_id) if service_id == &service.definition.id => {
+                scope.push("self", service_map);
+            }
+            _ => {}
         }
 
         // Register helper constants to make it easier to check statuses
