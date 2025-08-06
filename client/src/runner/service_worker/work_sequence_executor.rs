@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use log::debug;
 use crate::config::{ExecutableEntry, HttpMethod, Requirement, TaskStep};
-use crate::rhai::RHAI_ENGINE;
+use crate::runner::rhai::RHAI_ENGINE;
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 use crate::runner::service_worker::requirement_checker::{RequirementCheckResult, RequirementChecker};
 use crate::runner::service_worker::work_context::WorkContext;

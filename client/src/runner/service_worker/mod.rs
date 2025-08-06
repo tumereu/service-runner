@@ -1,9 +1,11 @@
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use itertools::Itertools;
 pub use concurrent_operation::*;
 use crate::models::TaskStatus;
+use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::block_processor::BlockProcessor;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::task_context::TaskContext;
@@ -23,6 +25,11 @@ mod work_context;
 mod work_sequence_executor;
 mod task_context;
 mod task_processor;
+
+pub struct ServiceWorker {
+    state: Arc<Mutex<SystemState>>,
+    rhai_executor: Arc<RhaiExecutor>
+}
 
 pub fn start_service_worker(state: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {

@@ -17,6 +17,7 @@ use crate::models::Profile;
 use crate::runner::automation::start_automation_processor;
 use crate::runner::file_watcher::start_file_watcher;
 use crate::runner::process_action::process_action;
+use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::start_service_worker;
 use crate::system_state::SystemState;
 use crate::ui::render;
@@ -28,7 +29,6 @@ mod models;
 mod runner;
 mod utils;
 pub mod config;
-mod rhai;
 
 fn main() -> Result<(), Box<dyn Error>> {
     simple_logging::log_to_file("service_runner.log", LevelFilter::Debug)?;
@@ -65,8 +65,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     render(&mut terminal, state_arc.clone())?;
+    
+    let mut rhai_executor = RhaiExecutor::new(state_arc.clone());
 
     let mut handles = vec![
+        ("rhai-executor".into(), rhai_executor.start()),
         ("service-worker".into(), start_service_worker(state_arc.clone())),
         ("file-watcher".into(), start_file_watcher(state_arc.clone())),
         ("automation-processor".into(), start_automation_processor(state_arc.clone())),
@@ -147,6 +150,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             thread::sleep(Duration::from_millis(10));
         }
     }
+    
+    rhai_executor.stop();
 
     match join_threads.join() {
         Ok(_) => info!("Threads joined successfully"),

@@ -4,7 +4,7 @@ use std::net::TcpListener;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use crate::config::{ExecutableEntry, HttpMethod, Requirement};
-use crate::rhai::RHAI_ENGINE;
+use crate::runner::rhai::RHAI_ENGINE;
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::system_state::OperationType;

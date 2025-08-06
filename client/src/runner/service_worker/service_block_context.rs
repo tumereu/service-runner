@@ -6,7 +6,7 @@ use log::{debug, error};
 
 use crate::config::Block;
 use crate::models::{BlockAction, BlockStatus, GetBlock, OutputKey, OutputKind, Service};
-use crate::rhai::populate_rhai_scope;
+use crate::runner::rhai::populate_rhai_scope;
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
     ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
