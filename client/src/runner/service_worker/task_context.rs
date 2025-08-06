@@ -59,8 +59,8 @@ impl TaskContext {
         F: for<'a> FnOnce(&'a Service) -> R,
         R: 'static,
     {
-        let state = self.system_state.lock().unwrap();
         let service_id = self.query_task(|task| task.service_id.clone())?;
+        let state = self.system_state.lock().unwrap();
         Some(query(state.get_service(&service_id)?))
     }
 
@@ -224,21 +224,25 @@ impl WorkContext for TaskWorkContext<'_> {
 
     fn create_rhai_scope(&self) -> rhai::Scope {
         let mut scope = rhai::Scope::new();
+        let service_id = self.query_task(|task| task.service_id.clone());
         let state = self.system_state.lock().unwrap();
 
-        populate_rhai_scope(&mut scope, &state, self.query_task(|task| task.service_id.clone()));
+        populate_rhai_scope(&mut scope, &state, service_id);
 
         scope
     }
 
     fn add_system_output(&self, output: String) {
+        let service_id = self.query_task(|task| task.service_id.clone());
+        let source_name = self.get_task_definition_id().0;
+
         self.system_state
             .lock()
             .unwrap()
             .add_output(
                 &OutputKey {
-                    service_id: self.query_task(|task| task.service_id.clone()),
-                    source_name: self.get_task_definition_id().0,
+                    service_id,
+                    source_name,
                     kind: OutputKind::System
                 },
                 output

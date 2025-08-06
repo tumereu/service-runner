@@ -3,6 +3,7 @@ use reqwest::Method;
 use std::net::{TcpListener};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+use log::debug;
 use crate::config::{ExecutableEntry, HttpMethod, Requirement, TaskStep};
 use crate::rhai::RHAI_ENGINE;
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
@@ -69,13 +70,31 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
     }
 
     fn handle_rhai_script(&self, script: &String) -> WorkExecutionResult {
-        let mut scope = self.context.create_rhai_scope();
-        // TODO currently evaluation is performed synchronously. Move engine to a worker thread to allow for
-        //      longer scripts?
-        match RHAI_ENGINE.eval_with_scope::<bool>(&mut scope, script) {
-            Ok(_) => WorkExecutionResult::EntryOk,
-            Err(_) => WorkExecutionResult::Failed,
-        }
+        let (result, messages) = {
+            // TODO currently evaluation is performed synchronously. Move engine to a worker thread to allow for
+            //      longer scripts?
+            let mut scope = self.context.create_rhai_scope();
+            match RHAI_ENGINE.eval_with_scope::<bool>(&mut scope, script) {
+                Ok(_) => (
+                    WorkExecutionResult::EntryOk,
+                    vec![
+                        format!("Rhai script OK: {}", script)
+                    ]
+                ),
+                Err(error) => (
+                    WorkExecutionResult::Failed,
+                    vec![
+                        format!("Error in Rhai script {script}: {error:?}")
+                    ],
+                ),
+            }
+        };
+
+        messages.into_iter().for_each(|message| {
+            self.context.add_system_output(message);
+        });
+
+        result
     }
 
     fn handle_requirement(&self, timeout: &Duration, requirement: &Requirement) -> WorkExecutionResult {

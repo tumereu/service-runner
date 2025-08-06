@@ -1,5 +1,5 @@
 use std::time::Instant;
-use log::error;
+use log::{debug, error, info};
 use crate::models::TaskStatus;
 use crate::runner::service_worker::task_context::TaskContext;
 use crate::runner::service_worker::work_sequence_executor::{WorkExecutionResult, WorkSequenceEntry, WorkSequenceExecutor};
@@ -10,7 +10,7 @@ pub trait TaskProcessor {
 impl TaskProcessor for TaskContext {
     fn process_task(&self) {
         let task_status = self.get_status();
-        let (completed_steps, step_start_time, last_recoverable_failure) = match task_status { 
+        let (completed_steps, step_start_time, last_recoverable_failure) = match task_status {
             TaskStatus::Running { completed_steps, step_start_time, last_recoverable_failure } => {
                 (completed_steps, step_start_time, last_recoverable_failure)
             },
@@ -23,6 +23,7 @@ impl TaskProcessor for TaskContext {
             },
         };
 
+
         let service_id = self.query_task(|task| task.service_id.clone());
         let work_seq: Vec<WorkSequenceEntry> = self.query_system(|system| {
             system.get_task_definition(&self.definition_id, service_id)
@@ -30,7 +31,8 @@ impl TaskProcessor for TaskContext {
                     definition.steps.iter().map(|step| step.clone().into())
                 }).collect()
         });
-        let workdir = self.query_service(|service| service.definition.workdir.clone())
+        let workdir = self.query_service(|service| service.definition.workdir.clone());
+        let workdir = workdir
             .unwrap_or(self.query_system(|system| system.current_profile.as_ref().unwrap().definition.workdir.clone()));
 
         let exec_result = WorkSequenceExecutor {
@@ -42,7 +44,7 @@ impl TaskProcessor for TaskContext {
             workdir,
         }.exec_next();
 
-        match exec_result { 
+        match exec_result {
             WorkExecutionResult::EntryOk => {
                 self.update_status(TaskStatus::Running {
                     step_start_time: Instant::now(),
