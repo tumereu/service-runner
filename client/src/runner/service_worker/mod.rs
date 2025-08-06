@@ -78,5 +78,13 @@ fn work_services(state_arc: Arc<Mutex<SystemState>>) {
             task_id,
             definition_id
         ).process_task();
+    });
+
+    // Clean up, remove finished tasks
+    state_arc.lock().unwrap().current_profile
+        .iter_mut().for_each(|profile| {
+        profile.tasks.retain(|task| {
+            matches!(task.status, TaskStatus::Running { .. }) 
+        });
     })
 }

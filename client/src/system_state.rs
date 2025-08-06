@@ -1,4 +1,4 @@
-use crate::config::{Block, Config};
+use crate::config::{Block, Config, TaskDefinition, TaskDefinitionId};
 use crate::models::{
     BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId,
 };
@@ -27,7 +27,9 @@ pub enum ConcurrentOperationKey {
         block_id: String,
         operation_type: OperationType,
     },
-    Task { task_id: TaskId }
+    Task {
+        task_id: TaskId,
+    },
 }
 
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
@@ -128,17 +130,26 @@ impl SystemState {
     }
 
     pub fn get_task(&self, id: &TaskId) -> Option<&Task> {
-        let task = self
-            .current_profile
+        self.current_profile
             .as_ref()
-            .and_then(|profile| profile.task_id_to_idx.get(id).cloned())
-            .and_then(|idx| {
-                self.current_profile
-                    .as_ref()
-                    .and_then(|profile| profile.tasks.get(idx))
+            .and_then(|profile| profile.tasks.iter().find(|task| task.id == *id))
+    }
+
+    pub fn get_task_definition(
+        &self,
+        id: &TaskDefinitionId,
+        service_id: Option<String>,
+    ) -> Option<&TaskDefinition> {
+        let result = self.current_profile.as_ref()
+            .and_then(|profile| {
+                profile
+                    .all_task_definitions
+                    .iter()
+                    .find(|(definition, service)| definition.id == *id && *service == service_id)
+                    .map(|(definition, _)| definition)
             });
 
-        task
+        result
     }
 
     pub fn get_service_block(&self, service_id: &str, block_id: &str) -> Option<&Block> {
@@ -172,15 +183,9 @@ impl SystemState {
     where
         F: FnOnce(&mut Task),
     {
-        let task_option = self
-            .current_profile
-            .as_ref()
-            .and_then(|profile| profile.task_id_to_idx.get(id).cloned())
-            .and_then(|idx| {
-                self.current_profile
-                    .as_mut()
-                    .and_then(|profile| profile.tasks.get_mut(idx))
-            });
+        let task_option = self.current_profile
+            .as_mut()
+            .and_then(|profile| profile.tasks.iter_mut().find(|task| task.id == *id));
 
         if let Some(task) = task_option {
             update(task);

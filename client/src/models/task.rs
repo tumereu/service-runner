@@ -11,21 +11,26 @@ pub struct Task {
     pub definition_id: TaskDefinitionId,
     pub service_id: Option<String>,
     pub status: TaskStatus,
-    pub start_time: Instant,
     pub action: Option<TaskAction>,
 }
 
 #[derive(Debug, Clone)]
 pub enum TaskStatus {
     Running {
+        step_start_time: Instant,
+        last_recoverable_failure: Option<Instant>,
         completed_steps: usize,
     },
-    Finished { end_time: Instant },
-    Failed { end_time: Instant },
+    Finished,
+    Failed,
 }
 impl Default for TaskStatus {
     fn default() -> Self {
-        Self::Running { completed_steps: 0 }
+        Self::Running { 
+            completed_steps: 0,
+            step_start_time: Instant::now(),
+            last_recoverable_failure: None,
+        }
     }
 }
 

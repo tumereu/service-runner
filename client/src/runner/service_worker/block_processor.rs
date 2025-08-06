@@ -157,7 +157,7 @@ impl BlockProcessor for ServiceBlockContext {
     }
 
     fn handle_work(&self) {
-        let work_dir = self.query_service(|service| service.definition.dir.clone());
+        let work_dir = self.query_service(|service| service.definition.workdir.clone());
         let block_status = self.get_block_status();
         let work_status = self.get_concurrent_operation_status(OperationType::Work);
 
@@ -221,7 +221,7 @@ impl BlockProcessor for ServiceBlockContext {
                     start_time,
                     last_failure,
                     context: &context,
-                    workdir: self.query_service(|service| service.definition.dir.clone()),
+                    workdir: self.query_service(|service| service.definition.workdir.clone()),
                 }.check_requirements();
 
                 match result {
@@ -282,7 +282,7 @@ impl BlockProcessor for ServiceBlockContext {
                     start_time,
                     last_failure: None,
                     context: &context,
-                    workdir: self.query_service(|service| service.definition.dir.clone()),
+                    workdir: self.query_service(|service| service.definition.workdir.clone()),
                 }.check_requirements();
 
                 match result {
@@ -330,10 +330,10 @@ impl BlockProcessor for ServiceBlockContext {
                                 .map(|entry| entry.clone().into())
                                 .collect(),
                             completed_count: steps_completed,
-                            start_time: step_started,
+                            entry_start_time: step_started,
                             last_recoverable_failure: None,
                             context: &context,
-                            workdir: self.query_service(|service| service.definition.dir.clone()),
+                            workdir: self.query_service(|service| service.definition.workdir.clone()),
                         }.exec_next();
 
                         match result {
@@ -408,22 +408,20 @@ impl BlockProcessor for ServiceBlockContext {
                     start_time,
                     last_failure,
                     context: &context,
-                    workdir: self.query_service(|service| service.definition.dir.clone()),
+                    workdir: self.query_service(|service| service.definition.workdir.clone()),
                 }
                 .check_requirements();
 
                 match result {
                     // If the block is a process and we do not have a live process running, then immediately stop all
                     // work and enter error state
-                    _ if is_process
-                        && !matches!(work_status, Some(ConcurrentOperationStatus::Running)) =>
+                    _ if is_process && !matches!(work_status, Some(ConcurrentOperationStatus::Running)) =>
                     {
-                        self.stop_all_operations_and_then(|| {
-                            self.add_system_output(
-                                "External process has terminated unexpectedly.".to_owned(),
-                            );
-                            self.update_status(BlockStatus::Error)
-                        });
+                        self.clear_all_operations();
+                        self.add_system_output(
+                            "External process has terminated unexpectedly.".to_owned(),
+                        );
+                        self.update_status(BlockStatus::Error)
                     }
                     // If there are no more (or at all) requirements to check, then we can finally consider the
                     // block healthy

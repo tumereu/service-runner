@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::convert::Into;
+use std::io::Read;
 use std::time::Instant;
 use log::error;
-use crate::config::{ProfileDefinition, ServiceDefinition, TaskDefinitionId};
+use crate::config::{ProfileDefinition, ServiceDefinition, TaskDefinition, TaskDefinitionId};
 use crate::models::{Service, TaskId};
 use crate::models::task::{Task, TaskStatus};
 
@@ -11,7 +12,7 @@ pub struct Profile {
     pub definition: ProfileDefinition,
     pub services: Vec<Service>,
     pub tasks: VecDeque<Task>,
-    pub task_id_to_idx: BTreeMap<TaskId, usize>,
+    pub all_task_definitions: Vec<(TaskDefinition, Option<String>)>
 }
 impl Profile {
     pub fn new(profile: ProfileDefinition, all_services: &Vec<ServiceDefinition>) -> Profile {
@@ -25,11 +26,18 @@ impl Profile {
             })
             .collect();
 
+        let all_task_definitions: Vec<(TaskDefinition, Option<String>)> = profile.tasks.iter().map(|task_def| (task_def.clone(), None))
+            .chain(
+                services.iter().flat_map(|service| {
+                    service.definition.tasks.iter().map(|task_def| (task_def.clone(), Some(service.definition.id.clone())))
+                })
+            ).collect();
+
         Profile {
             definition: profile,
             services,
             tasks: VecDeque::new(),
-            task_id_to_idx: BTreeMap::new(),
+            all_task_definitions,
         }
     }
     
@@ -52,13 +60,9 @@ impl Profile {
                 id: TaskId(new_id),
                 definition_id: task_def.id.clone(),
                 status: Default::default(),
-                start_time: Instant::now(),
                 service_id: service_id.clone(),
                 action: None,
             });
-            if self.tasks.len() > MAX_RETAINED_TASKS {
-                self.tasks.pop_front();   
-            }
         } else if let Some(service_id) = service_id {
             error!("No task {task_definition_id} found in service {service_id}");
         } else {
@@ -66,5 +70,3 @@ impl Profile {
         }
     }
 }
-
-const MAX_RETAINED_TASKS: usize = 1024;

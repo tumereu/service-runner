@@ -11,7 +11,7 @@ use crate::config::{AutomationEntry, ExecutableEntry, HttpMethod, Requirement};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServiceDefinition {
     pub id: String,
-    pub dir: String,
+    pub workdir: String,
     pub blocks: Vec<Block>,
     #[serde(default = "Vec::new")]
     pub automation: Vec<AutomationEntry>,

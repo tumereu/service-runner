@@ -22,7 +22,7 @@ pub enum WorkExecutionResult {
 pub struct WorkSequenceExecutor<'a, W: WorkContext> {
     pub sequence: Vec<WorkSequenceEntry>,
     pub completed_count: usize,
-    pub start_time: Instant,
+    pub entry_start_time: Instant,
     pub last_recoverable_failure: Option<Instant>,
     pub context: &'a W,
     pub workdir: String,
@@ -84,7 +84,7 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
             completed_count: 0,
             timeout: Some(timeout.clone()),
             failure_wait_time: WAIT_REQUIREMENT_FAILURE_WAIT,
-            start_time: self.start_time,
+            start_time: self.entry_start_time,
             last_failure: self.last_recoverable_failure,
             context: self.context,
             workdir: self.workdir.clone(),

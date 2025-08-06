@@ -5,6 +5,7 @@ use crate::config::TaskDefinition;
 #[serde(deny_unknown_fields)]
 pub struct ProfileDefinition {
     pub id: String,
+    pub workdir: String,
     pub services: Vec<ServiceRef>,
     #[serde(default)]
     pub tasks: Vec<TaskDefinition>,

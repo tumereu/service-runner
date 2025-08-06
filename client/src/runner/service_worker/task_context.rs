@@ -54,17 +54,23 @@ impl TaskContext {
         state.update_task(&self.task_id, update);
     }
 
+    pub fn query_service<R, F>(&self, query: F) -> Option<R>
+    where
+        F: for<'a> FnOnce(&'a Service) -> R,
+        R: 'static,
+    {
+        let state = self.system_state.lock().unwrap();
+        let service_id = self.query_task(|task| task.service_id.clone())?;
+        Some(query(state.get_service(&service_id)?))
+    }
+
     pub fn query_system<R, F>(&self, query: F) -> R
     where
         F: for<'a> FnOnce(&'a SystemState) -> R,
         R: 'static,
     {
         let state = self.system_state.lock().unwrap();
-
-        let result = query(&state);
-        drop(state);
-
-        result
+        query(&state)
     }
 
     pub fn update_system<R, F>(&self, query: F)
@@ -72,7 +78,6 @@ impl TaskContext {
         F: for<'a> FnOnce(&'a mut SystemState),
     {
         let mut state = self.system_state.lock().unwrap();
-
         query(&mut state);
     }
 
@@ -95,27 +100,13 @@ impl TaskContext {
         self.query_task(|task| task.status.clone())
     }
 
-    fn get_task_definition_id(&self) -> TaskDefinitionId {
+    pub fn get_task_definition_id(&self) -> TaskDefinitionId {
         self.query_system(|system| {
             system.get_task(&self.task_id).unwrap().definition_id.clone()
         })
     }
-}
 
-pub struct TaskWorkContext<'a> {
-    task_context: &'a TaskContext,
-    silent: bool
-}
-impl<'a> Deref for TaskWorkContext<'a> {
-    type Target = &'a TaskContext;
-
-    fn deref(&self) -> &Self::Target {
-        &self.task_context
-    }
-}
-
-impl WorkContext for &TaskWorkContext<'_> {
-    fn stop_concurrent_operation(&self) {
+    pub fn stop_concurrent_operation(&self) {
         self.system_state
             .lock()
             .unwrap()
@@ -126,7 +117,7 @@ impl WorkContext for &TaskWorkContext<'_> {
             .for_each(|operation| operation.stop());
     }
 
-    fn clear_concurrent_operation(&self) {
+    pub fn clear_concurrent_operation(&self) {
         match self.get_concurrent_operation_status() {
             Some(ConcurrentOperationStatus::Running) => {
                 error!(
@@ -153,7 +144,7 @@ impl WorkContext for &TaskWorkContext<'_> {
         }
     }
 
-    fn get_concurrent_operation_status(&self) -> Option<ConcurrentOperationStatus> {
+    pub fn get_concurrent_operation_status(&self) -> Option<ConcurrentOperationStatus> {
         self.system_state
             .lock()
             .unwrap()
@@ -161,6 +152,39 @@ impl WorkContext for &TaskWorkContext<'_> {
                 task_id: self.task_id.clone(),
             })
             .map(|operation| operation.status())
+    }
+
+    pub fn create_work_context(&self, silent: bool) -> TaskWorkContext {
+        TaskWorkContext {
+            task_context: self,
+            silent,
+        }
+    }
+}
+
+pub struct TaskWorkContext<'a> {
+    task_context: &'a TaskContext,
+    silent: bool
+}
+impl<'a> Deref for TaskWorkContext<'a> {
+    type Target = &'a TaskContext;
+
+    fn deref(&self) -> &Self::Target {
+        &self.task_context
+    }
+}
+
+impl WorkContext for TaskWorkContext<'_> {
+    fn stop_concurrent_operation(&self) {
+        self.task_context.stop_concurrent_operation();
+    }
+
+    fn clear_concurrent_operation(&self) {
+        self.task_context.clear_concurrent_operation();
+    }
+
+    fn get_concurrent_operation_status(&self) -> Option<ConcurrentOperationStatus> {
+        self.task_context.get_concurrent_operation_status()
     }
 
     fn perform_concurrent_work<F>(&self, work: F)

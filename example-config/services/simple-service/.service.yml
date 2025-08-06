@@ -1,5 +1,5 @@
 id: "simple-service"
-dir: "./example-config/services/simple-service"
+workdir: "./example-config/services/simple-service"
 blocks:
   - id: build
     type: cmd-seq
