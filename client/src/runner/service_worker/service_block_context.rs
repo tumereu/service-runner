@@ -124,8 +124,39 @@ impl ServiceBlockContext {
             .for_each(|operation| operation.stop());
     }
 
+    pub fn stop_all_operations(&self) {
+        self.stop_concurrent_operation(OperationType::Check);
+        self.stop_concurrent_operation(OperationType::Work);
+    }
+
     pub fn clear_all_operations(&self) {
-        panic!("FIXME implement")
+        [
+            OperationType::Check,
+            OperationType::Work,
+        ].into_iter().for_each(|operation_type| {
+            let debug_id = format!("{}.{}", self.service_id, self.block_id);
+
+            match self.get_concurrent_operation_status(operation_type) {
+                Some(ConcurrentOperationStatus::Running) => {
+                    error!("Received request to clear stopped operation for {debug_id} but operation is still running")
+                }
+                Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
+                    debug!("Removing stopped operation for {debug_id}");
+
+                    self.system_state.lock().unwrap().set_concurrent_operation(
+                        ConcurrentOperationKey::Block {
+                            service_id: self.service_id.clone(),
+                            block_id: self.block_id.clone(),
+                            operation_type,
+                        },
+                        None,
+                    );
+                }
+                None => {
+                    // No need to do anything, no operation to remove
+                }
+            }
+        });
     }
 
     pub fn create_work_context(&self, operation_type: OperationType, silent: bool) -> BlockWorkContext {
@@ -134,6 +165,38 @@ impl ServiceBlockContext {
             operation_type,
             silent,
         }
+    }
+
+    pub fn add_system_output(&self, output: String) {
+        self.system_state
+            .lock()
+            .unwrap()
+            .add_output(
+                &OutputKey {
+                    service_id: Some(self.service_id.clone()),
+                    source_name: self.block_id.clone(),
+                    kind: OutputKind::System
+                },
+                output
+            );
+    }
+
+    pub fn register_external_process(&self, handle: Child, operation_type: OperationType) {
+        let wrapper = ProcessWrapper::wrap(
+            self.system_state.clone(),
+            Some(self.service_id.clone()),
+            self.block_id.clone(),
+            handle,
+        );
+
+        self.system_state.lock().unwrap().set_concurrent_operation(
+            ConcurrentOperationKey::Block {
+                service_id: self.service_id.clone(),
+                block_id: self.block_id.clone(),
+                operation_type: operation_type.clone(),
+            },
+            Some(ConcurrentOperationHandle::Process(wrapper)),
+        );
     }
 }
 
@@ -150,18 +213,9 @@ impl<'a> Deref for BlockWorkContext<'a> {
     }
 }
 
-impl WorkContext for &BlockWorkContext<'_> {
+impl WorkContext for BlockWorkContext<'_> {
     fn stop_concurrent_operation(&self) {
-        self.block_context.system_state
-            .lock()
-            .unwrap()
-            .get_concurrent_operation(&ConcurrentOperationKey::Block {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
-                operation_type: self.operation_type.clone(),
-            })
-            .iter()
-            .for_each(|operation| operation.stop());
+        self.block_context.stop_concurrent_operation(self.operation_type);
     }
 
     fn clear_concurrent_operation(&self) {
@@ -190,15 +244,7 @@ impl WorkContext for &BlockWorkContext<'_> {
     }
 
     fn get_concurrent_operation_status(&self) -> Option<ConcurrentOperationStatus> {
-        self.system_state
-            .lock()
-            .unwrap()
-            .get_concurrent_operation(&ConcurrentOperationKey::Block {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
-                operation_type: self.operation_type.clone(),
-            })
-            .map(|operation| operation.status())
+        self.block_context.get_concurrent_operation_status(self.operation_type)
     }
 
     fn perform_concurrent_work<F>(&self, work: F)
@@ -223,21 +269,7 @@ impl WorkContext for &BlockWorkContext<'_> {
     }
 
     fn register_external_process(&self, handle: Child) {
-        let wrapper = ProcessWrapper::wrap(
-            self.system_state.clone(),
-            Some(self.service_id.clone()),
-            self.block_id.clone(),
-            handle,
-        );
-
-        self.system_state.lock().unwrap().set_concurrent_operation(
-            ConcurrentOperationKey::Block {
-                service_id: self.service_id.clone(),
-                block_id: self.block_id.clone(),
-                operation_type: self.operation_type.clone(),
-            },
-            Some(ConcurrentOperationHandle::Process(wrapper)),
-        );
+        self.block_context.register_external_process(handle, self.operation_type);
     }
 
     fn create_rhai_scope(&self) -> rhai::Scope {
@@ -250,16 +282,6 @@ impl WorkContext for &BlockWorkContext<'_> {
     }
 
     fn add_system_output(&self, output: String) {
-        self.system_state
-            .lock()
-            .unwrap()
-            .add_output(
-                &OutputKey {
-                    service_id: Some(self.service_id.clone()),
-                    source_name: self.block_id.clone(),
-                    kind: OutputKind::System
-                },
-                output
-            );
+        self.block_context.add_system_output(output);
     }
 }

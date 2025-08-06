@@ -19,12 +19,15 @@ impl BlockProcessor for ServiceBlockContext {
     fn process_block(&self) {
         let service_enabled = self.query_service(|service| service.enabled);
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
-        let running_operations = [OperationType::Work, OperationType::Check]
+        let has_running_operations = [OperationType::Work, OperationType::Check]
             .into_iter()
-            .map(|operation_type| (operation_type, self.get_concurrent_operation_status(operation_type)))
-            .filter(|(_, status)| status.is_some())
-            .collect::<Vec<_>>();
-        
+            .any(|operation_type| {
+                match self.get_concurrent_operation_status(operation_type) {
+                    Some(ConcurrentOperationStatus::Running { .. }) => true,
+                    _ => false,
+                }
+            });
+
         match (self.get_block_status(), self.get_action()) {
             (_, Some(BlockAction::Enable)) => {
                 self.clear_current_action();
@@ -35,20 +38,22 @@ impl BlockProcessor for ServiceBlockContext {
                 self.update_service(|service| service.enabled = true);
             }
 
-            (_, Some(BlockAction::Disable)) if !running_operations.is_empty() => {
-                running_operations.iter()
-                    .for_each(|(operation_type, _)| self.stop_concurrent_operation(*operation_type));
+            (_, Some(BlockAction::Disable)) if has_running_operations => {
+                self.stop_all_operations();
             }
             (_, Some(BlockAction::Disable)) => {
-                self.stop_concurrent_operation()
+                self.clear_all_operations();
                 self.clear_current_action();
                 self.update_service(|service| service.enabled = false);
             }
+
+            (_, Some(BlockAction::ToggleEnabled)) if has_running_operations => {
+                self.stop_all_operations();
+            }
             (_, Some(BlockAction::ToggleEnabled)) => {
-                self.stop_all_operations_and_then(|| {
-                    self.clear_current_action();
-                    self.update_service(|service| service.enabled = false);
-                });
+                self.clear_all_operations();
+                self.clear_current_action();
+                self.update_service(|service| service.enabled = false);
             }
 
             (_, Some(_)) if !service_enabled => {
@@ -59,16 +64,16 @@ impl BlockProcessor for ServiceBlockContext {
                 self.handle_work();
             }
 
+            (_, Some(BlockAction::ReRun)) if has_running_operations => {
+                self.stop_all_operations();
+            },
             (_, Some(BlockAction::ReRun)) => {
-                self.stop_all_operations_and_then(|| {
-                    info!("Re-running {debug_id}");
-
-                    self.clear_current_action();
-                    self.update_status(BlockStatus::Working {
-                        step: WorkStep::Initial {
-                            skip_work_if_healthy: false,
-                        },
-                    });
+                self.clear_all_operations();
+                self.clear_current_action();
+                self.update_status(BlockStatus::Working {
+                    step: WorkStep::Initial {
+                        skip_work_if_healthy: false,
+                    },
                 });
             }
 
@@ -89,24 +94,28 @@ impl BlockProcessor for ServiceBlockContext {
                 );
                 self.clear_current_action();
             }
+            (_, Some(BlockAction::Stop)) if has_running_operations => {
+                self.stop_all_operations();
+            }
             (status, Some(BlockAction::Stop)) => {
-                self.stop_all_operations_and_then(|| {
-                    self.clear_current_action();
-                    self.update_status(match status {
-                        BlockStatus::Initial => BlockStatus::Initial,
-                        BlockStatus::Working { .. } => BlockStatus::Initial,
-                        // FIXME maybe this should be based on work type, or maybe health check?
-                        //       in any case, we can't always go back to initial. Or can we?
-                        BlockStatus::Ok => BlockStatus::Initial,
-                        BlockStatus::Error => BlockStatus::Error,
-                    })
-                });
+                self.clear_all_operations();
+                self.clear_current_action();
+                self.update_status(match status {
+                    BlockStatus::Initial => BlockStatus::Initial,
+                    BlockStatus::Working { .. } => BlockStatus::Initial,
+                    BlockStatus::Ok => BlockStatus::Initial,
+                    BlockStatus::Error => BlockStatus::Error,
+                })
+            }
+
+            (BlockStatus::Working { .. }, Some(BlockAction::Cancel)) if has_running_operations => {
+                self.stop_all_operations();
             }
             (BlockStatus::Working { .. }, Some(BlockAction::Cancel)) => {
-                self.stop_all_operations_and_then(|| {
-                    self.clear_current_action();
-                });
+                self.clear_all_operations();
+                self.clear_current_action();
             }
+
             (
                 BlockStatus::Initial | BlockStatus::Ok | BlockStatus::Error,
                 Some(BlockAction::Cancel),
@@ -167,21 +176,33 @@ impl BlockProcessor for ServiceBlockContext {
             WorkDefinition::Process { .. } => true,
         });
 
+        let has_running_operations = [OperationType::Work, OperationType::Check]
+            .into_iter()
+            .any(|operation_type| {
+                match self.get_concurrent_operation_status(operation_type) {
+                    Some(ConcurrentOperationStatus::Running { .. }) => true,
+                    _ => false,
+                }
+            });
+
         match step {
             // Ensure that there's no lingering process. There should not be if other actions are handled correctly,
             // but some defensive programming here doesn't hurt.
+            WorkStep::Initial { .. } if has_running_operations => {
+                self.stop_all_operations();
+            }
+
             WorkStep::Initial {
                 skip_work_if_healthy,
             } => {
-                self.stop_all_operations_and_then(|| {
-                    self.update_status(BlockStatus::Working {
-                        step: WorkStep::PrerequisiteCheck {
-                            skip_work_if_healthy,
-                            start_time: Instant::now(),
-                            checks_completed: 0,
-                            last_failure: None,
-                        },
-                    });
+                self.clear_all_operations();
+                self.update_status(BlockStatus::Working {
+                    step: WorkStep::PrerequisiteCheck {
+                        skip_work_if_healthy,
+                        start_time: Instant::now(),
+                        checks_completed: 0,
+                        last_failure: None,
+                    },
                 });
             }
 
@@ -191,6 +212,7 @@ impl BlockProcessor for ServiceBlockContext {
                 checks_completed,
                 last_failure,
             } => {
+                let context = self.create_work_context(OperationType::Check, true);
                 let result = RequirementChecker {
                     all_requirements: self.query_block(|block| block.prerequisites.clone()),
                     completed_count: checks_completed,
@@ -198,10 +220,9 @@ impl BlockProcessor for ServiceBlockContext {
                     failure_wait_time: PRE_REQ_FAILURE_WAIT,
                     start_time,
                     last_failure,
-                    context: &self,
+                    context: &context,
                     workdir: self.query_service(|service| service.definition.dir.clone()),
-                }
-                .check_requirements();
+                }.check_requirements();
 
                 match result {
                     RequirementCheckResult::Working => {
@@ -252,6 +273,7 @@ impl BlockProcessor for ServiceBlockContext {
                 start_time,
                 checks_completed,
             } => {
+                let context = self.create_work_context(OperationType::Check, false);
                 let result = RequirementChecker {
                     all_requirements: self.query_block(|block| block.health.requirements.clone()),
                     completed_count: checks_completed,
@@ -259,10 +281,9 @@ impl BlockProcessor for ServiceBlockContext {
                     failure_wait_time: Duration::from_secs(0),
                     start_time,
                     last_failure: None,
-                    context: &self,
+                    context: &context,
                     workdir: self.query_service(|service| service.definition.dir.clone()),
-                }
-                .check_requirements();
+                }.check_requirements();
 
                 match result {
                     RequirementCheckResult::Working => {
@@ -302,6 +323,7 @@ impl BlockProcessor for ServiceBlockContext {
                     WorkDefinition::CommandSeq {
                         commands: executable_entries,
                     } => {
+                        let context = self.create_work_context(OperationType::Work, false);
                         let result = WorkSequenceExecutor {
                             sequence: executable_entries
                                 .iter()
@@ -310,10 +332,9 @@ impl BlockProcessor for ServiceBlockContext {
                             completed_count: steps_completed,
                             start_time: step_started,
                             last_recoverable_failure: None,
-                            context: &self,
+                            context: &context,
                             workdir: self.query_service(|service| service.definition.dir.clone()),
-                        }
-                        .exec_next();
+                        }.exec_next();
 
                         match result {
                             // No recoverable failures here, go into error for any kind of issue
@@ -378,6 +399,7 @@ impl BlockProcessor for ServiceBlockContext {
                 checks_completed,
                 last_failure,
             } => {
+                let context = self.create_work_context(OperationType::Check, false);
                 let result = RequirementChecker {
                     all_requirements: self.query_block(|block| block.health.requirements.clone()),
                     completed_count: checks_completed,
@@ -385,7 +407,7 @@ impl BlockProcessor for ServiceBlockContext {
                     failure_wait_time: POST_WORK_HEALTH_FAILURE_WAIT,
                     start_time,
                     last_failure,
-                    context: &self,
+                    context: &context,
                     workdir: self.query_service(|service| service.definition.dir.clone()),
                 }
                 .check_requirements();
