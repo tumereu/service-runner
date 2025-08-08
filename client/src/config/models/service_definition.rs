@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use serde_derive::{Deserialize, Serialize};
 
-use derive_more::{Display};
-use crate::config::{AutomationEntry, ExecutableEntry, HttpMethod, Requirement};
+use crate::config::{AutomationEntry, ExecutableEntry, Requirement};
+use derive_more::Display;
 
 // TODO validate :
 //      - block or task ids/names should be unique

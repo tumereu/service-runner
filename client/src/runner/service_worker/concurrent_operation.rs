@@ -1,9 +1,9 @@
-use std::{io, thread};
 use std::io::{BufRead, BufReader};
 use std::ops::Neg;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+use std::{io, thread};
 
 use log::{error, info};
 use nix::libc::SIGKILL;

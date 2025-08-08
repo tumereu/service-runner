@@ -1,5 +1,5 @@
-use serde_derive::{Deserialize, Serialize};
 use crate::config::TaskDefinition;
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

@@ -1,11 +1,11 @@
+use crate::config::{ProfileDefinition, ServiceDefinition, TaskDefinition, TaskDefinitionId};
+use crate::models::task::{Task, TaskStatus};
+use crate::models::{Service, TaskId};
+use log::error;
 use std::collections::{BTreeMap, VecDeque};
 use std::convert::Into;
 use std::io::Read;
 use std::time::Instant;
-use log::error;
-use crate::config::{ProfileDefinition, ServiceDefinition, TaskDefinition, TaskDefinitionId};
-use crate::models::{Service, TaskId};
-use crate::models::task::{Task, TaskStatus};
 
 #[derive(Debug, Clone)]
 pub struct Profile {

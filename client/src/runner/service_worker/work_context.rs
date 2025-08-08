@@ -1,8 +1,7 @@
+use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
+use rhai::plugin::RhaiResult;
 use std::process::Child;
 use std::sync::mpsc::Receiver;
-use rhai::plugin::RhaiResult;
-use crate::runner::rhai::RhaiRequest;
-use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 
 pub trait WorkContext {
     fn stop_concurrent_operation(&self);

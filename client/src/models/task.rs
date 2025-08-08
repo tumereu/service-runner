@@ -1,6 +1,6 @@
-use std::time::Instant;
-use derive_more::Display;
 use crate::config::TaskDefinitionId;
+use derive_more::Display;
+use std::time::Instant;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 pub struct TaskId(pub usize);

@@ -1,10 +1,10 @@
 use std::cmp::max;
 
 use tui::backend::Backend;
-use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::widgets::Block;
+use tui::Frame;
 
 use crate::ui::widgets::{Cell, Renderable, Size};
 

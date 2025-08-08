@@ -1,17 +1,17 @@
-use std::future::Future;
-use std::sync::{mpsc, Arc, Mutex, PoisonError};
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::thread;
-use std::thread::JoinHandle;
-use crossterm::style::Stylize;
-use log::error;
+use crate::config::TaskDefinitionId;
 use crate::models::{BlockAction, BlockStatus};
 use crate::system_state::SystemState;
+use crossterm::style::Stylize;
+use log::error;
 use rhai::module_resolvers::DummyModuleResolver;
 use rhai::packages::{Package, StandardPackage};
-use rhai::{Dynamic, Engine, Map, Scope};
 use rhai::plugin::RhaiResult;
-use crate::config::TaskDefinitionId;
+use rhai::{Dynamic, Engine, Map, Scope};
+use std::future::Future;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{mpsc, Arc, Mutex, PoisonError};
+use std::thread;
+use std::thread::JoinHandle;
 
 pub struct RhaiExecutor {
     keep_alive: Arc<Mutex<bool>>,

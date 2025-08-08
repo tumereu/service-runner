@@ -3,11 +3,11 @@ use std::cmp::{max, min};
 use std::rc::Rc;
 
 use tui::backend::Backend;
-use tui::Frame;
 use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::text::Spans;
 use tui::widgets::{Block, Borders, Clear};
+use tui::Frame;
 
 use crate::ui::widgets::{Renderable, Size};
 

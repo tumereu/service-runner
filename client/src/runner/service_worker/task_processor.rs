@@ -1,8 +1,8 @@
-use std::time::Instant;
-use log::{debug, error, info};
 use crate::models::TaskStatus;
 use crate::runner::service_worker::task_context::TaskContext;
 use crate::runner::service_worker::work_sequence_executor::{WorkExecutionResult, WorkSequenceEntry, WorkSequenceExecutor};
+use log::{debug, error, info};
+use std::time::Instant;
 
 pub trait TaskProcessor {
     fn process_task(&self);

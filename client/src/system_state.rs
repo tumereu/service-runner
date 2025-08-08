@@ -5,10 +5,8 @@ use crate::models::{
 use crate::runner::file_watcher::FileWatcherState;
 use crate::runner::service_worker::ConcurrentOperationHandle;
 use crate::ui::UIState;
-use itertools::izip;
 use std::collections::HashMap;
 use std::thread::JoinHandle;
-use crate::runner::rhai::RhaiExecutor;
 
 pub struct SystemState {
     pub current_profile: Option<Profile>,

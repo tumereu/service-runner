@@ -1,6 +1,6 @@
-use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 
 use crossterm::{
     execute,
@@ -18,7 +18,7 @@ use crate::runner::automation::start_automation_processor;
 use crate::runner::file_watcher::start_file_watcher;
 use crate::runner::process_action::process_action;
 use crate::runner::rhai::RhaiExecutor;
-use crate::runner::service_worker::{ServiceWorker};
+use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
 use crate::ui::render;
 

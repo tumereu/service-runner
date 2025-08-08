@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::fs::{File, read_to_string};
+use std::fs::{read_to_string, File};
 use std::io::BufReader;
 use std::path::Path;
 use Vec;
