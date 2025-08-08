@@ -1,10 +1,10 @@
-use tui::backend::Backend;
-use tui::Frame;
+use ratatui::backend::Backend;
+use ratatui::Frame;
 
 use crate::system_state::SystemState;
 use crate::ui::widgets::{render_root, Align, Cell, Flow, IntoCell, Spinner, Text};
 
-pub fn render_exit<B>(frame: &mut Frame<B>, _state: &SystemState)
+pub fn render_exit<B>(frame: &mut Frame, _state: &SystemState)
 where
     B: Backend,
 {

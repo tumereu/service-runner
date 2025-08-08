@@ -1,10 +1,10 @@
 use std::cmp::max;
 
-use tui::backend::Backend;
-use tui::layout::Rect;
-use tui::style::{Color, Style};
-use tui::widgets::Block;
-use tui::Frame;
+use ratatui::backend::Backend;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Style};
+use ratatui::widgets::Block;
+use ratatui::Frame;
 
 use crate::ui::widgets::{Cell, Renderable, Size};
 
@@ -15,9 +15,7 @@ pub struct Flow {
     pub direction: Dir,
 }
 impl Flow {
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
-    where
-        B: Backend,
+    pub fn render(self, rect: Rect, frame: &mut Frame)
     {
         if let Some(bg) = self.bg {
             frame.render_widget(Block::default().style(Style::default().bg(bg)), rect);

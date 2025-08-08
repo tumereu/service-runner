@@ -1,13 +1,29 @@
 use serde_derive::Deserialize;
 
 use crate::config::{ProfileDefinition, ServiceDefinition};
-use crate::config::models::theme::Theme;
+use crate::config::models::theme::{RawTheme, Theme};
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Settings {
-    #[serde(default)]
     pub autolaunch_profile: Option<String>,
     pub theme: Theme,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct RawSettings {
+    #[serde(default)]
+    pub autolaunch_profile: Option<String>,
+    pub theme: RawTheme,
+}
+impl TryInto<Settings> for RawSettings {
+    type Error = String;
+
+    fn try_into(self) -> Result<Settings, Self::Error> {
+        Ok(Settings {
+            autolaunch_profile: self.autolaunch_profile,
+            theme: self.theme.try_into()?,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]

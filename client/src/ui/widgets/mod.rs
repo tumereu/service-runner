@@ -1,8 +1,8 @@
 use std::cmp::min;
 
-use tui::backend::Backend;
-use tui::layout::Rect;
-use tui::Frame;
+use ratatui::backend::Backend;
+use ratatui::layout::Rect;
+use ratatui::Frame;
 
 pub use cell::*;
 pub use flow::*;
@@ -47,17 +47,15 @@ impl<X: Into<u16>, Y: Into<u16>> From<(X, Y)> for Size {
     }
 }
 
-pub fn render_root<B, R>(root: R, frame: &mut Frame<B>)
+pub fn render_root<R>(root: R, frame: &mut Frame)
 where
-    B: Backend,
     R: Into<Renderable>,
 {
     root.into().render(frame.size(), frame);
 }
 
-pub fn render_at_pos<B, R>(element: R, pos: (u16, u16), frame: &mut Frame<B>)
+pub fn render_at_pos<R>(element: R, pos: (u16, u16), frame: &mut Frame)
     where
-        B: Backend,
         R: Into<Renderable>,
 {
     element.into().render_at_pos(pos, frame);
@@ -74,9 +72,7 @@ pub enum Renderable {
     OutputDisplay(OutputDisplay),
 }
 impl Renderable {
-    fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
-    where
-        B: Backend,
+    fn render(self, rect: Rect, frame: &mut Frame)
     {
         match self {
             Renderable::Flow(flow) => flow.render(rect, frame),
@@ -101,9 +97,7 @@ impl Renderable {
         }
     }
 
-    pub fn render_at_pos<B>(self, pos: (u16, u16), frame: &mut Frame<B>)
-    where
-        B: Backend,
+    pub fn render_at_pos(self, pos: (u16, u16), frame: &mut Frame)
     {
         let size = self.measure();
         let width = min(size.width, frame.size().width.saturating_sub(pos.0));

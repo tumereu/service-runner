@@ -2,13 +2,11 @@ use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::rc::Rc;
 
-use tui::backend::Backend;
-use tui::layout::Rect;
-use tui::style::{Color, Style};
-use tui::text::Spans;
-use tui::widgets::{Block, Borders, Clear};
-use tui::Frame;
-
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Style};
+use ratatui::widgets::{Block, Borders, Clear};
+use ratatui::Frame;
+use ratatui::text::Line;
 use crate::ui::widgets::{Renderable, Size};
 
 #[derive(Default, Debug)]
@@ -31,9 +29,7 @@ pub struct Cell {
     pub opaque: bool,
 }
 impl Cell {
-    pub fn render<B>(self, rect: Rect, frame: &mut Frame<B>)
-    where
-        B: Backend,
+    pub fn render(self, rect: Rect, frame: &mut Frame)
     {
         if let Some(store_bounds) = self.store_bounds {
             store_bounds.replace(rect);
@@ -49,7 +45,7 @@ impl Cell {
                 block = block
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(*color))
-                    .title(Spans::from(title.to_string()));
+                    .title(Line::from(title.to_string()).left_aligned());
             }
             frame.render_widget(block, rect);
         }

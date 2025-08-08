@@ -8,10 +8,10 @@ use std::rc::Rc;
 
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use tui::backend::Backend;
-use tui::layout::Rect;
-use tui::style::Color;
-use tui::Frame;
+use ratatui::backend::Backend;
+use ratatui::layout::Rect;
+use ratatui::style::Color;
+use ratatui::Frame;
 
 use crate::config::{AutomationMode, Block};
 use crate::models::{get_active_outputs, BlockStatus, OutputKind, Profile, WorkStep};
@@ -41,9 +41,7 @@ const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
     ]
 });
 
-pub fn render_view_profile<B>(frame: &mut Frame<B>, system: &SystemState)
-where
-    B: Backend,
+pub fn render_view_profile(frame: &mut Frame, system: &SystemState)
 {
     let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) =
         match &system.ui.screen {

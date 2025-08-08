@@ -1,14 +1,11 @@
-use tui::backend::Backend;
-use tui::style::Color;
-use tui::Frame;
+use ratatui::style::Color;
+use ratatui::Frame;
 
 use crate::system_state::SystemState;
 use crate::ui::widgets::{render_root, Align, Cell, IntoCell, List};
 use crate::ui::CurrentScreen;
 
-pub fn render_profile_select<B>(frame: &mut Frame<B>, state: &SystemState)
-where
-    B: Backend,
+pub fn render_profile_select(frame: &mut Frame, state: &SystemState)
 {
     let selected_idx = match &state.ui.screen {
         CurrentScreen::ProfileSelect { selected_idx } => selected_idx,
