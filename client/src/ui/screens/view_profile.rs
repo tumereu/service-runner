@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::cmp::{max, min};
+use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::iter;
@@ -13,7 +14,7 @@ use tui::layout::Rect;
 use tui::style::Color;
 
 use crate::config::{AutomationMode, Block};
-use crate::models::{BlockStatus, get_active_outputs, OutputKey, OutputKind, Profile};
+use crate::models::{BlockStatus, get_active_outputs, OutputKey, OutputKind, Profile, WorkStep};
 use crate::system_state::SystemState;
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
@@ -204,6 +205,15 @@ where
     }
 }
 
+pub enum BlockUIStatus {
+    Initial,
+    Disabled,
+    Working,
+    FailedPrerequisites,
+    Failed,
+    Ok,
+}
+
 fn service_list(
     system_state: &SystemState,
     profile: &Profile,
@@ -212,6 +222,7 @@ fn service_list(
     // TODO Theme?
     let active_color = Color::Rgb(0, 140, 0);
     let secondary_active_color = Color::Rgb(0, 40, 180);
+    let waiting_to_process_color = Color::Rgb(230, 127, 0);
     let processing_color = Color::Rgb(230, 180, 0);
     let error_color = Color::Rgb(180, 0, 0);
     let inactive_color = Color::Gray;
@@ -226,7 +237,26 @@ fn service_list(
             .map(|(index, service)| {
                 // FIXME resolve from service properlycjBjj
                 let show_output = true;
-                let is_processing = system_state.is_processing(&service.definition.id);
+                let block_statuses: BTreeMap<String, BlockUIStatus> = service.definition.blocks.iter()
+                    .map(|block| {
+                        (
+                            block.id.clone(),
+                            match service.get_block_status(&block.id) {
+                                BlockStatus::Initial => BlockUIStatus::Initial,
+                                BlockStatus::Working { step } => {
+                                    match step {
+                                        WorkStep::PrerequisiteCheck { last_failure, .. } if last_failure.is_some() => BlockUIStatus::FailedPrerequisites,
+                                        _ => BlockUIStatus::Working,
+                                    }
+                                }
+                                BlockStatus::Ok => BlockUIStatus::Ok,
+                                BlockStatus::Error => BlockUIStatus::Failed,
+                                BlockStatus::Disabled => BlockUIStatus::Disabled,
+                            }
+                        )
+                    }).collect();
+                let is_processing = block_statuses.values().any(|status| matches!(status, BlockUIStatus::Working));
+
 
                 let start_elements = vec![
                     // Service name
@@ -293,15 +323,21 @@ fn service_list(
                 // FIXME add empty blocks if other services have blocks not listed here
                 let block_elements: Vec<Cell> = block_refs.into_iter()
                     .map(|block| {
+                        let block_ui_status = block_statuses.get(&block.id).unwrap_or(&BlockUIStatus::Failed);
+                        
                         Cell {
                             element: Text {
-                                text: block.status_line.symbol.clone(),
-
-                                fg: match service.get_block_status(&block.id) {
-                                    BlockStatus::Initial => inactive_color.into(),
-                                    BlockStatus::Working { .. } => processing_color.into(),
-                                    BlockStatus::Ok => active_color.into(),
-                                    BlockStatus::Error => error_color.into(),
+                                text: match block_ui_status {
+                                    BlockUIStatus::Disabled => block.status_line.symbol.chars().map(|c| '-').join(""),
+                                    _ => block.status_line.symbol.clone(),
+                                },
+                                fg: match block_ui_status {
+                                    BlockUIStatus::Initial => inactive_color.into(),
+                                    BlockUIStatus::Disabled => inactive_color.into(),
+                                    BlockUIStatus::FailedPrerequisites => waiting_to_process_color.into(),
+                                    BlockUIStatus::Working => processing_color.into(),
+                                    BlockUIStatus::Ok => active_color.into(),
+                                    BlockUIStatus::Failed => error_color.into(),
                                 },
                             }.into_el(),
                             ..Default::default()

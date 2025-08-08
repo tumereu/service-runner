@@ -69,6 +69,7 @@ impl SystemState {
     }
 
     pub fn is_processing(&self, service_id: &str) -> bool {
+        // TODO if a block is checking prereqs and has failed, do not count it as processing
         self.get_service(service_id)
             .iter()
             .flat_map(|service| {

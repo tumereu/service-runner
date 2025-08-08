@@ -17,7 +17,6 @@ pub trait BlockProcessor {
 }
 impl BlockProcessor for ServiceBlockContext {
     fn process_block(&self) {
-        let service_enabled = self.query_service(|service| service.enabled);
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
         let has_running_operations = [OperationType::Work, OperationType::Check]
             .into_iter()
@@ -29,34 +28,27 @@ impl BlockProcessor for ServiceBlockContext {
             });
 
         match (self.get_block_status(), self.get_action()) {
+            (BlockStatus::Disabled, Some(BlockAction::Enable) | Some(BlockAction::ToggleEnabled)) => {
+                self.clear_current_action();
+                self.update_status(BlockStatus::Initial);
+            }
             (_, Some(BlockAction::Enable)) => {
                 self.clear_current_action();
-                self.update_service(|service| service.enabled = true);
-            }
-            (_, Some(BlockAction::ToggleEnabled)) if !service_enabled => {
-                self.clear_current_action();
-                self.update_service(|service| service.enabled = true);
             }
 
+            (BlockStatus::Disabled, Some(BlockAction::Disable)) => {
+                self.clear_current_action();
+            }
             (_, Some(BlockAction::Disable)) if has_running_operations => {
                 self.stop_all_operations();
             }
-            (_, Some(BlockAction::Disable)) => {
+            (_, Some(BlockAction::Disable) | Some(BlockAction::ToggleEnabled)) => {
                 self.clear_all_operations();
                 self.clear_current_action();
-                self.update_service(|service| service.enabled = false);
+                self.update_status(BlockStatus::Disabled);
             }
 
-            (_, Some(BlockAction::ToggleEnabled)) if has_running_operations => {
-                self.stop_all_operations();
-            }
-            (_, Some(BlockAction::ToggleEnabled)) => {
-                self.clear_all_operations();
-                self.clear_current_action();
-                self.update_service(|service| service.enabled = false);
-            }
-
-            (_, Some(_)) if !service_enabled => {
+            (BlockStatus::Disabled, Some(_)) => {
                 self.clear_current_action();
             }
 
@@ -105,6 +97,7 @@ impl BlockProcessor for ServiceBlockContext {
                     BlockStatus::Working { .. } => BlockStatus::Initial,
                     BlockStatus::Ok => BlockStatus::Initial,
                     BlockStatus::Error => BlockStatus::Error,
+                    BlockStatus::Disabled => BlockStatus::Disabled,
                 })
             }
 

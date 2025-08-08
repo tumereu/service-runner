@@ -83,12 +83,22 @@ pub fn process_inputs(system_arc: Arc<Mutex<SystemState>>) {
                 KeyCode::Char('a') => {
                     // FIXME toggle automation
                 }
-                KeyCode::Char('d') => {
+                KeyCode::Char('d') if !shift => {
                     // TODO this is just a test
                     let mut state = system.lock().unwrap();
                     state.current_profile.iter_mut().for_each(|profile| {
                         profile.spawn_task(
                             &TaskDefinitionId("clean-build".to_owned()),
+                            selected_service_id.clone(),
+                        )
+                    });
+                }
+                KeyCode::Char('d') if shift => {
+                    // TODO this is just a test
+                    let mut state = system.lock().unwrap();
+                    state.current_profile.iter_mut().for_each(|profile| {
+                        profile.spawn_task(
+                            &TaskDefinitionId("toggle-all".to_owned()),
                             selected_service_id.clone(),
                         )
                     });

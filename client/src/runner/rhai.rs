@@ -3,13 +3,15 @@ use std::sync::{mpsc, Arc, Mutex, PoisonError};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
+use crossterm::style::Stylize;
 use log::error;
-use crate::models::BlockStatus;
+use crate::models::{BlockAction, BlockStatus};
 use crate::system_state::SystemState;
 use rhai::module_resolvers::DummyModuleResolver;
 use rhai::packages::{Package, StandardPackage};
 use rhai::{Dynamic, Engine, Map, Scope};
 use rhai::plugin::RhaiResult;
+use crate::config::TaskDefinitionId;
 
 pub struct RhaiExecutor {
     keep_alive: Arc<Mutex<bool>>,
@@ -32,9 +34,8 @@ impl RhaiExecutor {
 
         let worker_thread = thread::spawn(move || {
             let plain_engine = Self::init_rhai_engine();
-            let function_engine = Self::init_rhai_engine();
-
-            // FIXME add scripts
+            let mut function_engine = Self::init_rhai_engine();
+            Self::register_functions(state_arc.clone(), &mut function_engine);
 
             while *keep_alive.lock().unwrap() {
                 let query = rx.try_recv();
@@ -98,6 +99,7 @@ impl RhaiExecutor {
                 block_map.insert(
                     "status".into(),
                     match service.get_block_status(&block.id) {
+                        BlockStatus::Disabled => "Disabled",
                         BlockStatus::Initial => "Initial",
                         BlockStatus::Working { .. } => "Working",
                         BlockStatus::Ok => "Ok",
@@ -109,12 +111,14 @@ impl RhaiExecutor {
                     "is_processing".into(),
                     state.has_block_operations(&service.definition.id, &block.id).into(),
                 );
+                block_map.insert("id".into(), block.id.clone().into());
 
                 blocks.insert(block.id.clone().into(), block_map.into());
             });
 
             let mut service_map = Map::new();
             service_map.insert("blocks".into(), blocks.into());
+            service_map.insert("id".into(), service.definition.id.clone().into());
 
             scope.push(service.definition.id.clone(), service_map.clone());
             match service_id.as_ref() {
@@ -126,6 +130,7 @@ impl RhaiExecutor {
 
             // Register helper constants to make it easier to check statuses
             scope.push_constant("INITIAL", "Initial");
+            scope.push_constant("DISABLED", "Disabled");
             scope.push_constant("WORKING", "Working");
             scope.push_constant("OK", "Ok");
             scope.push_constant("ERROR", "Error");
@@ -146,6 +151,45 @@ impl RhaiExecutor {
         std_package.register_into_engine(&mut engine);
 
         engine
+    }
+
+    fn register_functions(state_arc: Arc<Mutex<SystemState>>, function_engine: &mut Engine) {
+        [
+            ("disable", BlockAction::Disable),
+            ("enable", BlockAction::Enable),
+            ("toggle", BlockAction::ToggleEnabled),
+            ("run", BlockAction::Run),
+            ("rerun", BlockAction::ReRun),
+            ("stop", BlockAction::Stop),
+            ("cancel", BlockAction::Cancel),
+        ].into_iter().for_each(|(name, action)| {
+            let state_arc = state_arc.clone();
+            function_engine.register_fn(name, move |service: &str, block: &str| {
+                let mut state = state_arc.lock().unwrap();
+                state.update_service(service, |service| {
+                    service.update_block_action(block, Some(action.clone()))
+                });
+            });
+        });
+
+        {
+            let state_arc = state_arc.clone();
+            function_engine.register_fn("spawn_task", move |service: &str, definition_id: &str| {
+                let mut state = state_arc.lock().unwrap();
+                state.current_profile.iter_mut().for_each(|profile| {
+                    profile.spawn_task(&TaskDefinitionId(definition_id.to_owned()), Some(service.to_owned()));
+                });
+            });
+        }
+        {
+            let state_arc = state_arc.clone();
+            function_engine.register_fn("spawn_task", move |definition_id: &str| {
+                let mut state = state_arc.lock().unwrap();
+                state.current_profile.iter_mut().for_each(|profile| {
+                    profile.spawn_task(&TaskDefinitionId(definition_id.to_owned()), None);
+                });
+            });
+        }
     }
 }
 

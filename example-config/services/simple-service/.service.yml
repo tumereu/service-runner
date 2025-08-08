@@ -43,8 +43,13 @@ blocks:
 tasks:
   - id: "clean-build"
     steps:
-      - action: cancel("build")
+      - action: cancel(self.id, self.blocks.build.id)
       - executable: /usr/bin/python3
         args:
           - clean.py
-      - action: rerun("build")
+      - action: rerun(self.id, "build")
+  - id: "toggle-all"
+    steps:
+      - action: |
+          toggle(self.id, self.blocks.build.id);
+          toggle(self.id, self.blocks.run.id);
