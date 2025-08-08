@@ -71,26 +71,30 @@ fn read_file<'a, T : Deserialize<'a>, P: AsRef<Path>,>(path: P) -> Result<T, Con
     let extensions = ["toml", "yml", "yaml"];
     let mut path_with_ext: PathBuf = path.as_ref().to_path_buf();
 
-    for ext in &extensions {
-        path_with_ext.set_extension(ext);
-
-        if path_with_ext.exists() {
-            let result = match *ext {
+    extensions.iter()
+        .filter(|ext| {
+            path_with_ext.set_extension(*ext);
+            path_with_ext.exists()
+        })
+        .next()
+        .map(|ext| {
+            path_with_ext.set_extension(ext);
+            match *ext {
                 "toml" => read_toml::<T>(&path_with_ext),
                 "yml" | "yaml" => read_yaml::<T>(&path_with_ext),
                 _ => panic!("Unrecognized file extension: {ext}"),
-            };
-
-            if result.is_ok() {
-                return result;
             }
-        }
-    }
-
-    Err(ConfigParsingError {
-        filename: path.as_ref().to_str().unwrap().to_string(),
-        user_message: "No file with valid extension called {path_without_extension} found".to_owned(),
-    })
+        })
+        .unwrap_or(
+            Err(ConfigParsingError {
+                filename: path.as_ref().to_str().unwrap().to_string(),
+                user_message: format!(
+                    "No file with valid extension ({exts}) called {path} found",
+                    path = path.as_ref().to_str().unwrap(),
+                    exts = extensions.map(|ext| format!(".{ext}")).join(", ")
+                ),
+            })
+        )
 }
 
 fn read_toml<'a, T : Deserialize<'a>>(path: &Path) -> Result<T, ConfigParsingError> {
