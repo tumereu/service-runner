@@ -20,19 +20,22 @@ use crate::ui::widgets::{
     OutputLine, Spinner, Text,
 };
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
+use crate::ui::screens::view_profile::output_pane::OutputPane;
+
+mod output_pane;
 
 pub fn render_view_profile(frame: &mut Frame, system: &SystemState)
 {
     let (pane, selection, wrap_output, output_pos_horiz, output_pos_vert, floating_pane) =
         match &system.ui.screen {
             &CurrentScreen::ViewProfile(ViewProfileState {
-                active_pane,
-                service_selection,
-                wrap_output,
-                output_pos_horiz,
-                output_pos_vert,
-                floating_pane,
-            }) => (
+                                            active_pane,
+                                            service_selection,
+                                            wrap_output,
+                                            output_pos_horiz,
+                                            output_pos_vert,
+                                            floating_pane,
+                                        }) => (
                 active_pane,
                 service_selection,
                 wrap_output,
@@ -114,8 +117,8 @@ pub fn render_view_profile(frame: &mut Frame, system: &SystemState)
 
         match floating_pane {
             Some(ViewProfileFloatingPane::ServiceAutomationDetails {
-                detail_list_selection: _,
-            }) => {
+                     detail_list_selection: _,
+                 }) => {
                 let selected_service_bounds = selected_service_bounds.borrow();
                 let automation_modes: Vec<(String, AutomationMode)> = system
                     .iter_services()
@@ -159,7 +162,7 @@ pub fn render_view_profile(frame: &mut Frame, system: &SystemState)
                                                     text: name.clone(),
                                                     ..Default::default()
                                                 }
-                                                .into_el(),
+                                                    .into_el(),
                                                 min_width: longest_name + 3,
                                                 padding_right: 3,
                                                 ..Default::default()
@@ -188,7 +191,7 @@ pub fn render_view_profile(frame: &mut Frame, system: &SystemState)
                                                     },
                                                     ..Default::default()
                                                 }
-                                                .into_el(),
+                                                    .into_el(),
                                                 align_horiz: Align::End,
                                                 min_width: 11,
                                                 ..Default::default()
@@ -196,13 +199,13 @@ pub fn render_view_profile(frame: &mut Frame, system: &SystemState)
                                         ],
                                         ..Default::default()
                                     }
-                                    .into_el(),
+                                        .into_el(),
                                     ..Default::default()
                                 })
                                 .collect(),
                             ..Default::default()
                         }
-                        .into_el(),
+                            .into_el(),
                         ..Default::default()
                     },
                     // Render the floating pane after the selected service but on the same level
@@ -256,10 +259,10 @@ fn service_list(
                                 BlockStatus::Initial => BlockUIStatus::Initial,
                                 BlockStatus::Working { step } => match step {
                                     WorkStep::PrerequisiteCheck { last_failure, .. }
-                                        if last_failure.is_some() =>
-                                    {
-                                        BlockUIStatus::FailedPrerequisites
-                                    }
+                                    if last_failure.is_some() =>
+                                        {
+                                            BlockUIStatus::FailedPrerequisites
+                                        }
                                     _ => BlockUIStatus::Working,
                                 },
                                 BlockStatus::Ok => BlockUIStatus::Ok,
@@ -281,7 +284,7 @@ fn service_list(
                             text: service.definition.id.to_string(),
                             ..Default::default()
                         }
-                        .into_el(),
+                            .into_el(),
                         ..Default::default()
                     },
                     // Status prefix
@@ -290,7 +293,7 @@ fn service_list(
                             text: " ".into(),
                             ..Default::default()
                         }
-                        .into_el(),
+                            .into_el(),
                         ..Default::default()
                     },
                 ];
@@ -304,10 +307,10 @@ fn service_list(
                             } else {
                                 theme.inactive_color
                             }
-                            .into(),
+                                .into(),
                             ..Default::default()
                         }
-                        .into_el(),
+                            .into_el(),
                         ..Default::default()
                     },
                     // Autocompile status
@@ -318,14 +321,14 @@ fn service_list(
                             } else {
                                 "-"
                             }
-                            .into(),
+                                .into(),
 
                             // FIXME proper color here
                             fg: theme.inactive_color.into(),
 
                             ..Default::default()
                         }
-                        .into_el(),
+                            .into_el(),
                         ..Default::default()
                     },
                     Cell {
@@ -334,7 +337,7 @@ fn service_list(
                             active: is_processing,
                             ..Default::default()
                         }
-                        .into_el(),
+                            .into_el(),
                         ..Default::default()
                     },
                 ];
@@ -368,7 +371,7 @@ fn service_list(
                                     BlockUIStatus::Failed => theme.error_color.into(),
                                 },
                             }
-                            .into_el(),
+                                .into_el(),
                             ..Default::default()
                         }
                     })
@@ -389,7 +392,7 @@ fn service_list(
                             .collect(),
                         ..Default::default()
                     }
-                    .into_el(),
+                        .into_el(),
                     ..Default::default()
                 }
             })
@@ -400,138 +403,3 @@ fn service_list(
     (list, selected_service_bounds)
 }
 
-pub struct OutputPane<'a> {
-    pub height: usize,
-    pub wrap_output: bool,
-    pub pos_horiz: Option<u64>,
-    pub pos_vert: Option<u128>,
-    pub profile: &'a Profile,
-    pub state: &'a SystemState,
-}
-impl OutputPane<'_> {
-    fn render(self) -> Flow {
-        let OutputPane {
-            height,
-            wrap_output,
-            pos_horiz,
-            pos_vert,
-            profile,
-            state
-        } = self;
-        let theme = &state.config.settings.theme;
-
-        Flow {
-            direction: Dir::UpDown,
-            cells: iter::once(Cell {
-                align_horiz: Align::Stretch,
-                align_vert: Align::Stretch,
-                fill: true,
-                element: OutputDisplay {
-                    wrap: wrap_output,
-                    pos_horiz,
-                    lines: state
-                        .output_store
-                        .query_lines_to(
-                            height,
-                            pos_vert,
-                            &get_active_outputs(&state.output_store, state),
-                        )
-                        .into_iter()
-                        .map(|(key, line)| {
-                            let color_idx = key
-                                .service_id
-                                .clone()
-                                .and_then(|service_id| {
-                                    profile
-                                        .services
-                                        .iter()
-                                        .enumerate()
-                                        .find(|(_, service)| service.definition.id == service_id)
-                                        .map(|(idx, _)| idx)
-                                })
-                                .unwrap_or(profile.services.len());
-                            let name = key
-                                .service_id
-                                .clone()
-                                .unwrap_or(profile.definition.id.clone());
-
-                            OutputLine {
-                                prefix: vec![
-                                    LinePart {
-                                        text: match key.kind {
-                                            OutputKind::System => "i/",
-                                            OutputKind::ExtProcess => "c/",
-                                        }
-                                            .to_string(),
-                                        color: match key.kind {
-                                            OutputKind::System => Color::Rgb(0, 180, 0),
-                                            OutputKind::ExtProcess => Color::Rgb(0, 120, 220),
-                                        }
-                                            .into(),
-                                    },
-                                    LinePart {
-                                        text: format!("{name}/"),
-                                        color: theme.service_colors[color_idx % theme.service_colors.len()]
-                                            .into(),
-                                    },
-                                    LinePart {
-                                        text: format!(
-                                            "{name} | ",
-                                            name = Self::force_len(&key.source_name, 5)
-                                        ),
-                                        color: Some(
-                                            theme.source_colors[
-                                                Self::hash_name(&key.source_name) & theme.source_colors.len()
-                                            ]
-                                        )
-                                    },
-                                ],
-                                parts: vec![LinePart {
-                                    text: line.value.clone(),
-                                    color: None,
-                                }],
-                            }
-                        })
-                        .collect(),
-                }
-                    .into_el(),
-                ..Default::default()
-            })
-                .chain(if pos_vert.is_none() {
-                    Some(Cell {
-                        align_horiz: Align::Stretch,
-                        element: Spinner {
-                            active: true,
-                            ..Default::default()
-                        }
-                            .into_el(),
-                        ..Default::default()
-                    })
-                } else {
-                    None
-                })
-                .collect(),
-            ..Default::default()
-        }
-    }
-
-    fn hash_name(name: &str) -> usize {
-        // Hash the name to obtain a color for it
-        let mut hasher = DefaultHasher::new();
-        name.hash(&mut hasher);
-        hasher.finish() as usize
-    }
-
-    fn force_len(text: &str, len: usize) -> String {
-        let actual_len = text.chars().count();
-
-        if actual_len == len {
-            text.to_string()
-        } else if actual_len > len {
-            text.chars().take(len).collect()
-        } else {
-            let padding = " ".repeat(len - actual_len);
-            format!("{}{}", text, padding)
-        }
-    }
-}
