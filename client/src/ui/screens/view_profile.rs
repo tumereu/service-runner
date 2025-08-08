@@ -381,7 +381,7 @@ fn service_list(
                             element: Text {
                                 text: match block_ui_status {
                                     BlockUIStatus::Disabled => {
-                                        block.status_line.symbol.chars().map(|c| '-').join("")
+                                        ["-", &" ".repeat(block.status_line.symbol.len() - 1)].join("")
                                     }
                                     _ => block.status_line.symbol.clone(),
                                 },

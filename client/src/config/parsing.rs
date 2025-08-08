@@ -2,10 +2,10 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::{read_to_string, File};
 use std::io::BufReader;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use Vec;
 
-use log::info;
+use log::{debug, info};
 use serde::Deserialize;
 use walkdir::WalkDir;
 
@@ -28,8 +28,7 @@ impl Error for ConfigParsingError {}
 pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
     info!("Reading configuration froms directory {dir}");
 
-    let main_file = format!("{dir}/settings.toml");
-    let settings: Settings = read_toml(Path::new(&main_file))?;
+    let settings: Settings = read_file(Path::new(dir).join("settings"))?;
     let mut services: Vec<ServiceDefinition> = Vec::new();
     let mut profiles: Vec<ProfileDefinition> = Vec::new();
 
@@ -39,19 +38,24 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        let filename = entry.file_name().to_str().unwrap_or("");
+        let extension = path.extension().and_then(|ext| ext.to_str().to_owned()).unwrap_or_default();
+        let stem = path.file_stem().and_then(|stem| stem.to_str().to_owned()).unwrap_or_default();
 
-        info!("Reading configuration file {filename}");
+        match extension {
+            "toml" | "yml" | "yaml" => {
+                debug!("Checking path {path:?} as a potential configuration file")
+            },
+            _ => {
+                debug!("Skipping path {path:?} due to invalid extension")
+            },
+        };
 
-        // TODO clean up
-        if filename.ends_with(".service.toml") {
-            services.push(read_toml(path)?);
-        } else if filename.ends_with(".service.yaml") || filename.ends_with(".service.yml") {
-            services.push(read_yaml(path)?);
-        } else if filename.ends_with(".profile.toml") {
-            profiles.push(read_toml(path)?)
-        } else if filename.ends_with(".profile.yaml") || filename.ends_with(".profile.yml") {
-            profiles.push(read_yaml(path)?)
+        if stem.ends_with(".service") {
+            info!("Reading service configuration file {path:?}");
+            services.push(read_file(path)?);
+        } else if stem.ends_with(".profile") {
+            info!("Reading profielervice configuration file {path:?}");
+            profiles.push(read_file(path)?);
         }
     }
 
@@ -60,6 +64,32 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigParsingError> {
         conf_dir: dir.into(),
         services,
         profiles,
+    })
+}
+
+fn read_file<'a, T : Deserialize<'a>, P: AsRef<Path>,>(path: P) -> Result<T, ConfigParsingError> {
+    let extensions = ["toml", "yml", "yaml"];
+    let mut path_with_ext: PathBuf = path.as_ref().to_path_buf();
+
+    for ext in &extensions {
+        path_with_ext.set_extension(ext);
+
+        if path_with_ext.exists() {
+            let result = match *ext {
+                "toml" => read_toml::<T>(&path_with_ext),
+                "yml" | "yaml" => read_yaml::<T>(&path_with_ext),
+                _ => panic!("Unrecognized file extension: {ext}"),
+            };
+
+            if result.is_ok() {
+                return result;
+            }
+        }
+    }
+
+    Err(ConfigParsingError {
+        filename: path.as_ref().to_str().unwrap().to_string(),
+        user_message: "No file with valid extension called {path_without_extension} found".to_owned(),
     })
 }
 

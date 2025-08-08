@@ -11,4 +11,5 @@ mod automation;
 mod service_definition;
 mod profile_definition;
 mod config;
+mod theme;
 
