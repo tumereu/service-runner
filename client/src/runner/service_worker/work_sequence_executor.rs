@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use log::debug;
 use crate::config::{ExecutableEntry, HttpMethod, Requirement, TaskStep};
-use crate::runner::rhai::RHAI_ENGINE;
+use crate::runner::rhai::{RhaiRequest};
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 use crate::runner::service_worker::requirement_checker::{RequirementCheckResult, RequirementChecker};
 use crate::runner::service_worker::work_context::WorkContext;
@@ -35,7 +35,7 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
         match next_entry {
             None => WorkExecutionResult::AllOk,
             Some(WorkSequenceEntry::ExecutableEntry(entry)) => self.handle_executable_entry(entry),
-            Some(WorkSequenceEntry::RhaiScript(script)) => self.handle_rhai_script(script),
+            Some(WorkSequenceEntry::RhaiScript(script)) => self.handle_rhai_script(script.clone()),
             Some(WorkSequenceEntry::WaitRequirement { timeout, requirement }) => self.handle_requirement(timeout, requirement),
         }
     }
@@ -69,32 +69,39 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
         }
     }
 
-    fn handle_rhai_script(&self, script: &String) -> WorkExecutionResult {
-        let (result, messages) = {
-            // TODO currently evaluation is performed synchronously. Move engine to a worker thread to allow for
-            //      longer scripts?
-            let mut scope = self.context.create_rhai_scope();
-            match RHAI_ENGINE.eval_with_scope::<bool>(&mut scope, script) {
-                Ok(_) => (
-                    WorkExecutionResult::EntryOk,
-                    vec![
-                        format!("Rhai script OK: {}", script)
-                    ]
-                ),
-                Err(error) => (
-                    WorkExecutionResult::Failed,
-                    vec![
-                        format!("Error in Rhai script {script}: {error:?}")
-                    ],
-                ),
+    fn handle_rhai_script(&self, script: String) -> WorkExecutionResult {
+        match self.context.get_concurrent_operation_status() {
+            None => {
+                let result_rx = self.context.enqueue_rhai(script.clone(), true);
+
+                self.context.perform_concurrent_work(move || {
+                    match result_rx.recv() {
+                        Ok(Ok(_)) => WorkResult {
+                            successful: true,
+                            output: vec![format!("Rhai script OK: {}", script)]
+                        },
+                        Ok(Err(error)) => WorkResult {
+                            successful: false,
+                            output: vec![format!("Error in Rhai script {script}: {error:?}")],
+                        },
+                        Err(error) => WorkResult {
+                            successful: false,
+                            output: vec![format!("Error in receiving response from Rhai executor: {error:?}")],
+                        },
+                    }
+                });
+                WorkExecutionResult::Working
             }
-        };
-
-        messages.into_iter().for_each(|message| {
-            self.context.add_system_output(message);
-        });
-
-        result
+            Some(ConcurrentOperationStatus::Running) => WorkExecutionResult::Working,
+            Some(ConcurrentOperationStatus::Ok) => {
+                self.context.clear_concurrent_operation();
+                WorkExecutionResult::EntryOk
+            }
+            Some(ConcurrentOperationStatus::Failed) => {
+                self.context.clear_concurrent_operation();
+                WorkExecutionResult::Failed
+            }
+        }
     }
 
     fn handle_requirement(&self, timeout: &Duration, requirement: &Requirement) -> WorkExecutionResult {

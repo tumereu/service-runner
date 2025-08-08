@@ -4,10 +4,8 @@ use std::net::TcpListener;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use crate::config::{ExecutableEntry, HttpMethod, Requirement};
-use crate::runner::rhai::RHAI_ENGINE;
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 use crate::runner::service_worker::work_context::WorkContext;
-use crate::system_state::OperationType;
 
 pub enum RequirementCheckResult {
     AllOk,
@@ -16,7 +14,6 @@ pub enum RequirementCheckResult {
     CurrentCheckFailed,
     Timeout,
 }
-
 
 pub struct RequirementChecker<'a, W: WorkContext> {
     pub all_requirements: Vec<Requirement>,
@@ -159,23 +156,28 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                 );
             }
             Requirement::StateQuery { query } => {
-                let mut scope = self.context.create_rhai_scope();
-                // TODO currently evaluation is performed synchronously. Move engine to a worker thread to allow for
-                // longer scripts?
-                let result = match RHAI_ENGINE.eval_with_scope::<bool>(&mut scope, &query) {
-                    Ok(value) => WorkResult {
-                        successful: value,
-                        output: vec![format!("Query '{query}' => {value}")],
-                    },
-                    Err(e) => WorkResult {
-                        successful: false,
-                        output: vec![format!(
-                            "Error processing expression in query '{query}': {e:?}"
-                        )],
-                    },
-                };
+                let result_rx = self.context.enqueue_rhai(query.clone(), true);
 
-                self.context.perform_concurrent_work(move || result);
+                self.context.perform_concurrent_work(move || {
+                    match result_rx.recv() {
+                        Ok(Ok(value)) if value.is::<bool>() => WorkResult {
+                            successful: value.as_bool().unwrap(),
+                            output: vec![format!("Query '{query}' => {value}")],
+                        },
+                        Ok(Ok(value)) => WorkResult {
+                            successful: false,
+                            output: vec![format!("Error: Query outputted non-boolean: '{query}' => {value}")],
+                        },
+                        Ok(Err(error)) => WorkResult {
+                            successful: false,
+                            output: vec![format!("Error in Rhai query {query}: {error:?}")],
+                        },
+                        Err(error) => WorkResult {
+                            successful: false,
+                            output: vec![format!("Error in receiving response from Rhai executor: {error:?}")],
+                        },
+                    }
+                });
             }
             Requirement::File { paths } => {
                 let workdir = self.workdir.clone();

@@ -1,12 +1,12 @@
 use std::ops::Deref;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
-
+use std::sync::mpsc::Receiver;
 use log::{debug, error};
-
+use rhai::plugin::RhaiResult;
 use crate::config::{Block, TaskDefinitionId};
 use crate::models::{BlockAction, BlockStatus, GetBlock, OutputKey, OutputKind, Service, Task, TaskAction, TaskId, TaskStatus};
-use crate::runner::rhai::populate_rhai_scope;
+use crate::runner::rhai::{RhaiExecutor, RhaiRequest};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
     ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
@@ -16,17 +16,20 @@ use crate::system_state::{ConcurrentOperationKey, OperationType, SystemState};
 
 pub struct TaskContext {
     system_state: Arc<Mutex<SystemState>>,
+    rhai_executor: Arc<RhaiExecutor>,
     pub task_id: TaskId,
     pub definition_id: TaskDefinitionId,
 }
 impl TaskContext {
     pub fn new(
         system_state: Arc<Mutex<SystemState>>,
+        rhai_executor: Arc<RhaiExecutor>,
         task_id: TaskId,
         definition_id: TaskDefinitionId,
     ) -> Self {
         Self {
             system_state,
+            rhai_executor,
             task_id,
             definition_id,
         }
@@ -222,16 +225,16 @@ impl WorkContext for TaskWorkContext<'_> {
         );
     }
 
-    fn create_rhai_scope(&self) -> rhai::Scope {
-        let mut scope = rhai::Scope::new();
+    fn enqueue_rhai(&self, script: String, allow_fn: bool) -> Receiver<RhaiResult> {
         let service_id = self.query_task(|task| task.service_id.clone());
-        let state = self.system_state.lock().unwrap();
-
-        populate_rhai_scope(&mut scope, &state, service_id);
-
-        scope
+        
+        self.rhai_executor.enqueue(RhaiRequest {
+            script,
+            allow_functions: allow_fn,
+            service_id,
+        })
     }
-
+    
     fn add_system_output(&self, output: String) {
         let service_id = self.query_task(|task| task.service_id.clone());
         let source_name = self.get_task_definition_id().0;

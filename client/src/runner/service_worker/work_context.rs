@@ -1,4 +1,7 @@
 use std::process::Child;
+use std::sync::mpsc::Receiver;
+use rhai::plugin::RhaiResult;
+use crate::runner::rhai::RhaiRequest;
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 
 pub trait WorkContext {
@@ -14,7 +17,7 @@ pub trait WorkContext {
 
     fn register_external_process(&self, handle: Child);
 
-    fn create_rhai_scope(&self) -> rhai::Scope;
+    fn enqueue_rhai(&self, script: String, with_fn: bool) -> Receiver<RhaiResult>;
 
     fn add_system_output(&self, output: String);
 }

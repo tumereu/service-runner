@@ -1,12 +1,12 @@
 use std::ops::Deref;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
-
+use std::sync::mpsc::Receiver;
 use log::{debug, error};
-
+use rhai::plugin::RhaiResult;
 use crate::config::Block;
 use crate::models::{BlockAction, BlockStatus, GetBlock, OutputKey, OutputKind, Service};
-use crate::runner::rhai::populate_rhai_scope;
+use crate::runner::rhai::{RhaiExecutor, RhaiRequest};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
     ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
@@ -16,17 +16,20 @@ use crate::system_state::{ConcurrentOperationKey, OperationType, SystemState};
 
 pub struct ServiceBlockContext {
     system_state: Arc<Mutex<SystemState>>,
+    rhai_executor: Arc<RhaiExecutor>,
     pub service_id: String,
     pub block_id: String,
 }
 impl ServiceBlockContext {
     pub fn new(
         system_state: Arc<Mutex<SystemState>>,
+        rhai_executor: Arc<RhaiExecutor>,
         service_id: String,
         block_id: String,
     ) -> Self {
         Self {
             system_state,
+            rhai_executor,
             service_id,
             block_id,
         }
@@ -272,13 +275,12 @@ impl WorkContext for BlockWorkContext<'_> {
         self.block_context.register_external_process(handle, self.operation_type);
     }
 
-    fn create_rhai_scope(&self) -> rhai::Scope {
-        let mut scope = rhai::Scope::new();
-        let state = self.system_state.lock().unwrap();
-
-        populate_rhai_scope(&mut scope, &state, Some(self.service_id.clone()));
-
-        scope
+    fn enqueue_rhai(&self, script: String, allow_fn: bool) -> Receiver<RhaiResult> {
+        self.rhai_executor.enqueue(RhaiRequest {
+            script,
+            allow_functions: allow_fn,
+            service_id: Some(self.service_id.clone())
+        })
     }
 
     fn add_system_output(&self, output: String) {

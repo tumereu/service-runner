@@ -1,5 +1,6 @@
+use std::future::Future;
 use std::sync::{mpsc, Arc, Mutex, PoisonError};
-use std::sync::mpsc::{channel, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
 use log::error;
@@ -24,7 +25,7 @@ impl RhaiExecutor {
         }
     }
 
-    pub fn start(&mut self) -> JoinHandle<()> {
+    pub fn start(&self) -> JoinHandle<()> {
         let keep_alive = self.keep_alive.clone();
         let state_arc = self.state.clone();
         let (tx, rx) = channel::<(RhaiRequest, Sender<RhaiResult>)>();
@@ -61,7 +62,7 @@ impl RhaiExecutor {
             }
         });
 
-        self.tx = Arc::new(Mutex::new(Some(tx)));
+        *self.tx.lock().unwrap() = Some(tx);
 
         worker_thread
     }
@@ -70,13 +71,13 @@ impl RhaiExecutor {
         *self.keep_alive.lock().unwrap() = false;
     }
 
-    pub fn execute(&self, request: RhaiRequest) -> RhaiResult {
+    pub fn enqueue(&self, request: RhaiRequest) -> Receiver<RhaiResult> {
         let tx = self.tx.lock().unwrap();
         if let Some(tx) = tx.as_ref() {
             let (response_tx, response_rx) = channel::<RhaiResult>();
 
             tx.send((request, response_tx)).unwrap();
-            response_rx.recv().unwrap()
+            response_rx
         } else {
             // TODO custom error type instead?
             panic!("Failed to execute Rhai request. Rhai worker thread is not running.");
