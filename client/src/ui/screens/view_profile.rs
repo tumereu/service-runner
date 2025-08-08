@@ -7,8 +7,6 @@ use std::iter;
 use std::rc::Rc;
 
 use itertools::Itertools;
-use once_cell::sync::Lazy;
-use ratatui::backend::Backend;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::Frame;
@@ -22,24 +20,6 @@ use crate::ui::widgets::{
     OutputLine, Spinner, Text,
 };
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
-
-const SERVICE_NAME_COLORS: Lazy<Vec<Color>> = Lazy::new(|| {
-    vec![
-        Color::Rgb(255, 0, 0),
-        Color::Rgb(255, 165, 0),
-        Color::Rgb(255, 255, 0),
-        Color::Rgb(0, 255, 0),
-        Color::Rgb(0, 255, 255),
-        Color::Rgb(0, 120, 180),
-        Color::Rgb(128, 0, 128),
-        Color::Rgb(255, 0, 255),
-        Color::Rgb(255, 192, 203),
-        Color::Rgb(255, 215, 0),
-        Color::Rgb(255, 69, 0),
-        Color::Rgb(0, 128, 0),
-        Color::Rgb(139, 0, 139),
-    ]
-});
 
 pub fn render_view_profile(frame: &mut Frame, system: &SystemState)
 {
@@ -116,15 +96,14 @@ pub fn render_view_profile(frame: &mut Frame, system: &SystemState)
                         fill: true,
                         align_vert: Align::Stretch,
                         align_horiz: Align::Stretch,
-                        element: output_pane(
-                            frame.size().height.into(),
+                        element: OutputPane {
+                            height: frame.size().height.into(),
                             wrap_output,
-                            output_pos_horiz,
-                            output_pos_vert,
+                            pos_horiz: output_pos_horiz,
+                            pos_vert: output_pos_vert,
                             profile,
-                            system,
-                        )
-                        .into_el(),
+                            state: system,
+                        }.render().into_el(),
                         ..Default::default()
                     },
                 ],
@@ -249,18 +228,13 @@ pub enum BlockUIStatus {
 }
 
 fn service_list(
-    system_state: &SystemState,
+    state: &SystemState,
     profile: &Profile,
     selection: Option<usize>,
 ) -> (List, Rc<RefCell<Rect>>) {
     // TODO Theme?
-    let active_color = Color::Rgb(0, 140, 0);
-    let secondary_active_color = Color::Rgb(0, 40, 180);
-    let waiting_to_process_color = Color::Rgb(230, 127, 0);
-    let processing_color = Color::Rgb(230, 180, 0);
-    let error_color = Color::Rgb(180, 0, 0);
-    let inactive_color = Color::Gray;
     let selected_service_bounds = Rc::new(RefCell::new(Rect::new(0, 0, 0, 0)));
+    let theme = &state.config.settings.theme;
 
     let list = List {
         selection: selection.unwrap_or(usize::MAX),
@@ -326,9 +300,9 @@ fn service_list(
                         element: Text {
                             text: "O".into(),
                             fg: if show_output {
-                                active_color
+                                theme.active_color
                             } else {
-                                inactive_color
+                                theme.inactive_color
                             }
                             .into(),
                             ..Default::default()
@@ -347,7 +321,7 @@ fn service_list(
                             .into(),
 
                             // FIXME proper color here
-                            fg: inactive_color.into(),
+                            fg: theme.inactive_color.into(),
 
                             ..Default::default()
                         }
@@ -384,14 +358,14 @@ fn service_list(
                                     _ => block.status_line.symbol.clone(),
                                 },
                                 fg: match block_ui_status {
-                                    BlockUIStatus::Initial => inactive_color.into(),
-                                    BlockUIStatus::Disabled => inactive_color.into(),
+                                    BlockUIStatus::Initial => theme.inactive_color.into(),
+                                    BlockUIStatus::Disabled => theme.inactive_color.into(),
                                     BlockUIStatus::FailedPrerequisites => {
-                                        waiting_to_process_color.into()
+                                        theme.waiting_to_process_color.into()
                                     }
-                                    BlockUIStatus::Working => processing_color.into(),
-                                    BlockUIStatus::Ok => active_color.into(),
-                                    BlockUIStatus::Failed => error_color.into(),
+                                    BlockUIStatus::Working => theme.processing_color.into(),
+                                    BlockUIStatus::Ok => theme.active_color.into(),
+                                    BlockUIStatus::Failed => theme.error_color.into(),
                                 },
                             }
                             .into_el(),
@@ -426,123 +400,138 @@ fn service_list(
     (list, selected_service_bounds)
 }
 
-fn output_pane(
-    height: usize,
-    wrap_output: bool,
-    pos_horiz: Option<u64>,
-    pos_vert: Option<u128>,
-    profile: &Profile,
-    state: &SystemState,
-) -> Flow {
-    Flow {
-        direction: Dir::UpDown,
-        cells: iter::once(Cell {
-            align_horiz: Align::Stretch,
-            align_vert: Align::Stretch,
-            fill: true,
-            element: OutputDisplay {
-                wrap: wrap_output,
-                pos_horiz,
-                lines: state
-                    .output_store
-                    .query_lines_to(
-                        height,
-                        pos_vert,
-                        &get_active_outputs(&state.output_store, state),
-                    )
-                    .into_iter()
-                    .map(|(key, line)| {
-                        let color_idx = key
-                            .service_id
-                            .clone()
-                            .and_then(|service_id| {
-                                profile
-                                    .services
-                                    .iter()
-                                    .enumerate()
-                                    .find(|(_, service)| service.definition.id == service_id)
-                                    .map(|(idx, _)| idx)
-                            })
-                            .unwrap_or(profile.services.len());
-                        let name = key
-                            .service_id
-                            .clone()
-                            .unwrap_or(profile.definition.id.clone());
+pub struct OutputPane<'a> {
+    pub height: usize,
+    pub wrap_output: bool,
+    pub pos_horiz: Option<u64>,
+    pub pos_vert: Option<u128>,
+    pub profile: &'a Profile,
+    pub state: &'a SystemState,
+}
+impl OutputPane<'_> {
+    fn render(self) -> Flow {
+        let OutputPane {
+            height,
+            wrap_output,
+            pos_horiz,
+            pos_vert,
+            profile,
+            state
+        } = self;
+        let theme = &state.config.settings.theme;
 
-                        OutputLine {
-                            prefix: vec![
-                                LinePart {
-                                    text: match key.kind {
-                                        OutputKind::System => "i/",
-                                        OutputKind::ExtProcess => "c/",
-                                    }
-                                    .to_string(),
-                                    color: match key.kind {
-                                        OutputKind::System => Color::Rgb(0, 180, 0),
-                                        OutputKind::ExtProcess => Color::Rgb(0, 120, 220),
-                                    }
-                                    .into(),
-                                },
-                                LinePart {
-                                    text: format!("{name}/"),
-                                    color: SERVICE_NAME_COLORS
-                                        [color_idx % SERVICE_NAME_COLORS.len()]
-                                    .into(),
-                                },
-                                LinePart {
-                                    text: format!(
-                                        "{name} | ",
-                                        name = force_len(&key.source_name, 5)
-                                    ),
-                                    color: Some(hashed_color(&key.source_name)),
-                                },
-                            ],
-                            parts: vec![LinePart {
-                                text: line.value.clone(),
-                                color: None,
-                            }],
-                        }
-                    })
-                    .collect(),
-            }
-            .into_el(),
-            ..Default::default()
-        })
-        .chain(if pos_vert.is_none() {
-            Some(Cell {
+        Flow {
+            direction: Dir::UpDown,
+            cells: iter::once(Cell {
                 align_horiz: Align::Stretch,
-                element: Spinner {
-                    active: true,
-                    ..Default::default()
+                align_vert: Align::Stretch,
+                fill: true,
+                element: OutputDisplay {
+                    wrap: wrap_output,
+                    pos_horiz,
+                    lines: state
+                        .output_store
+                        .query_lines_to(
+                            height,
+                            pos_vert,
+                            &get_active_outputs(&state.output_store, state),
+                        )
+                        .into_iter()
+                        .map(|(key, line)| {
+                            let color_idx = key
+                                .service_id
+                                .clone()
+                                .and_then(|service_id| {
+                                    profile
+                                        .services
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, service)| service.definition.id == service_id)
+                                        .map(|(idx, _)| idx)
+                                })
+                                .unwrap_or(profile.services.len());
+                            let name = key
+                                .service_id
+                                .clone()
+                                .unwrap_or(profile.definition.id.clone());
+
+                            OutputLine {
+                                prefix: vec![
+                                    LinePart {
+                                        text: match key.kind {
+                                            OutputKind::System => "i/",
+                                            OutputKind::ExtProcess => "c/",
+                                        }
+                                            .to_string(),
+                                        color: match key.kind {
+                                            OutputKind::System => Color::Rgb(0, 180, 0),
+                                            OutputKind::ExtProcess => Color::Rgb(0, 120, 220),
+                                        }
+                                            .into(),
+                                    },
+                                    LinePart {
+                                        text: format!("{name}/"),
+                                        color: theme.service_colors[color_idx % theme.service_colors.len()]
+                                            .into(),
+                                    },
+                                    LinePart {
+                                        text: format!(
+                                            "{name} | ",
+                                            name = Self::force_len(&key.source_name, 5)
+                                        ),
+                                        color: Some(
+                                            theme.source_colors[
+                                                Self::hash_name(&key.source_name) & theme.source_colors.len()
+                                            ]
+                                        )
+                                    },
+                                ],
+                                parts: vec![LinePart {
+                                    text: line.value.clone(),
+                                    color: None,
+                                }],
+                            }
+                        })
+                        .collect(),
                 }
-                .into_el(),
+                    .into_el(),
                 ..Default::default()
             })
-        } else {
-            None
-        })
-        .collect(),
-        ..Default::default()
+                .chain(if pos_vert.is_none() {
+                    Some(Cell {
+                        align_horiz: Align::Stretch,
+                        element: Spinner {
+                            active: true,
+                            ..Default::default()
+                        }
+                            .into_el(),
+                        ..Default::default()
+                    })
+                } else {
+                    None
+                })
+                .collect(),
+            ..Default::default()
+        }
     }
-}
 
-fn hashed_color(name: &str) -> Color {
-    // Hash the name to obtain a color for it
-    let mut hasher = DefaultHasher::new();
-    name.hash(&mut hasher);
-    let hash: usize = hasher.finish() as usize;
-    SERVICE_NAME_COLORS[hash % SERVICE_NAME_COLORS.len()]
-}
+    fn hash_name(name: &str) -> usize {
+        // Hash the name to obtain a color for it
+        let mut hasher = DefaultHasher::new();
+        name.hash(&mut hasher);
+        hasher.finish() as usize
+    }
 
-fn force_len(text: &str, len: usize) -> String {
-    let actual_len = text.chars().count();
+    fn force_len(text: &str, len: usize) -> String {
+        let actual_len = text.chars().count();
 
-    if actual_len == len {
-        text.to_string()
-    } else if actual_len > len {
-        text.chars().take(len).collect()
-    } else {
-        let padding = " ".repeat(len - actual_len);
-        format!("{}{}", text, padding)
+        if actual_len == len {
+            text.to_string()
+        } else if actual_len > len {
+            text.chars().take(len).collect()
+        } else {
+            let padding = " ".repeat(len - actual_len);
+            format!("{}{}", text, padding)
+        }
     }
 }

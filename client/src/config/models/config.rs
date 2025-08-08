@@ -13,6 +13,7 @@ pub struct Settings {
 pub struct RawSettings {
     #[serde(default)]
     pub autolaunch_profile: Option<String>,
+    #[serde(default)]
     pub theme: RawTheme,
 }
 impl TryInto<Settings> for RawSettings {
