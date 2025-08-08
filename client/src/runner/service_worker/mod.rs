@@ -17,14 +17,14 @@ use crate::runner::service_worker::{
 };
 use crate::runner::service_worker::task_processor::TaskProcessor;
 
-mod concurrent_operation;
-mod service_block_context;
-mod block_processor;
-mod requirement_checker;
-mod work_context;
-mod work_sequence_executor;
-mod task_context;
-mod task_processor;
+pub mod concurrent_operation;
+pub mod service_block_context;
+pub mod block_processor;
+pub mod requirement_checker;
+pub mod work_context;
+pub mod work_sequence_executor;
+pub mod task_context;
+pub mod task_processor;
 
 pub struct ServiceWorker {
     state: Arc<Mutex<SystemState>>,
