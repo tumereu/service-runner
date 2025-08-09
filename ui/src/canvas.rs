@@ -1,17 +1,18 @@
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use ratatui::Frame;
-use ratatui::layout::{Offset, Rect};
+use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
 use crate::component::{Component, Measurement};
+use crate::RenderContext;
 use crate::space::{Position, Size};
-use crate::state_store::{StoreAccessContext, StateStore};
+use crate::state_store::StateStore;
 
 pub struct Canvas<'a, 'b> {
     frame: RefCell<&'a mut Frame<'b>>,
     store: Rc<StateStore>,
-    context: RefCell<RenderContext>,
+    context: RefCell<ComponentContext>,
 }
 impl<'a, 'b> Canvas<'a, 'b> {
     pub fn new(
@@ -22,7 +23,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
         Self {
             frame: RefCell::new(frame),
             store,
-            context: RefCell::new(RenderContext {
+            context: RefCell::new(ComponentContext {
                 key: String::new(),
                 pos: (0i32, 0i32).into(),
                 size: initial_size,
@@ -44,7 +45,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
         } = args;
 
         let resolved_key = self.resolve_key::<S>(&key);
-        let new_context = RenderContext {
+        let new_context = ComponentContext {
             key: resolved_key.clone(),
             pos: &self.context.borrow().pos + pos,
             size,
@@ -53,7 +54,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
         let old_context = self.context.replace(new_context);
         self.store.set_retain(&resolved_key, retain_unmounted_state);
 
-        component.render(&self, StoreAccessContext::<S>::new(
+        component.render(&self, RenderContext::<S>::new(
             self.store.clone(),
             resolved_key
         ));
@@ -75,7 +76,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
         component: C,
     ) -> Measurement where S : Default + 'static, C : Component<S> {
         let resolved_key = self.resolve_key::<S>(&key);
-        let new_context = RenderContext {
+        let new_context = ComponentContext {
             key: resolved_key.clone(),
             pos: self.context.borrow().pos.clone(),
             size: self.context.borrow().size.clone(),
@@ -83,7 +84,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
 
         let old_context = self.context.replace(new_context);
 
-        let measurement = component.measure(&self, StoreAccessContext::<S>::new(
+        let measurement = component.measure(&self, RenderContext::<S>::new(
             self.store.clone(),
             resolved_key
         ));
@@ -114,7 +115,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
     }
 }
 
-pub struct RenderContext {
+pub struct ComponentContext {
     key: String,
     pos: Position,
     size: Size,

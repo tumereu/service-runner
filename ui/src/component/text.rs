@@ -4,7 +4,7 @@ use ratatui::widgets::Paragraph;
 use crate::canvas::Canvas;
 use crate::component::{Component, Measurement};
 use crate::space::Size;
-use crate::state_store::StoreAccessContext;
+use crate::render_context::RenderContext;
 
 #[derive(Debug, Default)]
 pub struct Text {
@@ -19,14 +19,14 @@ impl Text {
 }
 
 impl Component<()> for Text {
-    fn measure(&self, canvas: &Canvas, state: StoreAccessContext<()>) -> Measurement {
+    fn measure(&self, _canvas: &Canvas, _state: RenderContext<()>) -> Measurement {
         Measurement {
             min: Some(self.size()),
             max: Some(self.size()),
         }
     }
 
-    fn render(&self, canvas: &Canvas, state: StoreAccessContext<()>) {
+    fn render(&self, canvas: &Canvas, _state: RenderContext<()>) {
         let style = Style::default()
             .fg(self.fg.unwrap_or(Color::Reset));
 

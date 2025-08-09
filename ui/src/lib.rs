@@ -4,9 +4,14 @@
 // Add public API here when needed.
 
 pub mod component;
-pub mod canvas;
-pub mod state_store;
 pub mod space;
+
+mod render_context;
 mod render;
+mod canvas;
+mod state_store;
 
 pub use render::*;
+pub use render_context::*;
+pub use canvas::*;
+pub use state_store::*;

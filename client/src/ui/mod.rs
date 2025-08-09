@@ -6,9 +6,8 @@ use ratatui::backend::Backend;
 use ratatui::Terminal;
 
 pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
-use ui::canvas::{Canvas, RenderArgs};
+use ui::{Canvas, RenderArgs, RenderContext};
 use ui::component::{Component, Measurement, Text};
-use ui::state_store::StoreAccessContext;
 use crate::ui::screens::profile_select::render_profile_select;
 use crate::ui::screens::view_profile::render_view_profile;
 use crate::SystemState;
@@ -39,11 +38,11 @@ pub struct ViewRoot {
     pub state: Arc<Mutex<SystemState>>
 }
 impl Component<()> for ViewRoot {
-    fn measure(&self, canvas: &Canvas, state: StoreAccessContext<()>) -> Measurement {
+    fn measure(&self, _canvas: &Canvas, _ctx: RenderContext<()>) -> Measurement {
         Default::default()
     }
 
-    fn render(&self, canvas: &Canvas, state: StoreAccessContext<()>) {
+    fn render(&self, canvas: &Canvas, _ctx: RenderContext<()>) {
         canvas.render_component(RenderArgs {
             key: "text".to_string(),
             component: Text {

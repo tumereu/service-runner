@@ -4,11 +4,11 @@ pub use text::*;
 
 use crate::canvas::Canvas;
 use crate::space::Size;
-use crate::state_store::StoreAccessContext;
+use crate::render_context::RenderContext;
 
 pub trait Component<S> where S : Default + 'static {
-    fn measure(&self, canvas: &Canvas, state: StoreAccessContext<S>) -> Measurement;
-    fn render(&self, canvas: &Canvas, state: StoreAccessContext<S>);
+    fn measure(&self, canvas: &Canvas, ctx: RenderContext<S>) -> Measurement;
+    fn render(&self, canvas: &Canvas, ctx: RenderContext<S>);
 }
 
 #[derive(Debug, Clone, Default)]
