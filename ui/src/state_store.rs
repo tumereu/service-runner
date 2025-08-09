@@ -1,12 +1,13 @@
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub struct Store {
+pub struct StateStore {
     states: RefCell<BTreeMap<String, Box<dyn Any + 'static>>>,
 }
-impl Store {
+impl StateStore {
     pub fn new() -> Self {
         Self {
             states: RefCell::new(BTreeMap::new()),
@@ -40,15 +41,16 @@ pub struct StoreAccessContext<T>
 where
     T: Default + 'static,
 {
-    store: Rc<Store>,
+    store: Rc<StateStore>,
     key: String,
+    _marker: PhantomData<T>,
 }
 impl<T> StoreAccessContext<T>
 where
     T: Default + 'static,
 {
-    pub fn new(store: Rc<Store>, key: String) -> Self {
-        Self { store, key }
+    pub fn new(store: Rc<StateStore>, key: String) -> Self {
+        Self { store, key, _marker: PhantomData }
     }
 
     pub fn query<R, F>(&self, query: F) -> R

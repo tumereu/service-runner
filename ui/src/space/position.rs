@@ -6,18 +6,17 @@ pub struct Position {
     y: i32
 }
 
-impl<W, H, E> TryFrom<(W, H)> for Position
-where
-    W: TryInto<i32, Error = E>,
-    H: TryInto<i32, Error = E>,
-{
-    type Error = E;
 
-    fn try_from((x, y): (W, H)) -> Result<Self, Self::Error> {
-        Ok(Self {
-            x: x.try_into()?,
-            y: y.try_into()?,
-        })
+impl<W, H> Into<Position> for (W, H)
+where
+    W: Into<i32>,
+    H: Into<i32> {
+
+    fn into(self) -> Position {
+        Position {
+            x: self.0.into(),
+            y: self.1.into(),
+        }
     }
 }
 

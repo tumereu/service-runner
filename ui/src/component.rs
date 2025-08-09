@@ -1,6 +1,6 @@
 use crate::canvas::Canvas;
 use crate::space::Size;
-use crate::store::StoreAccessContext;
+use crate::state_store::StoreAccessContext;
 
 pub trait Component<S> where S : Default + 'static {
     fn measure(&self, canvas: &Canvas, state: StoreAccessContext<S>) -> Measurement;

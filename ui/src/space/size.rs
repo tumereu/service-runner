@@ -4,17 +4,15 @@ pub struct Size {
     pub height: u32,
 }
 
-impl<W, H, E> TryFrom<(W, H)> for Size
+impl<W, H> Into<Size> for (W, H)
 where
-    W: TryInto<u32, Error = E>,
-    H: TryInto<u32, Error = E>,
-{
-    type Error = E;
+    W: Into<u32>,
+    H: Into<u32> {
 
-    fn try_from((width, height): (W, H)) -> Result<Self, Self::Error> {
-        Ok(Self {
-            width: width.try_into()?,
-            height: height.try_into()?,
-        })
+    fn into(self) -> Size {
+        Size {
+            width: self.0.into(),
+            height: self.1.into(),
+        }
     }
 }

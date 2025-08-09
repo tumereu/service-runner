@@ -5,5 +5,6 @@
 
 mod component;
 mod canvas;
-mod store;
+mod state_store;
 mod space;
+mod render;
