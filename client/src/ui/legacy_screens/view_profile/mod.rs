@@ -20,7 +20,7 @@ use crate::ui::widgets::{
     OutputLine, Spinner, Text,
 };
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
-use crate::ui::screens::view_profile::output_pane::OutputPane;
+use crate::ui::legacy_screens::view_profile::output_pane::OutputPane;
 
 mod output_pane;
 

@@ -6,15 +6,17 @@ use ratatui::backend::Backend;
 use ratatui::Terminal;
 
 pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
-use ui::{Canvas, RenderArgs, RenderContext};
+use ui::{render, Canvas, RenderArgs, RenderContext};
 use ui::component::{Component, Measurement, Text};
-use crate::ui::screens::profile_select::render_profile_select;
-use crate::ui::screens::view_profile::render_view_profile;
+use crate::ui::legacy_screens::profile_select::render_profile_select;
+use crate::ui::legacy_screens::view_profile::render_view_profile;
 use crate::SystemState;
+use crate::ui::screens::select_profile::SelectProfileScreen;
 
-mod screens;
+mod legacy_screens;
 mod state;
 mod widgets;
+mod screens;
 
 pub fn render<B>(term: &mut Terminal<B>, system_arc: Arc<Mutex<SystemState>>) -> std::io::Result<()>
 where
@@ -43,16 +45,10 @@ impl Component<()> for ViewRoot {
     }
 
     fn render(&self, canvas: &Canvas, _ctx: RenderContext<()>) {
-        canvas.render_component(RenderArgs {
-            key: "text".to_string(),
-            component: Text {
-                text: "123".to_owned(),
-                ..Default::default()
-            },
-            pos: (12, 24).into(),
-            size: canvas.size(),
-            retain_unmounted_state: false,
-            state_type: PhantomData,
+        render!(canvas, {
+            key = "text",
+            component = SelectProfileScreen {},
+            pos = (0, 0),
         });
     }
 }

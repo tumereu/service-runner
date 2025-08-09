@@ -130,3 +130,29 @@ pub struct RenderArgs<S, C> where S : Default + 'static, C : Component<S>
     pub retain_unmounted_state: bool,
     pub state_type: PhantomData<S>,
 }
+
+#[macro_export]
+macro_rules! render {
+    // Entry point: capture the canvas variable and a block of key=value pairs
+    ($canvas:expr, {
+        key = $key:expr,
+        component = $component:expr,
+        pos = $pos:expr,
+        $( size = $size:expr, )?
+        $( retain_unmounted_state = $retain:expr, )?
+    }) => {{
+        // Build RenderArgs inline
+        let args = RenderArgs {
+            key: $key.to_string(),
+            pos: $pos.into(),
+            component: $component,
+            size: render!($($size)?).unwrap_or_else(|| $canvas.size()),
+            retain_unmounted_state: render!($($retain)?).unwrap_or(false),
+            state_type: PhantomData,
+        };
+        $canvas.render_component(args);
+    }};
+
+    () => { None };
+    ($entity:expr) => { Some($entity) }
+}

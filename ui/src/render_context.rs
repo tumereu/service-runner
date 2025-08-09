@@ -6,7 +6,7 @@ pub struct RenderContext<T>
 where
     T: Default + 'static,
 {
-    store: Rc<StateStore>,
+    state_store: Rc<StateStore>,
     key: String,
     _marker: PhantomData<T>,
 }
@@ -16,22 +16,22 @@ where
     T: Default + 'static,
 {
     pub fn new(store: Rc<StateStore>, key: String) -> Self {
-        Self { store, key, _marker: PhantomData }
+        Self { state_store: store, key, _marker: PhantomData }
     }
 
-    pub fn query<R, F>(&self, query: F) -> R
+    pub fn query_state<R, F>(&self, query: F) -> R
     where
         R: 'static,
         for<'a> F: FnOnce(&'a T) -> R,
     {
-        self.store.access(&self.key, |state| query(state))
+        self.state_store.access(&self.key, |state| query(state))
     }
 
-    pub fn update<R, F>(&self, update: F) -> R
+    pub fn update_state<R, F>(&self, update: F) -> R
     where
         R: 'static,
         for<'a> F: FnOnce(&'a mut T) -> R,
     {
-        self.store.access(&self.key, |state| update(state))
+        self.state_store.access(&self.key, |state| update(state))
     }
 }
