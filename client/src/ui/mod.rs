@@ -1,11 +1,14 @@
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
 use ratatui::backend::Backend;
 use ratatui::Terminal;
 
 pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
-
+use ui::canvas::{Canvas, RenderArgs};
+use ui::component::{Component, Measurement, Text};
+use ui::state_store::StoreAccessContext;
 use crate::ui::screens::profile_select::render_profile_select;
 use crate::ui::screens::view_profile::render_view_profile;
 use crate::SystemState;
@@ -30,4 +33,27 @@ where
     })?;
 
     Ok(())
+}
+
+pub struct ViewRoot {
+    pub state: Arc<Mutex<SystemState>>
+}
+impl Component<()> for ViewRoot {
+    fn measure(&self, canvas: &Canvas, state: StoreAccessContext<()>) -> Measurement {
+        Default::default()
+    }
+
+    fn render(&self, canvas: &Canvas, state: StoreAccessContext<()>) {
+        canvas.render_component(RenderArgs {
+            key: "text".to_string(),
+            component: Text {
+                text: "123".to_owned(),
+                ..Default::default()
+            },
+            pos: (12, 24).into(),
+            size: canvas.size(),
+            retain_unmounted_state: false,
+            state_type: PhantomData,
+        });
+    }
 }

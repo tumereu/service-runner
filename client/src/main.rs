@@ -8,7 +8,7 @@ use crossterm::{
 };
 use log::{debug, error, info, LevelFilter};
 use ratatui::{backend::CrosstermBackend, Terminal};
-
+use ::ui::RatatuiRenderer;
 use config::read_config;
 
 use crate::input::process_inputs;
@@ -20,7 +20,7 @@ use crate::runner::process_action::process_action;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
-use crate::ui::render;
+use crate::ui::{render, ViewRoot};
 
 mod system_state;
 mod input;
@@ -134,10 +134,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             process_action(&mut system, action);
         }
     }
+    
+    let renderer = RatatuiRenderer::new();
 
     loop {
         process_inputs(state_arc.clone());
-        match render(&mut terminal, state_arc.clone()) {
+        
+        match renderer.render_root(
+            &mut terminal,
+            ViewRoot {
+                state: state_arc.clone(),
+            }
+        ) {
             Ok(_) => {},
             Err(error) => {
                 error!("Encountered an unexpected exception during render(): {error:?}");

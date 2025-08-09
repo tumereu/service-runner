@@ -1,11 +1,37 @@
 use std::ops::{Add, Sub};
+use ratatui::layout::Offset;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Position {
-    x: i32,
-    y: i32
+    pub x: i32,
+    pub y: i32
+}
+impl Position {
+    pub fn origin() -> Self {
+        Self {
+            x: 0,
+            y: 0
+        }
+    }
 }
 
+impl Into<Offset> for Position {
+    fn into(self) -> Offset {
+        Offset {
+            x: self.x,
+            y: self.y
+        }
+    }
+}
+
+impl Into<Offset> for &Position {
+    fn into(self) -> Offset {
+        Offset {
+            x: self.x,
+            y: self.y
+        }
+    }
+}
 
 impl<W, H> Into<Position> for (W, H)
 where

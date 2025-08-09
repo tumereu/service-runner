@@ -1,3 +1,7 @@
+mod text;
+
+pub use text::*;
+
 use crate::canvas::Canvas;
 use crate::space::Size;
 use crate::state_store::StoreAccessContext;

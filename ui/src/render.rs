@@ -1,8 +1,9 @@
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::Rc;
 use ratatui::backend::Backend;
 use ratatui::Terminal;
-use crate::canvas::Canvas;
+use crate::canvas::{Canvas, RenderArgs};
 use crate::component::Component;
 use crate::state_store::StateStore;
 
@@ -29,13 +30,14 @@ impl RatatuiRenderer {
                 (frame_size.width, frame_size.height).into(),
             );
 
-            canvas.render_component(
-                "root".to_owned(),
-                root,
-                (0, 0).into(),
-                (frame_size.width, frame_size.height).into(),
-                Default::default(),
-            );
+            canvas.render_component(RenderArgs {
+                key: "root".to_string(),
+                component: root,
+                pos: (0, 0).into(),
+                size: (frame_size.width, frame_size.height).into(),
+                retain_unmounted_state: true,
+                state_type: PhantomData,
+            });
         })?;
 
         Ok(())

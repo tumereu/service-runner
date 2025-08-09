@@ -1,12 +1,15 @@
 use std::cell::{Ref, RefCell};
+use std::marker::PhantomData;
 use std::rc::Rc;
 use ratatui::Frame;
+use ratatui::layout::{Offset, Rect};
+use ratatui::widgets::Widget;
 use crate::component::{Component, Measurement};
 use crate::space::{Position, Size};
 use crate::state_store::{StoreAccessContext, StateStore};
 
 pub struct Canvas<'a, 'b> {
-    frame: &'a mut Frame<'b>,
+    frame: RefCell<&'a mut Frame<'b>>,
     store: Rc<StateStore>,
     context: RefCell<RenderContext>,
 }
@@ -17,7 +20,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
         initial_size: Size,
     ) -> Self {
         Self {
-            frame,
+            frame: RefCell::new(frame),
             store,
             context: RefCell::new(RenderContext {
                 key: String::new(),
@@ -29,12 +32,17 @@ impl<'a, 'b> Canvas<'a, 'b> {
 
     pub fn render_component<S, C>(
         &self,
-        key: String,
-        component: C,
-        pos: Position,
-        size: Size,
-        args: RenderArgs,
+        args: RenderArgs<S, C>,
     ) where S : Default + 'static, C : Component<S> {
+        let RenderArgs {
+            key,
+            component,
+            pos,
+            size,
+            retain_unmounted_state,
+            ..
+        } = args;
+
         let resolved_key = self.resolve_key::<S>(&key);
         let new_context = RenderContext {
             key: resolved_key.clone(),
@@ -43,7 +51,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
         };
 
         let old_context = self.context.replace(new_context);
-        self.store.set_retain(&resolved_key, args.retain_unmounted_state);
+        self.store.set_retain(&resolved_key, retain_unmounted_state);
 
         component.render(&self, StoreAccessContext::<S>::new(
             self.store.clone(),
@@ -51,6 +59,14 @@ impl<'a, 'b> Canvas<'a, 'b> {
         ));
 
         self.context.replace(old_context);
+    }
+
+    pub fn render_widget<W>(&self, widget: W, rect: Rect) where W : Widget {
+        let pos = &self.context.borrow().pos;
+        self.frame.borrow_mut().render_widget(
+            widget,
+            rect.offset(pos.into())
+        );
     }
 
     pub fn measure_component<S, C>(
@@ -92,6 +108,10 @@ impl<'a, 'b> Canvas<'a, 'b> {
             format!("{current}.{key}[{typename}]")
         }
     }
+
+    pub fn size(&self) -> Size {
+        self.context.borrow().size.clone()
+    }
 }
 
 pub struct RenderContext {
@@ -100,7 +120,12 @@ pub struct RenderContext {
     size: Size,
 }
 
-#[derive(Default)]
-pub struct RenderArgs {
+pub struct RenderArgs<S, C> where S : Default + 'static, C : Component<S>
+{
+    pub key: String,
+    pub component: C,
+    pub pos: Position,
+    pub size: Size,
     pub retain_unmounted_state: bool,
+    pub state_type: PhantomData<S>,
 }
