@@ -18,20 +18,4 @@ where
     pub fn new(store: Rc<StateTreeNode>, key: String) -> Self {
         Self { state_store: store, key, _marker: PhantomData }
     }
-
-    pub fn query_state<R, F>(&self, query: F) -> R
-    where
-        R: 'static,
-        for<'a> F: FnOnce(&'a T) -> R,
-    {
-        self.state_store.access(&self.key, |state| query(state))
-    }
-
-    pub fn update_state<R, F>(&self, update: F) -> R
-    where
-        R: 'static,
-        for<'a> F: FnOnce(&'a mut T) -> R,
-    {
-        self.state_store.access(&self.key, |state| update(state))
-    }
 }

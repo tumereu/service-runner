@@ -10,8 +10,10 @@ mod render_context;
 mod render;
 mod canvas;
 mod state_store;
+mod signal;
 
 pub use render::*;
 pub use render_context::*;
 pub use canvas::*;
 pub use state_store::*;
+pub use signal::*;

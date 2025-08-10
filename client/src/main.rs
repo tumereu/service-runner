@@ -132,11 +132,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let renderer = RatatuiRenderer::new();
+    let mut renderer = RatatuiRenderer::new();
 
     loop {
         process_inputs(state_arc.clone());
-        
+
         match renderer.render_root(
             &mut terminal,
             ViewRoot {
