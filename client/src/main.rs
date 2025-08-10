@@ -20,7 +20,7 @@ use crate::runner::process_action::process_action;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
-use crate::ui::{render, ViewRoot};
+use crate::ui::{ViewRoot};
 
 mod system_state;
 mod input;
@@ -61,11 +61,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen)?;
 
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    render(&mut terminal, state_arc.clone())?;
-    
     let rhai_executor = Arc::new(RhaiExecutor::new(state_arc.clone()));
     let service_worker = Arc::new(ServiceWorker::new(state_arc.clone(), rhai_executor.clone()));
 
@@ -134,7 +129,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             process_action(&mut system, action);
         }
     }
-    
+
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
     let renderer = RatatuiRenderer::new();
 
     loop {

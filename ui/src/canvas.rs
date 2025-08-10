@@ -31,10 +31,10 @@ impl<'a, 'b> Canvas<'a, 'b> {
         }
     }
 
-    pub fn render_component<S, C>(
+    pub fn render_component<State, Output, C>(
         &self,
-        args: RenderArgs<S, C>,
-    ) where S : Default + 'static, C : Component<S> {
+        args: RenderArgs<State, Output, C>,
+    ) -> Output where State: Default + 'static, C : Component<State = State, Output = Output> {
         let RenderArgs {
             key,
             component,
@@ -44,7 +44,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
             ..
         } = args;
 
-        let resolved_key = self.resolve_key::<S>(&key);
+        let resolved_key = self.resolve_key::<State>(&key);
         let new_context = ComponentContext {
             key: resolved_key.clone(),
             pos: &self.context.borrow().pos + pos,
@@ -54,12 +54,14 @@ impl<'a, 'b> Canvas<'a, 'b> {
         let old_context = self.context.replace(new_context);
         self.store.set_retain(&resolved_key, retain_unmounted_state);
 
-        component.render(&self, RenderContext::<S>::new(
+        let output = component.render(&self, RenderContext::<State>::new(
             self.store.clone(),
             resolved_key
         ));
 
         self.context.replace(old_context);
+        
+        output
     }
 
     pub fn render_widget<W>(&self, widget: W, rect: Rect) where W : Widget {
@@ -70,12 +72,12 @@ impl<'a, 'b> Canvas<'a, 'b> {
         );
     }
 
-    pub fn measure_component<S, C>(
+    pub fn measure_component<State, C>(
         &mut self,
         key: String,
         component: C,
-    ) -> Measurement where S : Default + 'static, C : Component<S> {
-        let resolved_key = self.resolve_key::<S>(&key);
+    ) -> Measurement where State: Default + 'static, C : Component<State = State> {
+        let resolved_key = self.resolve_key::<State>(&key);
         let new_context = ComponentContext {
             key: resolved_key.clone(),
             pos: self.context.borrow().pos.clone(),
@@ -84,7 +86,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
 
         let old_context = self.context.replace(new_context);
 
-        let measurement = component.measure(&self, RenderContext::<S>::new(
+        let measurement = component.measure(&self, RenderContext::<State>::new(
             self.store.clone(),
             resolved_key
         ));
@@ -121,14 +123,13 @@ pub struct ComponentContext {
     size: Size,
 }
 
-pub struct RenderArgs<S, C> where S : Default + 'static, C : Component<S>
+pub struct RenderArgs<State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output>
 {
     pub key: String,
     pub component: C,
     pub pos: Position,
     pub size: Size,
     pub retain_unmounted_state: bool,
-    pub state_type: PhantomData<S>,
 }
 
 #[macro_export]
@@ -148,7 +149,6 @@ macro_rules! render {
             component: $component,
             size: render!($($size)?).unwrap_or_else(|| $canvas.size()),
             retain_unmounted_state: render!($($retain)?).unwrap_or(false),
-            state_type: PhantomData,
         };
         $canvas.render_component(args);
     }};

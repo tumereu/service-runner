@@ -6,9 +6,12 @@ use crate::canvas::Canvas;
 use crate::space::Size;
 use crate::render_context::RenderContext;
 
-pub trait Component<S> where S : Default + 'static {
-    fn measure(&self, canvas: &Canvas, ctx: RenderContext<S>) -> Measurement;
-    fn render(&self, canvas: &Canvas, ctx: RenderContext<S>);
+pub trait Component {
+    type State : Default + 'static;
+    type Output;
+    
+    fn measure(&self, canvas: &Canvas, ctx: RenderContext<Self::State>) -> Measurement;
+    fn render(&self, canvas: &Canvas, ctx: RenderContext<Self::State>) -> Self::Output;
 }
 
 #[derive(Debug, Clone, Default)]

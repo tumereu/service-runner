@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::rc::Rc;
 use ratatui::backend::Backend;
 use ratatui::Terminal;
@@ -16,7 +15,7 @@ impl RatatuiRenderer {
         }
     }
 
-    pub fn render_root<S, B>(&self, terminal: &mut Terminal<B>, root: impl Component<S>) -> std::io::Result<()>
+    pub fn render_root<S, B>(&self, terminal: &mut Terminal<B>, root: impl Component<State = S>) -> std::io::Result<()>
     where
         S: Default + 'static,
         B : Backend,
@@ -35,7 +34,6 @@ impl RatatuiRenderer {
                 pos: (0, 0).into(),
                 size: (frame_size.width, frame_size.height).into(),
                 retain_unmounted_state: true,
-                state_type: PhantomData,
             });
         })?;
 

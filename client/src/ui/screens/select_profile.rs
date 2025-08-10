@@ -13,12 +13,15 @@ pub struct SelectProfileState {
 
 pub struct SelectProfileScreen {
 }
-impl Component<SelectProfileState> for SelectProfileScreen {
+impl Component for SelectProfileScreen {
+    type State = SelectProfileState;
+    type Output = ();
+    
     fn measure(&self, canvas: &Canvas, ctx: RenderContext<SelectProfileState>) -> Measurement {
         Default::default()
     }
 
-    fn render(&self, canvas: &Canvas, ctx: RenderContext<SelectProfileState>) {
+    fn render(&self, canvas: &Canvas, ctx: RenderContext<SelectProfileState>) -> Self::Output {
         todo!()
     }
 }

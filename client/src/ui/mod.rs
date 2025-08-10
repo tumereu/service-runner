@@ -39,12 +39,15 @@ where
 pub struct ViewRoot {
     pub state: Arc<Mutex<SystemState>>
 }
-impl Component<()> for ViewRoot {
-    fn measure(&self, _canvas: &Canvas, _ctx: RenderContext<()>) -> Measurement {
+impl Component for ViewRoot {
+    type State = ();
+    type Output = ();
+
+    fn measure(&self, _canvas: &Canvas, _ctx: RenderContext<Self::State>) -> Measurement {
         Default::default()
     }
 
-    fn render(&self, canvas: &Canvas, _ctx: RenderContext<()>) {
+    fn render(&self, canvas: &Canvas, _ctx: RenderContext<Self::State>) -> Self::Output {
         render!(canvas, {
             key = "text",
             component = SelectProfileScreen {},

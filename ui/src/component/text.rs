@@ -18,15 +18,18 @@ impl Text {
     }
 }
 
-impl Component<()> for Text {
-    fn measure(&self, _canvas: &Canvas, _state: RenderContext<()>) -> Measurement {
+impl Component for Text {
+    type State = ();
+    type Output = ();
+    
+    fn measure(&self, _canvas: &Canvas, _state: RenderContext<Self::State>) -> Measurement {
         Measurement {
             min: Some(self.size()),
             max: Some(self.size()),
         }
     }
 
-    fn render(&self, canvas: &Canvas, _state: RenderContext<()>) {
+    fn render(&self, canvas: &Canvas, _state: RenderContext<Self::State>) -> Self::Output {
         let style = Style::default()
             .fg(self.fg.unwrap_or(Color::Reset));
 
