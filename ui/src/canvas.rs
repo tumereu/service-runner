@@ -1,8 +1,7 @@
 use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use ratatui::Frame;
-use ratatui::layout::Rect;
+use ratatui::layout::{Offset, Rect};
 use ratatui::widgets::Widget;
 use crate::component::{Component, Measurement};
 use crate::RenderContext;
@@ -18,15 +17,14 @@ impl<'a, 'b> Canvas<'a, 'b> {
     pub fn new(
         frame: &'a mut Frame<'b>,
         store: Rc<StateStore>,
-        initial_size: Size,
+        initial_rect: Rect,
     ) -> Self {
         Self {
             frame: RefCell::new(frame),
             store,
             context: RefCell::new(ComponentContext {
                 key: String::new(),
-                pos: (0i32, 0i32).into(),
-                size: initial_size,
+                area: initial_rect
             })
         }
     }
@@ -45,10 +43,15 @@ impl<'a, 'b> Canvas<'a, 'b> {
         } = args;
 
         let resolved_key = self.resolve_key::<State>(&key);
+        let component_area = Rect {
+            x: (self.context.borrow().area.x as i32 + pos.x).try_into().unwrap_or(0),
+            y: (self.context.borrow().area.y as i32 + pos.y).try_into().unwrap_or(0),
+            width: size.width,
+            height: size.height,
+        }.intersection(self.context.borrow().area);
         let new_context = ComponentContext {
             key: resolved_key.clone(),
-            pos: &self.context.borrow().pos + pos,
-            size,
+            area: component_area,
         };
 
         let old_context = self.context.replace(new_context);
@@ -60,15 +63,19 @@ impl<'a, 'b> Canvas<'a, 'b> {
         ));
 
         self.context.replace(old_context);
-        
+
         output
     }
 
     pub fn render_widget<W>(&self, widget: W, rect: Rect) where W : Widget {
-        let pos = &self.context.borrow().pos;
         self.frame.borrow_mut().render_widget(
             widget,
-            rect.offset(pos.into())
+            rect.offset(
+                Offset {
+                    x: self.context.borrow().area.x as i32,
+                    y: self.context.borrow().area.y as i32,
+                }
+            ).intersection(self.context.borrow().area)
         );
     }
 
@@ -80,8 +87,7 @@ impl<'a, 'b> Canvas<'a, 'b> {
         let resolved_key = self.resolve_key::<State>(&key);
         let new_context = ComponentContext {
             key: resolved_key.clone(),
-            pos: self.context.borrow().pos.clone(),
-            size: self.context.borrow().size.clone(),
+            area: self.context.borrow().area,
         };
 
         let old_context = self.context.replace(new_context);
@@ -113,14 +119,16 @@ impl<'a, 'b> Canvas<'a, 'b> {
     }
 
     pub fn size(&self) -> Size {
-        self.context.borrow().size.clone()
+        Size {
+            width: self.context.borrow().area.width,
+            height: self.context.borrow().area.height,
+        }
     }
 }
 
 pub struct ComponentContext {
     key: String,
-    pos: Position,
-    size: Size,
+    area: Rect,
 }
 
 pub struct RenderArgs<State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output>
@@ -143,7 +151,7 @@ macro_rules! render {
         $( retain_unmounted_state = $retain:expr, )?
     }) => {{
         // Build RenderArgs inline
-        let args = RenderArgs {
+        let args = $crate::RenderArgs {
             key: $key.to_string(),
             pos: $pos.into(),
             component: $component,

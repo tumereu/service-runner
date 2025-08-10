@@ -21,18 +21,18 @@ impl RatatuiRenderer {
         B : Backend,
     {
         terminal.draw(|frame| {
-            let frame_size = frame.area();
+            let frame_area = frame.area();
             let canvas = Canvas::new(
                 frame,
                 self.store.clone(),
-                (frame_size.width, frame_size.height).into(),
+                frame_area
             );
 
             canvas.render_component(RenderArgs {
                 key: "root".to_string(),
                 component: root,
                 pos: (0, 0).into(),
-                size: (frame_size.width, frame_size.height).into(),
+                size: (frame_area.width, frame_area.height).into(),
                 retain_unmounted_state: true,
             });
         })?;

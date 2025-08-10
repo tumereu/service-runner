@@ -1,7 +1,7 @@
 use ratatui::style::Color;
 use ratatui::Frame;
-use ui::{Canvas, RenderContext};
-use ui::component::{Component, Measurement};
+use ui::{render, Canvas, RenderContext};
+use ui::component::{Component, Measurement, Text};
 use crate::system_state::SystemState;
 use crate::ui::widgets::{render_root, Align, Cell, IntoCell, List};
 use crate::ui::CurrentScreen;
@@ -16,13 +16,21 @@ pub struct SelectProfileScreen {
 impl Component for SelectProfileScreen {
     type State = SelectProfileState;
     type Output = ();
-    
+
     fn measure(&self, canvas: &Canvas, ctx: RenderContext<SelectProfileState>) -> Measurement {
         Default::default()
     }
 
     fn render(&self, canvas: &Canvas, ctx: RenderContext<SelectProfileState>) -> Self::Output {
-        todo!()
+        render!(canvas, {
+            key = "test",
+            component = Text {
+                text: "Hello world! ".repeat(100),
+                fg: Some(Color::Cyan),
+                ..Default::default()
+            },
+            pos = (4, 8),
+        });
     }
 }
 
