@@ -6,26 +6,24 @@ use ratatui::widgets::Widget;
 use crate::component::{Component, Measurement};
 use crate::RenderContext;
 use crate::space::{Position, Size};
-use crate::state_store::StateStore;
+use crate::state_store::StateTreeNode;
 
 pub struct Canvas<'a, 'b> {
     frame: RefCell<&'a mut Frame<'b>>,
-    store: Rc<StateStore>,
-    context: RefCell<ComponentContext>,
+    context: RefCell<Option<ComponentContext>>,
 }
 impl<'a, 'b> Canvas<'a, 'b> {
     pub fn new(
         frame: &'a mut Frame<'b>,
-        store: Rc<StateStore>,
+        store: Rc<StateTreeNode>,
         initial_rect: Rect,
     ) -> Self {
         Self {
             frame: RefCell::new(frame),
-            store,
-            context: RefCell::new(ComponentContext {
-                key: String::new(),
-                area: initial_rect
-            })
+            context: RefCell::new(Some(ComponentContext {
+                area: initial_rect,
+                state_node: store,
+            }))
         }
     }
 
@@ -42,40 +40,47 @@ impl<'a, 'b> Canvas<'a, 'b> {
             ..
         } = args;
 
-        let resolved_key = self.resolve_key::<State>(&key);
-        let component_area = Rect {
-            x: (self.context.borrow().area.x as i32 + pos.x).try_into().unwrap_or(0),
-            y: (self.context.borrow().area.y as i32 + pos.y).try_into().unwrap_or(0),
+        let ComponentContext {
+            area: current_area,
+            state_node: current_state_node,
+        } = self.context.take().expect("Context does not exist -- this indicates a bug in Canvas implementation");
+
+        let child_area = Rect {
+            x: (current_area.x as i32 + pos.x).try_into().unwrap_or(0),
+            y: (current_area.y as i32 + pos.y).try_into().unwrap_or(0),
             width: size.width,
             height: size.height,
-        }.intersection(self.context.borrow().area);
-        let new_context = ComponentContext {
-            key: resolved_key.clone(),
-            area: component_area,
-        };
+        }.intersection(current_area);
+        let child_state_node = current_state_node.child(&key, Some(retain_unmounted_state));
+        let mut state = child_state_node.take_state::<State>();
 
-        let old_context = self.context.replace(new_context);
-        self.store.set_retain(&resolved_key, retain_unmounted_state);
+        self.context.replace(Some(ComponentContext {
+            area: child_area,
+            state_node: child_state_node,
+        }));
+        let output = component.render(&self, &mut state);
 
-        let output = component.render(&self, RenderContext::<State>::new(
-            self.store.clone(),
-            resolved_key
-        ));
-
-        self.context.replace(old_context);
+        let used_child_context = self.context.replace(Some(ComponentContext {
+            area: current_area,
+            state_node: current_state_node,
+        }));
+        used_child_context.unwrap().state_node.return_state(state);
 
         output
     }
 
     pub fn render_widget<W>(&self, widget: W, rect: Rect) where W : Widget {
+        let ctx = self.context.borrow();
+        let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
+        
         self.frame.borrow_mut().render_widget(
             widget,
             rect.offset(
                 Offset {
-                    x: self.context.borrow().area.x as i32,
-                    y: self.context.borrow().area.y as i32,
+                    x: ctx.area.x as i32,
+                    y: ctx.area.y as i32,
                 }
-            ).intersection(self.context.borrow().area)
+            ).intersection(ctx.area)
         );
     }
 
@@ -84,38 +89,27 @@ impl<'a, 'b> Canvas<'a, 'b> {
         key: String,
         component: C,
     ) -> Measurement where State: Default + 'static, C : Component<State = State> {
-        let resolved_key = self.resolve_key::<State>(&key);
-        let new_context = ComponentContext {
-            key: resolved_key.clone(),
-            area: self.context.borrow().area,
-        };
+        let ComponentContext {
+            area: current_area,
+            state_node: current_state_node,
+        } = self.context.take().expect("Context does not exist -- this indicates a bug in Canvas implementation");
 
-        let old_context = self.context.replace(new_context);
+        let child_state_node = current_state_node.child(&key, None);
+        let mut state = child_state_node.take_state::<State>();
 
-        let measurement = component.measure(&self, RenderContext::<State>::new(
-            self.store.clone(),
-            resolved_key
-        ));
+        self.context.replace(Some(ComponentContext {
+            area: current_area,
+            state_node: child_state_node,
+        }));
+        let measurement = component.measure(&self, &mut state);
 
-        self.context.replace(old_context);
+        let used_child_context = self.context.replace(Some(ComponentContext {
+            area: current_area,
+            state_node: current_state_node,
+        }));
+        used_child_context.unwrap().state_node.return_state(state);
 
         measurement
-    }
-
-    fn resolve_key<S>(
-        &self,
-        key: &str,
-    ) -> String where S : Default + 'static {
-        let typename = std::any::type_name::<S>();
-        let current = &self.context.borrow().key;
-        // Double the occurrences of '[' to avoid conflicts with the typename included in the resolved key
-        let key = key.replace("[", "[[");
-
-        if current.is_empty() {
-            format!("{key}[{typename}]")
-        } else {
-            format!("{current}.{key}[{typename}]")
-        }
     }
 
     pub fn size(&self) -> Size {
@@ -127,8 +121,8 @@ impl<'a, 'b> Canvas<'a, 'b> {
 }
 
 pub struct ComponentContext {
-    key: String,
     area: Rect,
+    state_node: Rc<StateTreeNode>,
 }
 
 pub struct RenderArgs<State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output>

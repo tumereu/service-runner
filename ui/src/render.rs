@@ -3,15 +3,15 @@ use ratatui::backend::Backend;
 use ratatui::Terminal;
 use crate::canvas::{Canvas, RenderArgs};
 use crate::component::Component;
-use crate::state_store::StateStore;
+use crate::state_store::StateTreeNode;
 
 pub struct RatatuiRenderer {
-    store: Rc<StateStore>,
+    store: Rc<StateTreeNode>,
 }
 impl RatatuiRenderer {
     pub fn new() -> Self {
         Self {
-            store: Rc::new(StateStore::new())
+            store: Rc::new(StateTreeNode::new())
         }
     }
 

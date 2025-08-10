@@ -9,9 +9,10 @@ use crate::render_context::RenderContext;
 pub trait Component {
     type State : Default + 'static;
     type Output;
+
+    fn measure(&self, canvas: &Canvas, state: &mut Self::State) -> Measurement;
+    fn render<'a>(&self, canvas: &Canvas, state: &'a mut Self::State) -> Self::Output;
     
-    fn measure(&self, canvas: &Canvas, ctx: RenderContext<Self::State>) -> Measurement;
-    fn render(&self, canvas: &Canvas, ctx: RenderContext<Self::State>) -> Self::Output;
 }
 
 #[derive(Debug, Clone, Default)]
