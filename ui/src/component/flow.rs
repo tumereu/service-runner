@@ -12,8 +12,7 @@ pub trait Flowable {
     fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size);
 }
 
-impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flowable
-    for Cell<S, O, C>
+impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flowable for C
 {
     fn measure(&self, ctx: &FrameContext, idx: usize) -> Size {
         ctx.measure_component(&idx.to_string(), self)
@@ -39,7 +38,7 @@ pub struct FlowableArgs {
 #[derive(Default)]
 pub struct Flow {
     pub bg: Option<Color>,
-    pub cells: Vec<(Box<dyn Flowable>, FlowableArgs)>,
+    pub flowables: Vec<(Box<dyn Flowable>, FlowableArgs)>,
     pub direction: Dir,
 }
 impl Flow {
@@ -57,8 +56,12 @@ impl Flow {
         self
     }
 
-    pub fn element<F : Flowable + 'static>(mut self, cell: F, args: FlowableArgs) -> Self {
-        self.cells.push((Box::new(cell), args));
+    pub fn element<F : Flowable + 'static>(mut self, flowable: F, args: FlowableArgs) -> Self {
+        self.boxed_element(Box::new(flowable), args)
+    }
+
+    pub fn boxed_element(mut self, flowable: Box<dyn Flowable>, args: FlowableArgs) -> Self {
+        self.flowables.push((flowable, args));
         self
     }
 }
@@ -80,7 +83,7 @@ impl Component for Flow {
         };
         let mut num_fills = 0;
 
-        for (idx, (cell, args)) in self.cells.iter().enumerate() {
+        for (idx, (cell, args)) in self.flowables.iter().enumerate() {
             free_space = free_space.saturating_sub(if args.fill {
                 num_fills += 1;
                 0
@@ -99,7 +102,7 @@ impl Component for Flow {
         let fill_size = free_space / max(1, num_fills);
         let mut current_pos = 0;
 
-        for (idx, (cell, args)) in self.cells.iter().enumerate() {
+        for (idx, (cell, args)) in self.flowables.iter().enumerate() {
             let measured_size = cell.measure(context, idx);
             let size_in_layout: Size = (
                 if self.direction == Dir::UpDown {
@@ -152,7 +155,7 @@ impl MeasurableComponent for Flow {
         let mut width: u16 = 0;
         let mut height: u16 = 0;
 
-        for (idx, (cell, _)) in self.cells.iter().enumerate() {
+        for (idx, (cell, _)) in self.flowables.iter().enumerate() {
             let child_size = cell.measure(context, idx);
 
             if self.direction == Dir::UpDown {

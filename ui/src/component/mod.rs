@@ -1,12 +1,14 @@
 mod text;
 mod cell;
 mod flow;
+mod vlist;
 
-use ratatui::layout::Size;
 pub use text::*;
 pub use cell::*;
 pub use flow::*;
+pub use vlist::*;
 
+use ratatui::layout::Size;
 use crate::frame_ctx::FrameContext;
 
 pub trait Component {
