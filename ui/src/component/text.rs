@@ -23,8 +23,12 @@ impl Component for Text {
     type Output = ();
 
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> Self::Output {
-        let style = Style::default()
+        let mut style = Style::default()
             .fg(self.fg.unwrap_or(Color::Reset));
+
+        if let Some(bg) = self.bg {
+            style = style.bg(bg);
+        }
 
         context.render_widget(
             Paragraph::new(Span::styled(self.text.clone(), style)),

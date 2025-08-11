@@ -5,6 +5,7 @@ use ratatui::widgets::{Block, Borders};
 use ratatui::text::Line;
 use crate::component::{Component, MeasurableComponent};
 use crate::{FrameContext, RenderArgs};
+use crate::space::RectAtOrigin;
 
 pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> {
     pub content: Option<RenderArgs<S, O, C>>,
@@ -18,6 +19,8 @@ pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Out
     pub padding_bottom: u16,
     pub min_width: u16,
     pub min_height: u16,
+    pub max_width: u16,
+    pub max_height: u16,
 }
 impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> Cell<S, O, C> {
     pub fn containing(element: C) -> Cell<S, O, C> {
@@ -33,6 +36,8 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
             padding_bottom: 0,
             min_width: 0,
             min_height: 0,
+            max_width: u16::MAX,
+            max_height: u16::MAX,       
         }
     }
 
@@ -117,6 +122,28 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
         self.min_height = height;
         self
     }
+    
+    pub fn max_width(mut self, width: u16) -> Self {
+        self.max_width = width;
+        self
+    }
+    
+    pub fn max_height(mut self, height: u16) -> Self {
+        self.max_height = height;
+        self
+    }
+    
+    pub fn width(mut self, width: u16) -> Self {
+        self.min_width = width;
+        self.max_width = width;
+        self
+    }
+    
+    pub fn height(mut self, height: u16) -> Self {
+        self.min_height = height;
+        self.max_height = height;
+        self   
+    }
 }
 
 impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> Component for Cell<S, O, C> {
@@ -124,6 +151,12 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
     type Output = ();
 
     fn render(&self, context: &FrameContext, _: &mut Self::State) -> Self::Output {
+        let size = context.size();
+        let size: Size = (
+            min(size.width, self.max_width),
+            min(size.height, self.max_height)
+        ).into();
+        
         if self.border.is_some() || self.bg.is_some() {
             let mut block = Block::default()
                 .style(
@@ -138,7 +171,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
             }
             context.render_widget(
                 block,
-                context.area()
+                size.rect_at_origin(),
             );
         }
 
@@ -156,7 +189,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
 
         if let Some(content) = self.content.as_ref() {
             let content_size = context.measure_component::<S, C>("el", &content.component);
-            let rect = context.area();
+            let rect = size.rect_at_origin();
 
             let max_width = rect.width.saturating_sub(padding_left + padding_right);
             let max_height = rect.height.saturating_sub(padding_top + padding_bottom);
@@ -209,9 +242,11 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> M
 
         let mut width = el_size.width + self.padding_left + self.padding_right + border_pad;
         width = max(width, self.min_width);
+        width = min(width, self.max_width);
 
         let mut height = el_size.height + self.padding_top + self.padding_bottom + border_pad;
         height = max(height, self.min_height);
+        height = min(height, self.max_height);       
 
         (width, height).into()
     }

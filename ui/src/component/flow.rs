@@ -1,53 +1,76 @@
-use std::cmp::max;
-
+use std::cmp::{max, min};
+use crate::component::{Align, Cell, Component, MeasurableComponent};
+use crate::space::Position;
+use crate::{FrameContext, RenderArgs, SignalHandling};
 use ratatui::layout::{Rect, Size};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Block;
-use crate::component::{Align, Cell, Component, MeasurableComponent};
-use crate::FrameContext;
 
-pub trait FlowCell {
-    fn get_align_vert(&self) -> Align;
-    fn get_align_horiz(&self) -> Align;
-    fn measure(&self, idx: usize, ctx: &FrameContext) -> Size;
+pub trait Flowable {
+    fn measure(&self, ctx: &FrameContext, idx: usize) -> Size;
+    // TODO output?
+    fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size);
 }
 
-impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> FlowCell for Cell<S, O, C> {
-    fn get_align_vert(&self) -> Align {
-        self.align_vert
-    }
-
-    fn get_align_horiz(&self) -> Align {
-        self.align_horiz
-    }
-    
-    fn measure(&self, idx: usize, ctx: &FrameContext) -> Size {
+impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flowable
+    for Cell<S, O, C>
+{
+    fn measure(&self, ctx: &FrameContext, idx: usize) -> Size {
         ctx.measure_component(&idx.to_string(), self)
     }
+
+    fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size) {
+        ctx.render_component_raw(
+            &idx.to_string(),
+            self,
+            &Some(pos),
+            &Some(size),
+            // TODO parameterize?
+            &SignalHandling::Forward,
+            false,
+        );
+    }
 }
 
-pub struct CellArgs {
+pub struct FlowableArgs {
     pub fill: bool,
 }
 
 #[derive(Default)]
 pub struct Flow {
     pub bg: Option<Color>,
-    pub cells: Vec<(Box<dyn FlowCell>, CellArgs)>,
+    pub cells: Vec<(Box<dyn Flowable>, FlowableArgs)>,
     pub direction: Dir,
 }
+impl Flow {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn bg(mut self, bg: Color) -> Self {
+        self.bg = Some(bg);
+        self
+    }
+
+    pub fn dir(mut self, direction: Dir) -> Self {
+        self.direction = direction;
+        self
+    }
+
+    pub fn element<F : Flowable + 'static>(mut self, cell: F, args: FlowableArgs) -> Self {
+        self.cells.push((Box::new(cell), args));
+        self
+    }
+}
+
 impl Component for Flow {
     type Output = ();
     type State = ();
 
-    fn render(&self, context: &FrameContext, _: &mut Self::State) -> Self::Output
-    {
+    fn render(&self, context: &FrameContext, _: &mut Self::State) -> Self::Output {
         let area = context.area();
         if let Some(bg) = self.bg {
-            context.render_widget(
-                Block::default().style(Style::default().bg(bg)), 
-                area,
-            );
+            context.render_widget(Block::default().style(Style::default().bg(bg)), area);
         }
 
         let mut free_space = if self.direction == Dir::UpDown {
@@ -62,7 +85,7 @@ impl Component for Flow {
                 num_fills += 1;
                 0
             } else {
-                let measured_size = cell.measure(idx, context);
+                let measured_size = cell.measure(context, idx);
 
                 if self.direction == Dir::UpDown {
                     measured_size.height
@@ -77,7 +100,7 @@ impl Component for Flow {
         let mut current_pos = 0;
 
         for (idx, (cell, args)) in self.cells.iter().enumerate() {
-            let measured_size = cell.measure(idx, context);
+            let measured_size = cell.measure(context, idx);
             let size_in_layout: Size = (
                 if self.direction == Dir::UpDown {
                     area.width
@@ -95,13 +118,17 @@ impl Component for Flow {
                 },
             )
                 .into();
-            
-            
+
             // Clamp the size-in-layout to be a maximum of the remaining size
-            let size_in_layout = size_in_layout.intersect(match self.direction {
-                Dir::UpDown => (rect.width, rect.height - current_pos).into(),
-                Dir::LeftRight => (rect.width - current_pos, rect.height).into(),
-            });
+            let max_size: Size = match self.direction {
+                Dir::UpDown => (area.width, area.height - current_pos).into(),
+                Dir::LeftRight => (area.width - current_pos, area.height).into(),
+            };
+            let size_in_layout: Size = (
+                min(size_in_layout.width, max_size.width),
+                min(size_in_layout.height, max_size.height),
+            )
+                .into();
 
             let (x, y) = if self.direction == Dir::UpDown {
                 (0, current_pos)
@@ -116,24 +143,17 @@ impl Component for Flow {
                 size_in_layout.width
             };
 
-            cell.render(
-                Rect::new(
-                    rect.x + x,
-                    rect.y + y,
-                    size_in_layout.width,
-                    size_in_layout.height,
-                ),
-                frame,
-            );
+            cell.render(context, idx, (x, y).into(), size_in_layout);
         }
     }
-
-    pub fn measure(&self) -> Size {
+}
+impl MeasurableComponent for Flow {
+    fn measure(&self, context: &FrameContext, _: &Self::State) -> Size {
         let mut width: u16 = 0;
         let mut height: u16 = 0;
 
-        for cell in &self.cells {
-            let child_size = cell.measure();
+        for (idx, (cell, _)) in self.cells.iter().enumerate() {
+            let child_size = cell.measure(context, idx);
 
             if self.direction == Dir::UpDown {
                 width = max(width, child_size.width);
@@ -153,10 +173,4 @@ pub enum Dir {
     #[default]
     LeftRight,
     UpDown,
-}
-
-impl From<Flow> for Renderable {
-    fn from(value: Flow) -> Self {
-        Renderable::Flow(value)
-    }
 }

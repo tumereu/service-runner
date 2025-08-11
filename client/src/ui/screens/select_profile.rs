@@ -2,7 +2,7 @@ use crate::system_state::SystemState;
 use crate::ui::CurrentScreen;
 use ratatui::Frame;
 use ratatui::style::Color;
-use ui::component::{Align, Cell, Component, Text};
+use ui::component::{Align, Cell, Component, Dir, Flow, FlowableArgs, Text};
 use ui::{FrameContext, RenderArgs};
 
 #[derive(Default)]
@@ -18,20 +18,49 @@ impl Component for SelectProfileScreen {
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> Self::Output {
         let text = context.on_signal(|signal: String| signal.to_owned());
 
-        context.render_component(&RenderArgs::new(
-            Cell::containing(
-                Cell::containing(Text {
-                    text: text.unwrap_or("Hello cell".into()),
-                    fg: Some(Color::Cyan),
-                    ..Default::default()
-                })
-                .min_width(16)
-                .min_height(12)
-                .border(Color::Yellow, "Select profile")
-                .bg(Color::Reset)
+        context.render_component(
+            &RenderArgs::new(
+                Cell::containing(
+                    Cell::containing(
+                        Flow::new()
+                            .dir(Dir::UpDown)
+                            .element(
+                                Cell::containing(Text {
+                                    text: text.unwrap_or("Hello cell".into()),
+                                    fg: Some(Color::Cyan),
+                                    ..Default::default()
+                                }),
+                                FlowableArgs { fill: false },
+                            )
+                            .element(
+                                Cell::containing(Text {
+                                    text: "Middle".into(),
+                                    fg: Some(Color::Red),
+                                    ..Default::default()
+                                })
+                                .align_vert(Align::Center)
+                                .align_horiz(Align::End),
+                                FlowableArgs { fill: true },
+                            )
+                            .element(
+                                Cell::containing(Text {
+                                    text: "Last one".into(),
+                                    fg: Some(Color::Cyan),
+                                    bg: Some(Color::Green),
+                                    ..Default::default()
+                                }).align_horiz(Align::Center),
+                                FlowableArgs { fill: false },
+                            ),
+                    )
+                    .width(46)
+                    .height(22)
+                    .border(Color::Yellow, "Select profile")
+                    .bg(Color::Reset),
+                )
+                .align(Align::Center),
             )
-            .align(Align::Center),
-        ).key("root"));
+            .key("root"),
+        );
     }
 }
 

@@ -29,6 +29,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             }))
         }
     }
+
     pub fn render_component<State, Output, C>(
         &self,
         args: &RenderArgs<State, Output, C>,
@@ -42,6 +43,25 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             signals: signal_handling,
         } = args;
 
+        self.render_component_raw(
+            key.as_ref().expect("Missing a required render argument: key"),
+            component.as_ref(),
+            pos,
+            size,
+            signal_handling,
+            *retain_unmounted_state,
+        )
+    }
+
+    pub fn render_component_raw<State, Output, C>(
+        &self,
+        key: &str,
+        component: &C,
+        pos: &Option<Position>,
+        size: &Option<Size>,
+        signals: &SignalHandling,
+        retain_unmounted_state: bool,
+    ) -> Output where State: Default + 'static, C : Component<State = State, Output = Output> {
         let size = size.as_ref().cloned().unwrap_or(self.size());
         let pos = pos.as_ref().cloned().unwrap_or_default();
 
@@ -58,15 +78,15 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             height: size.height,
         }.intersection(current_area);
         let child_state_node = current_state_node.child(
-            key.as_ref().expect("Missing a required render argument: key"),
-            Some(*retain_unmounted_state)
+            key,
+            Some(retain_unmounted_state)
         );
         let mut state = child_state_node.take_state::<State>();
 
         self.current.replace(Some(CurrentComponentContext {
             area: child_area,
             state_node: child_state_node,
-            signals: match signal_handling {
+            signals: match signals {
                 SignalHandling::Overwrite(new_signals) => new_signals.clone(),
                 SignalHandling::Block => Signals::empty(),
                 SignalHandling::Forward => current_signals.clone(),
