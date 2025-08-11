@@ -2,13 +2,12 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::rc::Rc;
 use ratatui::Frame;
-use ratatui::layout::{Offset, Rect};
+use ratatui::layout::{Offset, Rect, Size};
 use ratatui::widgets::Widget;
 use log::debug;
 use crate::component::{Component, MeasurableComponent};
-use crate::RenderContext;
 use crate::signal::Signals;
-use crate::space::{Position, Size};
+use crate::space::{Position};
 use crate::state_store::StateTreeNode;
 
 pub struct FrameContext<'a, 'b> {
@@ -43,7 +42,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             signals: signal_handling,
         } = args;
 
-        let size = size.as_ref().cloned().unwrap_or(self.canvas_size());
+        let size = size.as_ref().cloned().unwrap_or(self.size());
         let pos = pos.as_ref().cloned().unwrap_or_default();
 
         let CurrentComponentContext {
@@ -105,7 +104,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
         &self,
         key: &str,
         component: &C,
-    ) -> Option<Size> where State: Default + 'static, C : MeasurableComponent<State = State> {
+    ) -> Size where State: Default + 'static, C : MeasurableComponent<State = State> {
         let CurrentComponentContext {
             area: current_area,
             state_node: current_state_node,
@@ -132,7 +131,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
         measurement
     }
 
-    pub fn canvas_size(&self) -> Size {
+    pub fn size(&self) -> Size {
         let ctx = self.current.borrow();
         let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
 
@@ -142,7 +141,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
         }
     }
 
-    pub fn canvas_area(&self) -> Rect {
+    pub fn area(&self) -> Rect {
         let ctx = self.current.borrow();
         let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
 
@@ -219,7 +218,7 @@ impl<State, Output, C> RenderArgs<State, Output, C> where State: Default + 'stat
 
     pub fn size<X : Into<u16>, Y: Into<u16>>(self, width: X, height: Y) -> Self {
         let mut self_mut = self;
-        self_mut.size = Some((width, height).into());
+        self_mut.size = Some(Size { width: width.into(), height: height.into() });
         self_mut
     }
 

@@ -1,11 +1,13 @@
 mod text;
 mod cell;
+mod flow;
 
+use ratatui::layout::Size;
 pub use text::*;
 pub use cell::*;
+pub use flow::*;
 
 use crate::canvas::FrameContext;
-use crate::space::Size;
 
 pub trait Component {
     type State : Default + 'static;
@@ -15,5 +17,5 @@ pub trait Component {
 }
 
 pub trait MeasurableComponent : Component {
-    fn measure(&self, context: &FrameContext, state: &Self::State) -> Option<Size>;
+    fn measure(&self, context: &FrameContext, state: &Self::State) -> Size;
 }

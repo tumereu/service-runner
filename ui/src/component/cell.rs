@@ -1,11 +1,10 @@
 use std::cmp::{max, min};
-
+use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders};
 use ratatui::text::Line;
 use crate::component::{Component, MeasurableComponent};
 use crate::{FrameContext, RenderArgs};
-use crate::space::Size;
 
 pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> {
     pub content: Option<RenderArgs<S, O, C>>,
@@ -36,33 +35,33 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
             min_height: 0,
         }
     }
-    
+
     pub fn bg(mut self, color: Color) -> Self {
         self.bg = Some(color);
         self
     }
-    
+
     pub fn border(mut self, color: Color, title: &str) -> Self {
         self.border = Some((color, title.into()));
         self
     }
-    
+
     pub fn align(mut self, align: Align) -> Self {
         self.align_horiz = align;
         self.align_vert = align;
         self
     }
-    
+
     pub fn align_horiz(mut self, align: Align) -> Self {
         self.align_horiz = align;
         self
     }
-    
+
     pub fn align_vert(mut self, align: Align) -> Self {
         self.align_vert = align;
         self
     }
-    
+
     pub fn padding(mut self, value: u16) -> Self {
         self.padding_left = value;
         self.padding_right = value;
@@ -70,50 +69,50 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
         self.padding_bottom = value;
         self
     }
-    
+
     pub fn padding_left(mut self, left: u16) -> Self {
         self.padding_left = left;
         self
     }
-    
+
     pub fn padding_right(mut self, right: u16) -> Self {
         self.padding_right = right;
         self
     }
-    
+
     pub fn padding_top(mut self, top: u16) -> Self {
         self.padding_top = top;
         self
     }
-    
+
     pub fn padding_bottom(mut self, bottom: u16) -> Self {
         self.padding_bottom = bottom;
         self
     }
-    
+
     pub fn padding_vert(mut self, vert: u16) -> Self {
         self.padding_top = vert;
         self.padding_bottom = vert;
         self
     }
-    
+
     pub fn padding_horiz(mut self, horiz: u16) -> Self {
         self.padding_left = horiz;
         self.padding_right = horiz;
         self
     }
-    
+
     pub fn min_size(mut self, width: u16, height: u16) -> Self {
         self.min_width = width;
         self.min_height = height;
         self
     }
-    
+
     pub fn min_width(mut self, width: u16) -> Self {
         self.min_width = width;
         self
     }
-    
+
     pub fn min_height(mut self, height: u16) -> Self {
         self.min_height = height;
         self
@@ -139,7 +138,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
             }
             context.render_widget(
                 block,
-                context.canvas_area()
+                context.area()
             );
         }
 
@@ -154,17 +153,10 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
             padding_top += 1;
             padding_bottom += 1;
         }
-        
+
         if let Some(content) = self.content.as_ref() {
-            let content_size = context.measure_component::<S, C>("el", &content.component).unwrap_or_default();
-            let mut rect = context.canvas_area();
-            
-            if self.border.is_some() {
-                rect.x += 1;
-                rect.y += 1;
-                rect.width -= 2;
-                rect.height -= 2;
-            }
+            let content_size = context.measure_component::<S, C>("el", &content.component);
+            let rect = context.area();
 
             let max_width = rect.width.saturating_sub(padding_left + padding_right);
             let max_height = rect.height.saturating_sub(padding_top + padding_bottom);
@@ -202,11 +194,11 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
 }
 
 impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> MeasurableComponent for Cell<S, O, C> {
-    fn measure(&self, context: &FrameContext, _: &Self::State) -> Option<Size> {
+    fn measure(&self, context: &FrameContext, _: &Self::State) -> Size {
         let el_size = self
             .content
             .as_ref()
-            .and_then(|el| context.measure_component::<S, C>("el", &el.component))
+            .map(|el| context.measure_component::<S, C>("el", &el.component))
             .unwrap_or_default();
 
         let border_pad = if self.border.is_some() {
@@ -221,7 +213,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> M
         let mut height = el_size.height + self.padding_top + self.padding_bottom + border_pad;
         height = max(height, self.min_height);
 
-        Some((width, height).into())
+        (width, height).into()
     }
 }
 

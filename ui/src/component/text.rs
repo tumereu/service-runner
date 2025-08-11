@@ -1,10 +1,10 @@
+use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
 use crate::canvas::FrameContext;
 use crate::component::{Component, MeasurableComponent};
-use crate::signal::Signals;
-use crate::space::Size;
+use crate::space::RectAtOrigin;
 
 #[derive(Debug, Default)]
 pub struct Text {
@@ -33,7 +33,7 @@ impl Component for Text {
     }
 }
 impl MeasurableComponent for Text {
-    fn measure(&self, _context: &FrameContext, _state: &Self::State) -> Option<Size> {
-        Some(self.size())
+    fn measure(&self, _context: &FrameContext, _state: &Self::State) -> Size {
+        self.size()
     }
 }
