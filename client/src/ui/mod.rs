@@ -20,7 +20,7 @@ impl Component for ViewRoot {
 
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> Self::Output {
         context.render_component(
-            &RenderArgs::new(
+            RenderArgs::new(
                 &SelectProfileScreen {
 
                 }

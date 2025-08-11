@@ -217,7 +217,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
             };
 
             context.render_component(
-                &RenderArgs::new(content)
+                RenderArgs::new(content)
                     .key("content")
                     .pos(x, y)
                     .size(width, height)

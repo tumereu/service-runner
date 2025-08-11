@@ -42,7 +42,7 @@ impl ComponentRenderer {
                 frame_area
             );
 
-            canvas.render_component(&RenderArgs::new(&root)
+            canvas.render_component(RenderArgs::new(&root)
                 .key("root")
                 .retain_unmounted_state(true)
                 .signals(SignalHandling::Overwrite(signals))

@@ -20,14 +20,14 @@ impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flo
     }
 
     fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size) {
-        ctx.render_component_raw(
-            &idx.to_string(),
-            self,
-            &Some(pos),
-            &Some(size),
-            // TODO parameterize?
-            &SignalHandling::Forward,
-            false,
+        ctx.render_component(
+            RenderArgs::new(self)
+                .pos(pos.x, pos.y)
+                .size(size.width, size.height)
+                // TODO parameterize?
+                .signals(SignalHandling::Forward)
+                .retain_unmounted_state(false)
+                .key(&idx.to_string())
         );
     }
 }
