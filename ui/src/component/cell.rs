@@ -8,7 +8,7 @@ use crate::{FrameContext, RenderArgs};
 use crate::space::RectAtOrigin;
 
 pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> {
-    pub content: Option<RenderArgs<S, O, C>>,
+    content: Option<C>,
     pub bg: Option<Color>,
     pub border: Option<(Color, String)>,
     pub align_horiz: Align,
@@ -25,7 +25,7 @@ pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Out
 impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> Cell<S, O, C> {
     pub fn containing(element: C) -> Cell<S, O, C> {
         Cell {
-            content: Some(RenderArgs::new(element)),
+            content: Some(element),
             bg: None,
             border: None,
             align_horiz: Align::Stretch,
@@ -188,7 +188,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
         }
 
         if let Some(content) = self.content.as_ref() {
-            let content_size = context.measure_component::<S, C>("el", &content.component);
+            let content_size = context.measure_component::<S, C>("el", &content);
             let rect = size.rect_at_origin();
 
             let max_width = rect.width.saturating_sub(padding_left + padding_right);
@@ -217,7 +217,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
             };
 
             context.render_component(
-                &RenderArgs::from(content)
+                &RenderArgs::new(content)
                     .key("content")
                     .pos(x, y)
                     .size(width, height)
@@ -228,10 +228,10 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
 
 impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> MeasurableComponent for Cell<S, O, C> {
     fn measure(&self, context: &FrameContext, _: &Self::State) -> Size {
-        let el_size = self
+        let content_size = self
             .content
             .as_ref()
-            .map(|el| context.measure_component::<S, C>("el", &el.component))
+            .map(|content| context.measure_component::<S, C>("el", &content))
             .unwrap_or_default();
 
         let border_pad = if self.border.is_some() {
@@ -240,11 +240,11 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> M
             0
         };
 
-        let mut width = el_size.width + self.padding_left + self.padding_right + border_pad;
+        let mut width = content_size.width + self.padding_left + self.padding_right + border_pad;
         width = max(width, self.min_width);
         width = min(width, self.max_width);
 
-        let mut height = el_size.height + self.padding_top + self.padding_bottom + border_pad;
+        let mut height = content_size.height + self.padding_top + self.padding_bottom + border_pad;
         height = max(height, self.min_height);
         height = min(height, self.max_height);       
 

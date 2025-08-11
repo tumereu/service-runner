@@ -45,7 +45,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
 
         self.render_component_raw(
             key.as_ref().expect("Missing a required render argument: key"),
-            component.as_ref(),
+            component.clone(),
             pos,
             size,
             signal_handling,
@@ -192,20 +192,20 @@ pub struct CurrentComponentContext {
 }
 
 #[derive(Clone)]
-pub struct RenderArgs<State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output>
+pub struct RenderArgs<'a, State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output>
 {
     pub key: Option<String>,
-    pub component: Rc<C>,
+    pub component: &'a C,
     pub pos: Option<Position>,
     pub size: Option<Size>,
     pub signals: SignalHandling,
     pub retain_unmounted_state: bool,
 }
-impl<State, Output, C> RenderArgs<State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output> {
-    pub fn new(component: C) -> RenderArgs<State, Output, C> {
+impl<'a, State, Output, C> RenderArgs<'a, State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output> {
+    pub fn new(component: &'a C) -> RenderArgs<'a, State, Output, C> {
         RenderArgs {
             key: None,
-            component: Rc::new(component),
+            component,
             pos: None,
             size: None,
             signals: SignalHandling::Forward,
@@ -213,7 +213,7 @@ impl<State, Output, C> RenderArgs<State, Output, C> where State: Default + 'stat
         }
     }
 
-    pub fn from(other: &RenderArgs<State, Output, C>) -> RenderArgs<State, Output, C> {
+    pub fn from(other: &RenderArgs<'a, State, Output, C>) -> RenderArgs<'a, State, Output, C> {
         RenderArgs {
             key: other.key.clone(),
             component: other.component.clone(),

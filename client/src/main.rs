@@ -8,7 +8,7 @@ use crossterm::{
 };
 use log::{debug, error, info, LevelFilter};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use ::ui::RatatuiRenderer;
+use ::ui::ComponentRenderer;
 use config::read_config;
 
 use crate::input::process_inputs;
@@ -132,7 +132,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let mut renderer = RatatuiRenderer::new();
+    let mut renderer = ComponentRenderer::new();
 
     loop {
         process_inputs(state_arc.clone());

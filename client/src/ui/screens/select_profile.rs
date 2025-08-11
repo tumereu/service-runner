@@ -17,10 +17,11 @@ impl Component for SelectProfileScreen {
 
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> Self::Output {
         let text = context.on_signal(|signal: String| signal.to_owned());
+        
 
         context.render_component(
             &RenderArgs::new(
-                Cell::containing(
+                &Cell::containing(
                     Cell::containing(
                         Flow::new()
                             .dir(Dir::UpDown)

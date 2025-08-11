@@ -6,14 +6,12 @@
 pub mod component;
 pub mod space;
 
-mod render_context;
-mod render;
-mod canvas;
+mod renderer;
+mod frame_ctx;
 mod state_store;
 mod signal;
 
-pub use render::*;
-pub use render_context::*;
-pub use canvas::*;
+pub use renderer::*;
+pub use frame_ctx::*;
 pub use state_store::*;
 pub use signal::*;

@@ -2,7 +2,7 @@ use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
-use crate::canvas::FrameContext;
+use crate::frame_ctx::FrameContext;
 use crate::component::{Component, MeasurableComponent};
 use crate::space::RectAtOrigin;
 

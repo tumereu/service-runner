@@ -7,7 +7,7 @@ pub use text::*;
 pub use cell::*;
 pub use flow::*;
 
-use crate::canvas::FrameContext;
+use crate::frame_ctx::FrameContext;
 
 pub trait Component {
     type State : Default + 'static;

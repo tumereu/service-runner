@@ -2,16 +2,16 @@ use std::any::Any;
 use std::rc::Rc;
 use ratatui::backend::Backend;
 use ratatui::Terminal;
-use crate::canvas::{FrameContext, RenderArgs};
+use crate::frame_ctx::{FrameContext, RenderArgs};
 use crate::component::Component;
 use crate::{Signal, SignalHandling, Signals};
 use crate::state_store::StateTreeNode;
 
-pub struct RatatuiRenderer {
+pub struct ComponentRenderer {
     store: Rc<StateTreeNode>,
     signals: Signals,
 }
-impl RatatuiRenderer {
+impl ComponentRenderer {
     pub fn new() -> Self {
         Self {
             store: Rc::new(StateTreeNode::new()),
@@ -42,7 +42,7 @@ impl RatatuiRenderer {
                 frame_area
             );
 
-            canvas.render_component(&RenderArgs::new(root)
+            canvas.render_component(&RenderArgs::new(&root)
                 .key("root")
                 .retain_unmounted_state(true)
                 .signals(SignalHandling::Overwrite(signals))
