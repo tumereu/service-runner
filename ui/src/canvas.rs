@@ -5,7 +5,7 @@ use ratatui::Frame;
 use ratatui::layout::{Offset, Rect};
 use ratatui::widgets::Widget;
 use log::debug;
-use crate::component::{Component, Measurement};
+use crate::component::{Component, MeasurableComponent};
 use crate::RenderContext;
 use crate::signal::Signals;
 use crate::space::{Position, Size};
@@ -30,10 +30,9 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             }))
         }
     }
-
     pub fn render_component<State, Output, C>(
         &self,
-        args: RenderArgs<State, Output, C>,
+        args: &RenderArgs<State, Output, C>,
     ) -> Output where State: Default + 'static, C : Component<State = State, Output = Output> {
         let RenderArgs {
             key,
@@ -43,6 +42,9 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             retain_unmounted_state,
             signals: signal_handling,
         } = args;
+
+        let size = size.as_ref().cloned().unwrap_or(self.canvas_size());
+        let pos = pos.as_ref().cloned().unwrap_or_default();
 
         let CurrentComponentContext {
             area: current_area,
@@ -56,14 +58,17 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             width: size.width,
             height: size.height,
         }.intersection(current_area);
-        let child_state_node = current_state_node.child(&key, Some(retain_unmounted_state));
+        let child_state_node = current_state_node.child(
+            key.as_ref().expect("Missing a required render argument: key"),
+            Some(*retain_unmounted_state)
+        );
         let mut state = child_state_node.take_state::<State>();
 
         self.current.replace(Some(CurrentComponentContext {
             area: child_area,
             state_node: child_state_node,
             signals: match signal_handling {
-                SignalHandling::Overwrite(new_signals) => new_signals,
+                SignalHandling::Overwrite(new_signals) => new_signals.clone(),
                 SignalHandling::Block => Signals::empty(),
                 SignalHandling::Forward => current_signals.clone(),
                 SignalHandling::Add(added_signals) => Signals::merged(&current_signals, &added_signals),
@@ -97,17 +102,17 @@ impl<'a, 'b> FrameContext<'a, 'b> {
     }
 
     pub fn measure_component<State, C>(
-        &mut self,
-        key: String,
-        component: C,
-    ) -> Measurement where State: Default + 'static, C : Component<State = State> {
+        &self,
+        key: &str,
+        component: &C,
+    ) -> Option<Size> where State: Default + 'static, C : MeasurableComponent<State = State> {
         let CurrentComponentContext {
             area: current_area,
             state_node: current_state_node,
             signals,
         } = self.current.take().expect("Context does not exist -- this indicates a bug in Canvas implementation");
 
-        let child_state_node = current_state_node.child(&key, None);
+        let child_state_node = current_state_node.child(key, None);
         let state = child_state_node.take_state::<State>();
 
         self.current.replace(Some(CurrentComponentContext {
@@ -127,11 +132,23 @@ impl<'a, 'b> FrameContext<'a, 'b> {
         measurement
     }
 
-    pub fn size(&self) -> Size {
+    pub fn canvas_size(&self) -> Size {
         let ctx = self.current.borrow();
         let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
 
         Size {
+            width: ctx.area.width,
+            height: ctx.area.height,
+        }
+    }
+
+    pub fn canvas_area(&self) -> Rect {
+        let ctx = self.current.borrow();
+        let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
+
+        Rect {
+            x: 0,
+            y: 0,
             width: ctx.area.width,
             height: ctx.area.height,
         }
@@ -155,16 +172,71 @@ pub struct CurrentComponentContext {
     signals: Signals,
 }
 
+#[derive(Clone)]
 pub struct RenderArgs<State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output>
 {
-    pub key: String,
-    pub component: C,
-    pub pos: Position,
-    pub size: Size,
+    pub key: Option<String>,
+    pub component: Rc<C>,
+    pub pos: Option<Position>,
+    pub size: Option<Size>,
     pub signals: SignalHandling,
     pub retain_unmounted_state: bool,
 }
+impl<State, Output, C> RenderArgs<State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output> {
+    pub fn new(component: C) -> RenderArgs<State, Output, C> {
+        RenderArgs {
+            key: None,
+            component: Rc::new(component),
+            pos: None,
+            size: None,
+            signals: SignalHandling::Forward,
+            retain_unmounted_state: false,
+        }
+    }
 
+    pub fn from(other: &RenderArgs<State, Output, C>) -> RenderArgs<State, Output, C> {
+        RenderArgs {
+            key: other.key.clone(),
+            component: other.component.clone(),
+            pos: other.pos.clone(),
+            size: other.size.clone(),
+            signals: other.signals.clone(),
+            retain_unmounted_state: other.retain_unmounted_state,
+        }
+    }
+
+    pub fn key(self, key: &str) -> Self {
+        let mut self_mut = self;
+        self_mut.key = Some(key.to_string());
+        self_mut
+    }
+
+    pub fn pos<X : Into<i32>, Y: Into<i32>>(self, x: X, y: Y) -> Self {
+        let mut self_mut = self;
+        self_mut.pos = Some((x, y).into());
+        self_mut
+    }
+
+    pub fn size<X : Into<u16>, Y: Into<u16>>(self, width: X, height: Y) -> Self {
+        let mut self_mut = self;
+        self_mut.size = Some((width, height).into());
+        self_mut
+    }
+
+    pub fn signals(self, signals: SignalHandling) -> Self {
+        let mut self_mut = self;
+        self_mut.signals = signals;
+        self_mut
+    }
+
+    pub fn retain_unmounted_state(self, retain_unmounted_state: bool) -> Self {
+        let mut self_mut = self;
+        self_mut.retain_unmounted_state = retain_unmounted_state;
+        self_mut
+    }
+}
+
+#[derive(Clone)]
 pub enum SignalHandling {
     Overwrite(Signals),
     Add(Signals),
@@ -175,31 +247,4 @@ impl Default for SignalHandling {
     fn default() -> Self {
         Self::Forward
     }
-}
-
-#[macro_export]
-macro_rules! render {
-    // Entry point: capture the canvas variable and a block of key=value pairs
-    ($canvas:expr, {
-        key = $key:expr,
-        component = $component:expr,
-        pos = $pos:expr,
-        $( size = $size:expr, )?
-        $( signals = $signals:expr, )?
-        $( retain_unmounted_state = $retain:expr, )?
-    }) => {{
-        // Build RenderArgs inline
-        let args = $crate::RenderArgs {
-            key: $key.to_string(),
-            pos: $pos.into(),
-            component: $component,
-            size: render!($($size)?).unwrap_or_else(|| $canvas.size()),
-            signals: render!($($signals)?).unwrap_or_default(),
-            retain_unmounted_state: render!($($retain)?).unwrap_or(false),
-        };
-        $canvas.render_component(args);
-    }};
-
-    () => { None };
-    ($entity:expr) => { Some($entity) }
 }

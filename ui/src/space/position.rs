@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub};
 use ratatui::layout::Offset;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Position {
     pub x: i32,
     pub y: i32

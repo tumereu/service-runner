@@ -42,14 +42,11 @@ impl RatatuiRenderer {
                 frame_area
             );
 
-            canvas.render_component(RenderArgs {
-                key: "root".to_string(),
-                component: root,
-                pos: (0, 0).into(),
-                size: (frame_area.width, frame_area.height).into(),
-                retain_unmounted_state: true,
-                signals: SignalHandling::Overwrite(signals),
-            });
+            canvas.render_component(&RenderArgs::new(root)
+                .key("root")
+                .retain_unmounted_state(true)
+                .signals(SignalHandling::Overwrite(signals))
+            );
         })?;
 
         Ok(())

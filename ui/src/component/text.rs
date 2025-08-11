@@ -2,7 +2,7 @@ use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
 use crate::canvas::FrameContext;
-use crate::component::{Component, Measurement};
+use crate::component::{Component, MeasurableComponent};
 use crate::signal::Signals;
 use crate::space::Size;
 
@@ -22,13 +22,6 @@ impl Component for Text {
     type State = ();
     type Output = ();
 
-    fn measure(&self, _context: &FrameContext, _state: &Self::State) -> Measurement {
-        Measurement {
-            min: Some(self.size()),
-            max: Some(self.size()),
-        }
-    }
-
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> Self::Output {
         let style = Style::default()
             .fg(self.fg.unwrap_or(Color::Reset));
@@ -37,5 +30,10 @@ impl Component for Text {
             Paragraph::new(Span::styled(self.text.clone(), style)),
             self.size().rect_at_origin(),
         );
+    }
+}
+impl MeasurableComponent for Text {
+    fn measure(&self, _context: &FrameContext, _state: &Self::State) -> Option<Size> {
+        Some(self.size())
     }
 }

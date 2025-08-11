@@ -1,7 +1,7 @@
 use ratatui::layout::Rect;
 use crate::space::Position;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Size {
     pub width: u16,
     pub height: u16,
