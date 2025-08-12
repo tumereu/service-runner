@@ -32,8 +32,8 @@ where
 
     fn create_flow(&self) -> UIResult<Flow> {
         let mut flow = Flow::new()
-            .dir(self.dir)
-            .bg(Color::Red);
+            .dir(self.dir);
+
         let create_element = &self.create_element;
 
         for (index, item) in self.items.iter().enumerate() {

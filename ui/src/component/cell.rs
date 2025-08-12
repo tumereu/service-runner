@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use log::debug;
 use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders};

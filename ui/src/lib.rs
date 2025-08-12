@@ -34,6 +34,9 @@ pub enum UIError {
     InvalidRenderArgs {
         msg: String,
     },
+    MissingAttr {
+        attr: String,
+    },
     User {
         error: Box<dyn Error>,
     },
@@ -60,6 +63,21 @@ impl UIError {
 
         (path, current)
     }
+
+    pub fn nested<T>(self, key: &str) -> Self {
+        let full = std::any::type_name::<T>();
+        // Remove generics
+        let cleaned = match full.find('<') {
+            Some(pos) => &full[..pos],
+            None => full,
+        };
+
+        UIError::Nested {
+            component_key: key.to_string(),
+            component_type: cleaned.to_string(),
+            error: Box::new(self),
+        }
+    }
 }
 
 impl Display for UIError {
@@ -68,6 +86,7 @@ impl Display for UIError {
             UIError::InvalidProp { msg } => write!(f, "Invalid prop: {}", msg),
             UIError::IllegalState { msg } => write!(f, "Illegal state: {}", msg),
             UIError::InvalidRenderArgs { msg } => write!(f, "Invalid render arg: {}", msg),
+            UIError::MissingAttr { attr } => write!(f, "Renderer does not have the required attribute '{}' set", attr),
             UIError::IO(e) => write!(f, "IO error: {}", e),
             UIError::User { error } => error.fmt(f),
             nested @ UIError::Nested { .. } => {

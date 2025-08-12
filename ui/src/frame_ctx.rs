@@ -4,21 +4,22 @@ use std::rc::Rc;
 use ratatui::Frame;
 use ratatui::layout::{Offset, Rect, Size};
 use ratatui::widgets::Widget;
-use log::debug;
 use crate::component::{Component, MeasurableComponent};
-use crate::{UIError, UIResult};
+use crate::{ComponentRenderer, UIError, UIResult};
 use crate::signal::Signals;
 use crate::space::{Position};
 use crate::state_store::StateTreeNode;
 
-pub struct FrameContext<'a, 'b> {
+pub struct FrameContext<'a, 'b, 'c> {
     frame: RefCell<&'a mut Frame<'b>>,
     current: RefCell<Option<CurrentComponentContext>>,
+    renderer: &'c ComponentRenderer
 }
-impl<'a, 'b> FrameContext<'a, 'b> {
+impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
     pub fn new(
         frame: &'a mut Frame<'b>,
         store: Rc<StateTreeNode>,
+        renderer: &'c ComponentRenderer,
         initial_rect: Rect,
     ) -> Self {
         Self {
@@ -27,7 +28,8 @@ impl<'a, 'b> FrameContext<'a, 'b> {
                 area: initial_rect,
                 state_node: store,
                 signals: Signals::empty(),
-            }))
+            })),
+            renderer,
         }
     }
 
@@ -76,11 +78,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             }
         }));
         let output = component.render(&self, &mut state)
-            .map_err(|err| UIError::Nested {
-                component_key: key.to_string(),
-                component_type: std::any::type_name::<C>().to_string(),
-                error: Box::new(err),
-            });
+            .map_err(|err| err.nested::<C>(key));
 
         let used_child_context = self.current.replace(Some(CurrentComponentContext {
             area: current_area,
@@ -127,11 +125,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             signals: Signals::empty(),
         }));
         let measurement = component.measure(&self, &state)
-            .map_err(|err| UIError::Nested {
-                component_key: key.to_string(),
-                component_type: std::any::type_name::<C>().to_string(),
-                error: Box::new(err),
-            });
+            .map_err(|err| err.nested::<C>(key));
 
         let used_child_context = self.current.replace(Some(CurrentComponentContext {
             area: current_area,
@@ -174,6 +168,14 @@ impl<'a, 'b> FrameContext<'a, 'b> {
         let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
 
         ctx.signals.recv::<T>().map(handle)
+    }
+
+    pub fn get_attr<T>(&self, key: &str) -> Option<&T> where T : Any + 'static {
+        self.renderer.get_attr(key)
+    }
+
+    pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T> where T : Any + 'static {
+        self.renderer.req_attr(attr)
     }
 }
 

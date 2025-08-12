@@ -1,22 +1,26 @@
 use std::any::Any;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use ratatui::backend::Backend;
+use ratatui::style::Color;
 use ratatui::Terminal;
 use crate::frame_ctx::{FrameContext, RenderArgs};
-use crate::component::Component;
+use crate::component::{Component, Text};
 use crate::{UIError, Signal, SignalHandling, Signals, UIResult};
 use crate::state_store::StateTreeNode;
 
 pub struct ComponentRenderer {
     store: Rc<StateTreeNode>,
     signals: Signals,
+    attributes: HashMap<String, Box<dyn Any>>,
 }
 impl ComponentRenderer {
     pub fn new() -> Self {
         Self {
             store: Rc::new(StateTreeNode::new()),
             signals: Signals::empty(),
+            attributes: HashMap::new(),       
         }
     }
 
@@ -41,7 +45,8 @@ impl ComponentRenderer {
             let canvas = FrameContext::new(
                 frame,
                 self.store.clone(),
-                frame_area
+                &self,
+                frame_area,
             );
 
             let result = canvas.render_component(RenderArgs::new(&root)
@@ -53,5 +58,22 @@ impl ComponentRenderer {
         }).map_err(|err| UIError::IO(err))?;
 
         result_holder.take().unwrap()
+    }
+    
+    pub fn assign_default_attributes(&mut self) {
+        self.set_attr(Text::ATTR_DEFAULT_FG, Color::White);
+    }
+    
+    pub fn set_attr<T>(&mut self, key: &str, value: T) where T : Any + 'static {
+        self.attributes.insert(key.to_string(), Box::new(value));
+    }
+
+    pub fn get_attr<T>(&self, key: &str) -> Option<&T> where T : Any + 'static {
+        self.attributes.get(key).and_then(|v| v.downcast_ref::<T>())
+    }
+
+    pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T> where T : Any + 'static {
+        self.attributes.get(attr).and_then(|v| v.downcast_ref::<T>())
+            .ok_or(UIError::MissingAttr { attr: attr.to_string() })
     }
 }

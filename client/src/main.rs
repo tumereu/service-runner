@@ -133,6 +133,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let mut renderer = ComponentRenderer::new();
+    renderer.assign_default_attributes();
     let mut ui_result: UIResult<()> = Ok(());
 
     loop {

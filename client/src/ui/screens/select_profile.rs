@@ -27,16 +27,13 @@ impl<'a> Component for SelectProfileScreen<'a> {
             RenderArgs::new(
                 &Cell::new(
                     Cell::new(List::new(self.profiles, |profile, index| {
-                        Cell::new(
-                            Text::new(profile.id.clone()).bg(
-                                if index == state.selected_idx {
-                                    Some(Color::Blue)
-                                } else {
-                                    None
-                                },
-                            )
-                        ).bg(Color::Green)
-                            .border(Color::Cyan, "Test")
+                        Cell::new(Text::new(profile.id.clone())).bg(
+                            if index == state.selected_idx {
+                                Some(Color::Blue)
+                            } else {
+                                None
+                            },
+                        ).align(Align::Center)
                     }))
                     .border(Color::Yellow, "Select profile")
                     .bg(Color::Reset)

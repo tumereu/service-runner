@@ -14,6 +14,8 @@ pub struct Text {
     pub bg: Option<Color>,
 }
 impl Text {
+    pub const ATTR_DEFAULT_FG: &'static str = "theme.Text.fg";
+
     pub fn new(text: String) -> Self {
         Self {
             text,
@@ -42,7 +44,9 @@ impl Component for Text {
 
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
         let mut style = Style::default()
-            .fg(self.fg.unwrap_or(Color::Reset));
+            .fg(self.fg.unwrap_or(
+                context.req_attr::<Color>(Self::ATTR_DEFAULT_FG)?.clone()
+            ));
 
         if let Some(bg) = self.bg {
             style = style.bg(bg);
