@@ -18,7 +18,7 @@ pub trait Component {
     type State: Default + 'static;
     type Output;
 
-    fn render(&self, context: &FrameContext, state: &mut Self::State) -> UIResult<Self::Output>;
+    fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output>;
 }
 
 pub trait MeasurableComponent: Component {

@@ -150,7 +150,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
     type State = ();
     type Output = O;
 
-    fn render(&self, context: &FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
         let size = context.size();
         let size: Size = (
             min(size.width, self.max_width),

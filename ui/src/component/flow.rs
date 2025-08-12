@@ -9,7 +9,7 @@ use std::cmp::{max, min};
 pub trait Flowable {
     fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size>;
     // TODO output?
-    fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()>;
+    fn render(&self, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()>;
 }
 
 impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flowable for C
@@ -18,7 +18,7 @@ impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flo
         ctx.measure_component(&idx.to_string(), self)
     }
 
-    fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()> {
+    fn render(&self, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()> {
         ctx.render_component(
             RenderArgs::new(self)
                 .pos(pos.x, pos.y)
@@ -72,7 +72,7 @@ impl Component for Flow {
     type Output = ();
     type State = ();
 
-    fn render(&self, context: &FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
         let self_size = context.size();
         if let Some(bg) = self.bg {
             context.render_widget(

@@ -22,7 +22,7 @@ impl ComponentRenderer {
         Self {
             store: Rc::new(StateTreeNode::new()),
             signals: Signals::empty(),
-            attributes: HashMap::new(),       
+            attributes: HashMap::new(),
         }
     }
 
@@ -32,7 +32,7 @@ impl ComponentRenderer {
 
     pub fn send_input_signals(&mut self, inputs: Vec<crossterm::event::Event>) {
         for input in inputs {
-            match input { 
+            match input {
                 crossterm::event::Event::Key(key) => {
                     self.send_signal(key);
                 },
@@ -56,9 +56,8 @@ impl ComponentRenderer {
 
         terminal.draw(|frame| {
             let frame_area = frame.area();
-            let canvas = FrameContext::new(
+            let mut canvas = FrameContext::new(
                 frame,
-                self.store.clone(),
                 &self,
                 frame_area,
             );
@@ -71,19 +70,21 @@ impl ComponentRenderer {
             result_holder.borrow_mut().replace(result);
         }).map_err(|err| UIError::IO(err))?;
 
+        self.signals.clear();
+
         result_holder.take().unwrap()
     }
-    
+
     pub fn assign_default_attributes(&mut self) {
         self.set_attr(Text::ATTR_COLOR_FG, Color::White);
         self.set_attr(ATTR_COLOR_HIGHLIGHT, Color::Blue);
-        
+
         self.set_attr(ATTR_KEY_NAV_DOWN, KeyMatcher::new(KeyCode::Down));
         self.set_attr(ATTR_KEY_NAV_UP, KeyMatcher::new(KeyCode::Up));
         self.set_attr(ATTR_KEY_NAV_LEFT, KeyMatcher::new(KeyCode::Left));
         self.set_attr(ATTR_KEY_NAV_RIGHT, KeyMatcher::new(KeyCode::Right));
     }
-    
+
     pub fn set_attr<T>(&mut self, key: &str, value: T) where T : Any + 'static {
         self.attributes.insert(key.to_string(), Box::new(value));
     }

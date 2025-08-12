@@ -55,7 +55,7 @@ where
     type State = ListState;
     type Output = ();
 
-    fn render(&self, context: &FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         struct ResolvedElement<Element> {
             key: String,
             element: Element,
@@ -68,7 +68,6 @@ where
 
         let mut resolved_elements: Vec<ResolvedElement<Element>> =
             Vec::with_capacity(self.items.len());
-        let start = Instant::now();
         for (index, item) in self.items.iter().enumerate() {
             let element = create_element(item, index);
             let key = index.to_string();
@@ -81,7 +80,6 @@ where
                 index,
             });
         }
-        debug!("resolve: {}", Instant::now().duration_since(start).as_secs_f64());
 
         if context
             .signals()
@@ -98,7 +96,6 @@ where
             state.selection = state.selection.saturating_sub(1)
         }
         state.selection = state.selection.max(0);
-        debug!("input: {}", Instant::now().duration_since(start).as_secs_f64());
 
         // Check if we need to scroll to keep the selected item in view
         let selection_bottom_y: i32 = resolved_elements[0..state.selection]
@@ -152,8 +149,6 @@ where
 
             current_y += size.height as i32;
         }
-
-        debug!("end: {}", Instant::now().duration_since(start).as_secs_f64());
 
         Ok(())
     }

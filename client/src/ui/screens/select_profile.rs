@@ -18,11 +18,11 @@ impl<'a> Component for SelectProfileScreen<'a> {
     type State = SelectProfileState;
     type Output = ();
 
-    fn render(&self, context: &FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         let max_width = context.size().width / 2;
         let max_height = context.size().height / 3;
 
-        let mock_profiles = (0..10000).into_iter()
+        let mock_profiles = (0..100).into_iter()
             .map(|i| {
                 ProfileDefinition {
                     id: i.to_string(),

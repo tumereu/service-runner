@@ -20,7 +20,7 @@ where
     type State = S;
     type Output = O;
 
-    fn render(&self, context: &FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         self.component.render(context, state)
     }
 }

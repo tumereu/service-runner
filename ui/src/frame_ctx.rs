@@ -11,30 +11,27 @@ use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
 pub struct FrameContext<'a, 'b, 'c> {
-    frame: RefCell<&'a mut Frame<'b>>,
-    current: RefCell<Option<CurrentComponentContext>>,
+    frame: &'a mut Frame<'b>,
+    current_area: Rect,
+    signals: Signals,
     renderer: &'c ComponentRenderer
 }
 impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
     pub fn new(
         frame: &'a mut Frame<'b>,
-        store: Rc<StateTreeNode>,
         renderer: &'c ComponentRenderer,
         initial_rect: Rect,
     ) -> Self {
         Self {
-            frame: RefCell::new(frame),
-            current: RefCell::new(Some(CurrentComponentContext {
-                area: initial_rect,
-                state_node: store,
-                signals: Signals::empty(),
-            })),
+            frame,
+            current_area: initial_rect,
+            signals: Signals::empty(),
             renderer,
         }
     }
 
     pub fn render_component<State, Output, C>(
-        &self,
+        &mut self,
         args: RenderArgs<State, Output, C>,
     ) -> Result<Output, UIError> where State: Default + 'static, C : Component<State = State, Output = Output> {
         let RenderArgs {
@@ -46,62 +43,46 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
             signals: signal_handling,
         } = args;
 
-        let size = size.as_ref().cloned().unwrap_or(self.size());
         let pos = pos.as_ref().cloned().unwrap_or_default();
+        let size = size.as_ref().cloned().unwrap_or(self.size());
         let key = key.ok_or(UIError::InvalidRenderArgs {
             msg: "Render arguments is missing the required property 'key'".to_string()
         })?;
 
-        let CurrentComponentContext {
-            area: current_area,
-            state_node: current_state_node,
-            signals: current_signals,
-        } = self.current.take().expect("Context does not exist -- this indicates a bug in Canvas implementation");
-
-        let child_area = Rect {
-            x: (current_area.x as i32 + pos.x).try_into().unwrap_or(0),
-            y: (current_area.y as i32 + pos.y).try_into().unwrap_or(0),
+        let new_area = Rect {
+            x: (self.current_area.x as i32 + pos.x).try_into().unwrap_or(0),
+            y: (self.current_area.y as i32 + pos.y).try_into().unwrap_or(0),
             width: size.width,
             height: size.height,
-        }.intersection(current_area);
-        let child_state_node = current_state_node.child(key, Some(retain_unmounted_state));
-        let mut state = child_state_node.take_state::<State>();
+        }.intersection(self.current_area);
+        match signal_handling {
+            SignalHandling::Overwrite(signals) => {
+                // TODO do properly
+                self.signals = signals;
+            },
+            _ => {},
+        }
 
-        self.current.replace(Some(CurrentComponentContext {
-            area: child_area,
-            state_node: child_state_node,
-            signals: match signal_handling {
-                SignalHandling::Overwrite(new_signals) => new_signals.clone(),
-                SignalHandling::Block => Signals::empty(),
-                SignalHandling::Forward => current_signals.clone(),
-                SignalHandling::Add(added_signals) => Signals::merged(&current_signals, &added_signals),
-            }
-        }));
-        let output = component.render(&self, &mut state)
+        let old_area = std::mem::replace(&mut self.current_area, new_area);
+
+        // TODO set child area
+        let output = component.render(self, &mut Default::default())
             .map_err(|err| err.nested::<C>(key));
 
-        let used_child_context = self.current.replace(Some(CurrentComponentContext {
-            area: current_area,
-            state_node: current_state_node,
-            signals: current_signals,
-        }));
-        used_child_context.unwrap().state_node.return_state(state);
+        self.current_area = old_area;
 
         output
     }
 
-    pub fn render_widget<W>(&self, widget: W, pos: Position, size: Size) where W : Widget {
-        let ctx = self.current.borrow();
-        let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
-
-        self.frame.borrow_mut().render_widget(
+    pub fn render_widget<W>(&mut self, widget: W, pos: Position, size: Size) where W : Widget {
+        self.frame.render_widget(
             widget,
             Rect {
-                x: (ctx.area.x as i32 + pos.x).try_into().unwrap_or(0),
-                y: (ctx.area.y as i32 + pos.y).try_into().unwrap_or(0),
+                x: (self.current_area.x as i32 + pos.x).try_into().unwrap_or(0),
+                y: (self.current_area.y as i32 + pos.y).try_into().unwrap_or(0),
                 width: size.width,
                 height: size.height,
-            }.intersection(ctx.area)
+            }.intersection(self.current_area),
         );
     }
 
@@ -110,62 +91,30 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         key: &str,
         component: &C,
     ) -> UIResult<Size> where State: Default + 'static, C : MeasurableComponent<State = State> {
-        let CurrentComponentContext {
-            area: current_area,
-            state_node: current_state_node,
-            signals,
-        } = self.current.take().expect("Context does not exist -- this indicates a bug in Canvas implementation");
-
-        let child_state_node = current_state_node.child(key, None);
-        let state = child_state_node.take_state::<State>();
-
-        self.current.replace(Some(CurrentComponentContext {
-            area: current_area,
-            state_node: child_state_node,
-            signals: Signals::empty(),
-        }));
-        let measurement = component.measure(&self, &state)
+        let measurement = component.measure(&self, &mut Default::default())
             .map_err(|err| err.nested::<C>(key));
-
-        let used_child_context = self.current.replace(Some(CurrentComponentContext {
-            area: current_area,
-            state_node: current_state_node,
-            signals
-        }));
-        used_child_context.unwrap().state_node.return_state(state);
 
         measurement
     }
 
     pub fn size(&self) -> Size {
-        let ctx = self.current.borrow();
-        let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
-
         Size {
-            width: ctx.area.width,
-            height: ctx.area.height,
+            width: self.current_area.width,
+            height: self.current_area.height,
         }
     }
 
     pub fn area(&self) -> Rect {
-        let ctx = self.current.borrow();
-        let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
-
         Rect {
             x: 0,
             y: 0,
-            width: ctx.area.width,
-            height: ctx.area.height,
+            width: self.current_area.width,
+            height: self.current_area.height,
         }
     }
 
-    pub fn signals(&self) -> Ref<Signals> {
-        Ref::map(
-            self.current.borrow(),
-            |ctx| &ctx.as_ref()
-                .expect("Context does not exist -- this indicates a bug in Canvas implementation")
-                .signals
-        )
+    pub fn signals(&self) -> &Signals {
+        &self.signals
     }
 
     pub fn get_attr<T>(&self, key: &str) -> Option<&T> where T : Any + 'static {
@@ -175,12 +124,6 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
     pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T> where T : Any + 'static {
         self.renderer.req_attr(attr)
     }
-}
-
-pub struct CurrentComponentContext {
-    area: Rect,
-    state_node: Rc<StateTreeNode>,
-    signals: Signals,
 }
 
 #[derive(Clone)]

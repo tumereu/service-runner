@@ -13,6 +13,10 @@ impl Signals {
         Self(vec)
     }
 
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
     pub fn singleton<T>(payload: T) -> Self
     where
         T: Any + 'static,
