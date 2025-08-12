@@ -4,7 +4,7 @@ use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders};
 use ratatui::text::Line;
 use crate::component::{Component, MeasurableComponent};
-use crate::{FrameContext, RenderArgs, RenderError, UIResult};
+use crate::{FrameContext, RenderArgs, UIError, UIResult};
 use crate::space::RectAtOrigin;
 
 pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> {
@@ -223,7 +223,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
                     .size(width, height)
             )
         } else {
-            Err(RenderError::ComponentArg {
+            Err(UIError::InvalidProp {
                 msg: "Missing required property 'content'".to_string(),
             })
         }

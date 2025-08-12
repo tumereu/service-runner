@@ -10,7 +10,7 @@ pub use list::*;
 
 use ratatui::layout::Size;
 use crate::frame_ctx::FrameContext;
-use crate::{RenderError, UIResult};
+use crate::{UIError, UIResult};
 
 pub trait Component {
     type State : Default + 'static;

@@ -1,10 +1,11 @@
 use std::any::Any;
+use std::cell::RefCell;
 use std::rc::Rc;
 use ratatui::backend::Backend;
 use ratatui::Terminal;
 use crate::frame_ctx::{FrameContext, RenderArgs};
 use crate::component::Component;
-use crate::{Signal, SignalHandling, Signals};
+use crate::{UIError, Signal, SignalHandling, Signals, UIResult};
 use crate::state_store::StateTreeNode;
 
 pub struct ComponentRenderer {
@@ -23,16 +24,17 @@ impl ComponentRenderer {
         self.signals.push(Signal::of(payload));
     }
 
-    pub fn render_root<S, B>(
+    pub fn render_root<S, B, O>(
         &mut self,
         terminal: &mut Terminal<B>,
-        root: impl Component<State = S>,
-    ) -> std::io::Result<()>
+        root: impl Component<State = S, Output = O>,
+    ) -> UIResult<O>
     where
         S: Default + 'static,
         B : Backend,
     {
         let signals = std::mem::take(&mut self.signals);
+        let result_holder: Rc<RefCell<Option<UIResult<O>>>> = Rc::new(RefCell::new(None));
 
         terminal.draw(|frame| {
             let frame_area = frame.area();
@@ -42,13 +44,14 @@ impl ComponentRenderer {
                 frame_area
             );
 
-            canvas.render_component(RenderArgs::new(&root)
+            let result = canvas.render_component(RenderArgs::new(&root)
                 .key("root")
                 .retain_unmounted_state(true)
                 .signals(SignalHandling::Overwrite(signals))
             );
-        })?;
+            result_holder.borrow_mut().replace(result);
+        }).map_err(|err| UIError::IO(err))?;
 
-        Ok(())
+        result_holder.take().unwrap()
     }
 }

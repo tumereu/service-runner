@@ -8,7 +8,7 @@ use crossterm::{
 };
 use log::{debug, error, info, LevelFilter};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use ::ui::ComponentRenderer;
+use ::ui::{ComponentRenderer, UIError, UIResult};
 use config::read_config;
 
 use crate::input::process_inputs;
@@ -133,6 +133,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let mut renderer = ComponentRenderer::new();
+    let mut ui_result: UIResult<()> = Ok(());
 
     loop {
         process_inputs(state_arc.clone());
@@ -146,6 +147,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Ok(_) => {},
             Err(error) => {
                 error!("Encountered an unexpected exception during render(): {error:?}");
+                ui_result = Err(error);
                 break;
             }
         }
@@ -156,7 +158,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             thread::sleep(Duration::from_millis(10));
         }
     }
-    
+
+    state_arc.lock().unwrap().should_exit = true;
     service_worker.stop();
     rhai_executor.stop();
 
@@ -173,6 +176,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         LeaveAlternateScreen,
     )?;
     terminal.show_cursor()?;
+
+    // If there were errors with the UI, panic at the very end after cleaning up the terminal
+    match ui_result {
+        Ok(_) => {},
+        Err(error) => panic!("Unexpected error in UI rendering: {error}"),
+    }
 
     Ok(())
 }

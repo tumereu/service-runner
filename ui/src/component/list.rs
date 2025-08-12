@@ -1,6 +1,6 @@
 use ratatui::layout::{Size};
 use crate::component::{Cell, Component, Flow, FlowableArgs, MeasurableComponent};
-use crate::{FrameContext, RenderArgs, RenderError, UIResult};
+use crate::{FrameContext, RenderArgs, UIError, UIResult};
 
 pub struct List<ElementState, ElementOutput, Item, Element, CreateElement>
 where
@@ -28,7 +28,7 @@ where
 
     fn create_flow(&self) -> UIResult<Flow> {
         let mut flow = Flow::new();
-        let create_element = self.create_element.as_ref().ok_or(RenderError::ComponentArg {
+        let create_element = self.create_element.as_ref().ok_or(UIError::InvalidProp {
             msg: "Missing required prop 'create_element'".to_string()
         })?;
 

@@ -6,7 +6,7 @@ use ratatui::layout::{Offset, Rect, Size};
 use ratatui::widgets::Widget;
 use log::debug;
 use crate::component::{Component, MeasurableComponent};
-use crate::{RenderError, UIResult};
+use crate::{UIError, UIResult};
 use crate::signal::Signals;
 use crate::space::{Position};
 use crate::state_store::StateTreeNode;
@@ -34,7 +34,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
     pub fn render_component<State, Output, C>(
         &self,
         args: RenderArgs<State, Output, C>,
-    ) -> Result<Output, RenderError> where State: Default + 'static, C : Component<State = State, Output = Output> {
+    ) -> Result<Output, UIError> where State: Default + 'static, C : Component<State = State, Output = Output> {
         let RenderArgs {
             key,
             component,
@@ -46,6 +46,9 @@ impl<'a, 'b> FrameContext<'a, 'b> {
 
         let size = size.as_ref().cloned().unwrap_or(self.size());
         let pos = pos.as_ref().cloned().unwrap_or_default();
+        let key = key.ok_or(UIError::InvalidRenderArgs {
+            msg: "Render arguments is missing the required property 'key'".to_string()
+        })?;
 
         let CurrentComponentContext {
             area: current_area,
@@ -59,12 +62,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             width: size.width,
             height: size.height,
         }.intersection(current_area);
-        let child_state_node = current_state_node.child(
-            key.ok_or(RenderError::RenderArg {
-                msg: "Render arguments is missing the required property 'key'".to_string()
-            })?,
-            Some(retain_unmounted_state)
-        );
+        let child_state_node = current_state_node.child(key, Some(retain_unmounted_state));
         let mut state = child_state_node.take_state::<State>();
 
         self.current.replace(Some(CurrentComponentContext {
@@ -77,8 +75,12 @@ impl<'a, 'b> FrameContext<'a, 'b> {
                 SignalHandling::Add(added_signals) => Signals::merged(&current_signals, &added_signals),
             }
         }));
-        // TODO map error, add context to error recursively?
-        let output = component.render(&self, &mut state);
+        let output = component.render(&self, &mut state)
+            .map_err(|err| UIError::Nested {
+                component_key: key.to_string(),
+                component_type: std::any::type_name::<C>().to_string(),
+                error: Box::new(err),
+            });
 
         let used_child_context = self.current.replace(Some(CurrentComponentContext {
             area: current_area,
@@ -124,7 +126,12 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             state_node: child_state_node,
             signals: Signals::empty(),
         }));
-        let measurement = component.measure(&self, &state);
+        let measurement = component.measure(&self, &state)
+            .map_err(|err| UIError::Nested {
+                component_key: key.to_string(),
+                component_type: std::any::type_name::<C>().to_string(),
+                error: Box::new(err),
+            });
 
         let used_child_context = self.current.replace(Some(CurrentComponentContext {
             area: current_area,

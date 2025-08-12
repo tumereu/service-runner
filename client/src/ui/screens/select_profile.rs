@@ -18,7 +18,6 @@ impl Component for SelectProfileScreen {
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
         let text = context.on_signal(|signal: String| signal.to_owned());
 
-
         context.render_component(
             RenderArgs::new(
                 &Cell::new(
@@ -59,8 +58,7 @@ impl Component for SelectProfileScreen {
                     .bg(Color::Reset),
                 )
                 .align(Align::Center),
-            )
-            .key("root"),
+            ).key("content")
         )
     }
 }
