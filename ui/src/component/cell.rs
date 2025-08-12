@@ -41,8 +41,8 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
         }
     }
 
-    pub fn bg(mut self, color: Color) -> Self {
-        self.bg = Some(color);
+    pub fn bg(mut self, color: impl Into<Option<Color>>) -> Self {
+        self.bg = color.into();
         self
     }
 

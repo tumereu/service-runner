@@ -1,8 +1,10 @@
+use crate::config::ProfileDefinition;
+use crate::models::Profile;
 use crate::system_state::SystemState;
 use crate::ui::CurrentScreen;
 use ratatui::Frame;
 use ratatui::style::Color;
-use ui::component::{Align, Cell, Component, Dir, Flow, FlowableArgs, Text, WithMeasurement};
+use ui::component::{Align, Cell, Component, Dir, Flow, FlowableArgs, List, Text, WithMeasurement};
 use ui::{FrameContext, RenderArgs, UIResult};
 
 #[derive(Default)]
@@ -10,54 +12,41 @@ pub struct SelectProfileState {
     selected_idx: usize,
 }
 
-pub struct SelectProfileScreen {}
-impl Component for SelectProfileScreen {
+pub struct SelectProfileScreen<'a> {
+    pub profiles: &'a Vec<ProfileDefinition>,
+}
+impl<'a> Component for SelectProfileScreen<'a> {
     type State = SelectProfileState;
     type Output = ();
 
-    fn render(&self, context: &FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
-        let text = context.on_signal(|signal: String| signal.to_owned());
+    fn render(&self, context: &FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
+        let max_width = context.size().width / 2;
+        let max_height = context.size().height / 3;
 
         context.render_component(
             RenderArgs::new(
                 &Cell::new(
-                    Cell::new(
-                        Flow::new()
-                            .dir(Dir::UpDown)
-                            .element(
-                                Cell::new(Text {
-                                    text: text.unwrap_or("Hello cell".into()),
-                                    fg: Some(Color::Cyan),
-                                    ..Default::default()
-                                }),
-                                FlowableArgs { fill: false },
+                    Cell::new(List::new(self.profiles, |profile, index| {
+                        Cell::new(
+                            Text::new(profile.id.clone()).bg(
+                                if index == state.selected_idx {
+                                    Some(Color::Blue)
+                                } else {
+                                    None
+                                },
                             )
-                            .element(
-                                Cell::new(Text {
-                                    text: "Middle".into(),
-                                    fg: Some(Color::Red),
-                                    ..Default::default()
-                                })
-                                .align_vert(Align::Center)
-                                .align_horiz(Align::End),
-                                FlowableArgs { fill: true },
-                            )
-                            .element(
-                                Cell::new(Text {
-                                    text: "Last one".into(),
-                                    fg: Some(Color::Cyan),
-                                    bg: Some(Color::Green),
-                                    ..Default::default()
-                                }).align_horiz(Align::Center),
-                                FlowableArgs { fill: false },
-                            ),
-                    )
+                        ).bg(Color::Green)
+                            .border(Color::Cyan, "Test")
+                    }))
                     .border(Color::Yellow, "Select profile")
                     .bg(Color::Reset)
-                    .with_measurement(20u16, 20u16),
+                    .min_width(20)
+                    .max_width(max_width)
+                    .max_height(max_height),
                 )
                 .align(Align::Center),
-            ).key("content")
+            )
+            .key("content"),
         )
     }
 }

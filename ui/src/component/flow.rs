@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 use crate::component::{Align, Cell, Component, MeasurableComponent};
 use crate::space::Position;
-use crate::{FrameContext, RenderArgs, UIResult, SignalHandling};
+use crate::{FrameContext, RenderArgs, UIResult, SignalHandling, UIError};
 use ratatui::layout::{Rect, Size};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Block;
@@ -28,7 +28,7 @@ impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flo
                 .retain_unmounted_state(false)
                 .key(&idx.to_string())
         )?;
-        
+
         Ok(())
     }
 }
@@ -48,8 +48,8 @@ impl Flow {
         Self::default()
     }
 
-    pub fn bg(mut self, bg: Color) -> Self {
-        self.bg = Some(bg);
+    pub fn bg(mut self, bg: impl Into<Option<Color>>) -> Self {
+        self.bg = bg.into();
         self
     }
 
@@ -150,7 +150,7 @@ impl Component for Flow {
 
             flowable.render(context, idx, (x, y).into(), size_in_layout)?;
         }
-        
+
         Ok(())
     }
 }
@@ -175,7 +175,7 @@ impl MeasurableComponent for Flow {
     }
 }
 
-#[derive(Eq, PartialEq, Default, Debug)]
+#[derive(Eq, PartialEq, Default, Debug, Clone, Copy)]
 pub enum Dir {
     #[default]
     LeftRight,

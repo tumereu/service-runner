@@ -21,13 +21,13 @@ impl Text {
         }
     }
 
-    pub fn fg(mut self, fg: Color) -> Self {
-        self.fg = Some(fg);
+    pub fn fg(mut self, fg: impl Into<Option<Color>>) -> Self {
+        self.fg = fg.into();
         self
     }
 
-    pub fn bg(mut self, bg: Color) -> Self {
-        self.bg = Some(bg);
+    pub fn bg(mut self, bg: impl Into<Option<Color>>) -> Self {
+        self.bg = bg.into();
         self
     }
 
@@ -50,7 +50,7 @@ impl Component for Text {
 
         context.render_widget(
             Paragraph::new(Span::styled(self.text.clone(), style)),
-            self.size().rect_at_origin(),
+            context.size().rect_at_origin(),
         );
 
         Ok(())

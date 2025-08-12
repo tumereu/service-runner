@@ -19,10 +19,12 @@ impl Component for ViewRoot {
     type Output = ();
 
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
+        let state = self.state.lock().unwrap();
+
         context.render_component(
             RenderArgs::new(
                 &SelectProfileScreen {
-
+                    profiles: &state.config.profiles,
                 }
             ).key("select-profile")
         )?;
