@@ -1,5 +1,5 @@
 use ratatui::layout::{Size};
-use crate::component::{Cell, Component, Flow, FlowableArgs, MeasurableComponent};
+use crate::component::{Cell, Component, Dir, Flow, FlowableArgs, MeasurableComponent};
 use crate::{FrameContext, RenderArgs, UIError, UIResult};
 
 pub struct List<ElementState, ElementOutput, Item, Element, CreateElement>
@@ -11,6 +11,7 @@ where
 {
     pub items: Vec<Item>,
     pub create_element: Option<CreateElement>,
+    pub dir: Dir,
 }
 impl<ElementState, ElementOutput, Item, Element, CreateElement> List<ElementState, ElementOutput, Item, Element, CreateElement>
 where
@@ -23,6 +24,7 @@ where
         Self {
             items,
             create_element: None,
+            dir: Dir::UpDown,
         }
     }
 
@@ -52,8 +54,6 @@ where
     type Output = ();
 
     fn render(&self, context: &FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
-        let flow = self.create_flow()?;
-
         context.render_component(
             RenderArgs::new(&self.create_flow()?)
                 .key("list")

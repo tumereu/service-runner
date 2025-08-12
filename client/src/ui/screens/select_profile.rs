@@ -2,7 +2,7 @@ use crate::system_state::SystemState;
 use crate::ui::CurrentScreen;
 use ratatui::Frame;
 use ratatui::style::Color;
-use ui::component::{Align, Cell, Component, Dir, Flow, FlowableArgs, Text};
+use ui::component::{Align, Cell, Component, Dir, Flow, FlowableArgs, Text, WithMeasurement};
 use ui::{FrameContext, RenderArgs, UIResult};
 
 #[derive(Default)]
@@ -52,10 +52,9 @@ impl Component for SelectProfileScreen {
                                 FlowableArgs { fill: false },
                             ),
                     )
-                    .width(46)
-                    .height(22)
                     .border(Color::Yellow, "Select profile")
-                    .bg(Color::Reset),
+                    .bg(Color::Reset)
+                    .with_measurement(20u16, 20u16),
                 )
                 .align(Align::Center),
             ).key("content")
