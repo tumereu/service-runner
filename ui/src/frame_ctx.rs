@@ -14,12 +14,12 @@ pub struct FrameContext<'a, 'b, 'c> {
     frame: &'a mut Frame<'b>,
     current_area: Rect,
     signals: Signals,
-    renderer: &'c ComponentRenderer
+    renderer: &'c mut ComponentRenderer
 }
 impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
     pub fn new(
         frame: &'a mut Frame<'b>,
-        renderer: &'c ComponentRenderer,
+        renderer: &'c mut ComponentRenderer,
         initial_rect: Rect,
     ) -> Self {
         Self {
@@ -30,10 +30,10 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         }
     }
 
-    pub fn render_component<State, Output, C>(
+    pub fn render_component<Output, C>(
         &mut self,
-        args: RenderArgs<State, Output, C>,
-    ) -> Result<Output, UIError> where State: Default + 'static, C : Component<State = State, Output = Output> {
+        args: RenderArgs<Output, C>,
+    ) -> Result<Output, UIError> where C : Component<Output = Output> {
         let RenderArgs {
             key,
             component,
@@ -66,7 +66,7 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         let old_area = std::mem::replace(&mut self.current_area, new_area);
 
         // TODO set child area
-        let output = component.render(self, &mut Default::default())
+        let output = component.render(self)
             .map_err(|err| err.nested::<C>(key));
 
         self.current_area = old_area;
@@ -86,12 +86,12 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         );
     }
 
-    pub fn measure_component<State, C>(
+    pub fn measure_component<C>(
         &self,
         key: &str,
         component: &C,
-    ) -> UIResult<Size> where State: Default + 'static, C : MeasurableComponent<State = State> {
-        let measurement = component.measure(&self, &mut Default::default())
+    ) -> UIResult<Size> where C : MeasurableComponent {
+        let measurement = component.measure(&self)
             .map_err(|err| err.nested::<C>(key));
 
         measurement
@@ -124,10 +124,18 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
     pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T> where T : Any + 'static {
         self.renderer.req_attr(attr)
     }
+
+    pub fn take_state<T>(&mut self, key: &str) -> T where T : Any + Default + 'static {
+        self.renderer.take_state(key)
+    }
+
+    pub fn return_state<T>(&mut self, key: &str, state: T) where T : Any + Default + 'static {
+        self.renderer.return_state(key, state);
+    }
 }
 
 #[derive(Clone)]
-pub struct RenderArgs<'a, State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output>
+pub struct RenderArgs<'a, Output, C> where C : Component<Output = Output>
 {
     pub key: Option<&'a str>,
     pub component: &'a C,
@@ -136,8 +144,8 @@ pub struct RenderArgs<'a, State, Output, C> where State: Default + 'static, C : 
     pub signals: SignalHandling,
     pub retain_unmounted_state: bool,
 }
-impl<'a, State, Output, C> RenderArgs<'a, State, Output, C> where State: Default + 'static, C : Component<State = State, Output = Output> {
-    pub fn new(component: &'a C) -> RenderArgs<'a, State, Output, C> {
+impl<'a, Output, C> RenderArgs<'a, Output, C> where C : Component<Output = Output> {
+    pub fn new(component: &'a C) -> RenderArgs<'a, Output, C> {
         RenderArgs {
             key: None,
             component,
@@ -148,7 +156,7 @@ impl<'a, State, Output, C> RenderArgs<'a, State, Output, C> where State: Default
         }
     }
 
-    pub fn from(other: &RenderArgs<'a, State, Output, C>) -> RenderArgs<'a, State, Output, C> {
+    pub fn from(other: &RenderArgs<'a, Output, C>) -> RenderArgs<'a, Output, C> {
         RenderArgs {
             key: other.key.clone(),
             component: other.component.clone(),

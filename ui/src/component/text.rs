@@ -40,10 +40,9 @@ impl Text {
 }
 
 impl Component for Text {
-    type State = ();
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let mut style = Style::default()
             .fg(self.fg.unwrap_or(
                 context.req_attr::<Color>(Self::ATTR_COLOR_FG)?.clone()
@@ -71,7 +70,7 @@ impl Component for Text {
     }
 }
 impl MeasurableComponent for Text {
-    fn measure(&self, _context: &FrameContext, _state: &Self::State) -> UIResult<Size> {
+    fn measure(&self, _context: &FrameContext) -> UIResult<Size> {
         Ok(self.size())
     }
 }

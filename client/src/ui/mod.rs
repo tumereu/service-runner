@@ -15,10 +15,9 @@ pub struct ViewRoot {
     pub state: Arc<Mutex<SystemState>>
 }
 impl Component for ViewRoot {
-    type State = ();
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let state = self.state.lock().unwrap();
 
         context.render_component(

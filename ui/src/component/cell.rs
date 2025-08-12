@@ -7,7 +7,7 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders};
 use std::cmp::{max, min};
 
-pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> {
+pub struct Cell<O, C : MeasurableComponent<Output = O>> {
     content: Option<C>,
     pub bg: Option<Color>,
     pub border: Option<(Color, String)>,
@@ -22,8 +22,8 @@ pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Out
     pub max_width: u16,
     pub max_height: u16,
 }
-impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> Cell<S, O, C> {
-    pub fn new(element: C) -> Cell<S, O, C> {
+impl<O, C : MeasurableComponent<Output = O>> Cell<O, C> {
+    pub fn new(element: C) -> Cell<O, C> {
         Cell {
             content: Some(element),
             bg: None,
@@ -146,11 +146,10 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
     }
 }
 
-impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> Component for Cell<S, O, C> {
-    type State = ();
+impl<O, C : MeasurableComponent<Output = O>> Component for Cell<O, C> {
     type Output = O;
 
-    fn render(&self, context: &mut FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let size = context.size();
         let size: Size = (
             min(size.width, self.max_width),
@@ -189,7 +188,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
         }
 
         if let Some(content) = self.content.as_ref() {
-            let content_size = context.measure_component::<S, C>("el", &content)?;
+            let content_size = context.measure_component::<C>("el", &content)?;
             let rect = size.rect_at_origin();
 
             let max_width = rect.width.saturating_sub(padding_left + padding_right);
@@ -231,12 +230,12 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
     }
 }
 
-impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> MeasurableComponent for Cell<S, O, C> {
-    fn measure(&self, context: &FrameContext, _: &Self::State) -> UIResult<Size> {
+impl<O, C : MeasurableComponent<Output = O>> MeasurableComponent for Cell<O, C> {
+    fn measure(&self, context: &FrameContext) -> UIResult<Size> {
         let content_size = self
             .content
             .as_ref()
-            .map(|content| context.measure_component::<S, C>("el", &content))
+            .map(|content| context.measure_component::<C>("el", &content))
             .unwrap_or_else(|| Ok(Default::default()))?;
 
         let border_pad = if self.border.is_some() {

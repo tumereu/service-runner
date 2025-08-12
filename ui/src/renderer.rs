@@ -1,6 +1,5 @@
 use crate::component::{Component, Text, ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_UP};
 use crate::frame_ctx::{FrameContext, RenderArgs};
-use crate::state_store::StateTreeNode;
 use crate::{SignalHandling, Signals, UIError, UIResult};
 use ratatui::backend::Backend;
 use ratatui::style::Color;
@@ -13,14 +12,14 @@ use crossterm::event::KeyCode;
 use crate::input::KeyMatcher;
 
 pub struct ComponentRenderer {
-    store: Rc<StateTreeNode>,
+    states: HashMap<String, Box<dyn Any>>,
     signals: Signals,
     attributes: HashMap<String, Box<dyn Any>>,
 }
 impl ComponentRenderer {
     pub fn new() -> Self {
         Self {
-            store: Rc::new(StateTreeNode::new()),
+            states: HashMap::new(),
             signals: Signals::empty(),
             attributes: HashMap::new(),
         }
@@ -42,13 +41,12 @@ impl ComponentRenderer {
         }
     }
 
-    pub fn render_root<S, B, O>(
+    pub fn render_root<B, O>(
         &mut self,
         terminal: &mut Terminal<B>,
-        root: impl Component<State = S, Output = O>,
+        root: impl Component<Output = O>,
     ) -> UIResult<O>
     where
-        S: Default + 'static,
         B : Backend,
     {
         let signals = std::mem::take(&mut self.signals);
@@ -58,7 +56,7 @@ impl ComponentRenderer {
             let frame_area = frame.area();
             let mut canvas = FrameContext::new(
                 frame,
-                &self,
+                self,
                 frame_area,
             );
 
@@ -96,5 +94,17 @@ impl ComponentRenderer {
     pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T> where T : Any + 'static {
         self.attributes.get(attr).and_then(|v| v.downcast_ref::<T>())
             .ok_or(UIError::MissingAttr { attr: attr.to_string() })
+    }
+
+    pub fn take_state<T>(&mut self, key: &str) -> T where T : Any + Default + 'static {
+        if !self.states.get(key).map(|v| v.is::<T>()).unwrap_or(false) {
+            T::default()
+        } else {
+            *self.states.remove(key).unwrap().downcast::<T>().unwrap()
+        }
+    }
+
+    pub fn return_state<T>(&mut self, key: &str, state: T) where T : Any + Default + 'static {
+        self.states.insert(key.to_string(), Box::new(state));
     }
 }

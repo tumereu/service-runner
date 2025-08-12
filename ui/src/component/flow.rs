@@ -12,7 +12,7 @@ pub trait Flowable {
     fn render(&self, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()>;
 }
 
-impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flowable for C
+impl<O, C: MeasurableComponent<Output = O>> Flowable for C
 {
     fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size> {
         ctx.measure_component(&idx.to_string(), self)
@@ -70,9 +70,8 @@ impl Flow {
 
 impl Component for Flow {
     type Output = ();
-    type State = ();
 
-    fn render(&self, context: &mut FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let self_size = context.size();
         if let Some(bg) = self.bg {
             context.render_widget(
@@ -159,7 +158,7 @@ impl Component for Flow {
     }
 }
 impl MeasurableComponent for Flow {
-    fn measure(&self, context: &FrameContext, _: &Self::State) -> UIResult<Size> {
+    fn measure(&self, context: &FrameContext) -> UIResult<Size> {
         let mut width: u16 = 0;
         let mut height: u16 = 0;
 

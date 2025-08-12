@@ -1,37 +1,31 @@
-use crate::component::{
-    ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, Component, Dir, Flow, FlowableArgs,
-    MeasurableComponent,
-};
+use crate::component::{ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, Component, Dir, Flow, FlowableArgs, MeasurableComponent, StatefulComponent};
 use crate::input::KeyMatcherQueryable;
 use crate::{FrameContext, RenderArgs, UIResult};
 use ratatui::layout::Size;
 use ratatui::prelude::Style;
 use ratatui::style::Color;
 use ratatui::widgets::Block;
-use std::ops::Neg;
-use std::time::Instant;
-use log::debug;
 
-pub struct List<'a, ElementState, ElementOutput, Item, Element, CreateElement>
+pub struct List<'a, ElementOutput, Item, Element, CreateElement>
 where
-    ElementState: Default + 'static,
     ElementOutput: 'static,
-    Element: MeasurableComponent<State = ElementState, Output = ElementOutput> + 'static,
+    Element: MeasurableComponent<Output = ElementOutput> + 'static,
     CreateElement: Fn(&Item, usize) -> Element,
 {
     pub items: &'a Vec<Item>,
     pub create_element: CreateElement,
+    pub id: String,
 }
-impl<'a, ElementState, ElementOutput, Item, Element, CreateElement>
-    List<'a, ElementState, ElementOutput, Item, Element, CreateElement>
+impl<'a, ElementOutput, Item, Element, CreateElement>
+    List<'a, ElementOutput, Item, Element, CreateElement>
 where
-    ElementState: Default + 'static,
     ElementOutput: 'static,
-    Element: MeasurableComponent<State = ElementState, Output = ElementOutput> + 'static,
+    Element: MeasurableComponent<Output = ElementOutput> + 'static,
     CreateElement: Fn(&Item, usize) -> Element,
 {
-    pub fn new(items: &'a Vec<Item>, create_element: CreateElement) -> Self {
+    pub fn new(id: &str, items: &'a Vec<Item>, create_element: CreateElement) -> Self {
         Self {
+            id: id.to_string(),
             items,
             create_element,
         }
@@ -44,16 +38,19 @@ pub struct ListState {
     pub selection: usize,
 }
 
-impl<'a, ElementState, ElementOutput, Item, Element, CreateElement> Component
-    for List<'a, ElementState, ElementOutput, Item, Element, CreateElement>
+impl<'a, ElementOutput, Item, Element, CreateElement> StatefulComponent
+    for List<'a, ElementOutput, Item, Element, CreateElement>
 where
-    ElementState: Default + 'static,
     ElementOutput: 'static,
-    Element: MeasurableComponent<State = ElementState, Output = ElementOutput> + 'static,
+    Element: MeasurableComponent<Output = ElementOutput> + 'static,
     CreateElement: Fn(&Item, usize) -> Element,
 {
     type State = ListState;
     type Output = ();
+
+    fn state_id(&self) -> &str {
+        &self.id
+    }
 
     fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         struct ResolvedElement<Element> {
@@ -154,15 +151,14 @@ where
     }
 }
 
-impl<'a, ElementState, ElementOutput, Item, Element, CreateElement> MeasurableComponent
-    for List<'a, ElementState, ElementOutput, Item, Element, CreateElement>
+impl<'a, ElementOutput, Item, Element, CreateElement> MeasurableComponent
+    for List<'a, ElementOutput, Item, Element, CreateElement>
 where
-    ElementState: Default + 'static,
     ElementOutput: 'static,
-    Element: MeasurableComponent<State = ElementState, Output = ElementOutput> + 'static,
+    Element: MeasurableComponent<Output = ElementOutput> + 'static,
     CreateElement: Fn(&Item, usize) -> Element,
 {
-    fn measure(&self, context: &FrameContext, _: &Self::State) -> UIResult<Size> {
+    fn measure(&self, context: &FrameContext) -> UIResult<Size> {
         let create_element = &self.create_element;
         let mut height = 0;
         let mut width = 0;
