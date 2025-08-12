@@ -188,7 +188,7 @@ impl<O, C : MeasurableComponent<Output = O>> Component for Cell<O, C> {
         }
 
         if let Some(content) = self.content.as_ref() {
-            let content_size = context.measure_component::<C>("el", &content)?;
+            let content_size = context.measure_component::<C>(&content)?;
             let rect = size.rect_at_origin();
 
             let max_width = rect.width.saturating_sub(padding_left + padding_right);
@@ -218,7 +218,6 @@ impl<O, C : MeasurableComponent<Output = O>> Component for Cell<O, C> {
 
             context.render_component(
                 RenderArgs::new(content)
-                    .key("content")
                     .pos(x, y)
                     .size(width, height)
             )
@@ -235,7 +234,7 @@ impl<O, C : MeasurableComponent<Output = O>> MeasurableComponent for Cell<O, C> 
         let content_size = self
             .content
             .as_ref()
-            .map(|content| context.measure_component::<C>("el", &content))
+            .map(|content| context.measure_component::<C>(&content))
             .unwrap_or_else(|| Ok(Default::default()))?;
 
         let border_pad = if self.border.is_some() {

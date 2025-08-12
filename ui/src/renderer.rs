@@ -61,8 +61,6 @@ impl ComponentRenderer {
             );
 
             let result = canvas.render_component(RenderArgs::new(&root)
-                .key("root")
-                .retain_unmounted_state(true)
                 .signals(SignalHandling::Overwrite(signals))
             );
             result_holder.borrow_mut().replace(result);

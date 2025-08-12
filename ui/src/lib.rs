@@ -22,7 +22,6 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug)]
 pub enum UIError {
     Nested {
-        component_key: String,
         component_type: String,
         error: Box<UIError>,
     },
@@ -44,18 +43,17 @@ pub enum UIError {
     IO(std::io::Error),
 }
 impl UIError {
-    pub fn unwrap_nested(&self) -> (Vec<(&str, &str)>, &UIError) {
+    pub fn unwrap_nested(&self) -> (Vec<&str>, &UIError) {
         let mut path = Vec::new();
         let mut current = self;
 
         loop {
             match current {
                 UIError::Nested {
-                    component_key,
                     component_type,
                     error,
                 } => {
-                    path.push((component_key.as_str(), component_type.as_str()));
+                    path.push(component_type.as_str());
                     current = error.as_ref();
                 }
                 _ => break,
@@ -65,7 +63,7 @@ impl UIError {
         (path, current)
     }
 
-    pub fn nested<T>(self, key: &str) -> Self {
+    pub fn nested<T>(self) -> Self {
         let full = std::any::type_name::<T>();
         // Remove generics
         let cleaned = match full.find('<') {
@@ -74,7 +72,6 @@ impl UIError {
         };
 
         UIError::Nested {
-            component_key: key.to_string(),
             component_type: cleaned.to_string(),
             error: Box::new(self),
         }
@@ -93,8 +90,8 @@ impl Display for UIError {
             nested @ UIError::Nested { .. } => {
                 let (path, tail) = nested.unwrap_nested();
                 write!(f, "Nested error: ")?;
-                for (key, component_type) in path.iter() {
-                    write!(f, "{}[key={}] -> ", component_type, key)?;
+                for component_type in path.iter() {
+                    write!(f, "{} -> ", component_type)?;
                 }
                 tail.fmt(f)
             }

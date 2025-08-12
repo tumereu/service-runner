@@ -15,7 +15,7 @@ pub trait Flowable {
 impl<O, C: MeasurableComponent<Output = O>> Flowable for C
 {
     fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size> {
-        ctx.measure_component(&idx.to_string(), self)
+        ctx.measure_component(self)
     }
 
     fn render(&self, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()> {
@@ -25,8 +25,6 @@ impl<O, C: MeasurableComponent<Output = O>> Flowable for C
                 .size(size.width, size.height)
                 // TODO parameterize?
                 .signals(SignalHandling::Forward)
-                .retain_unmounted_state(false)
-                .key(&idx.to_string())
         )?;
 
         Ok(())

@@ -35,19 +35,14 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         args: RenderArgs<Output, C>,
     ) -> Result<Output, UIError> where C : Component<Output = Output> {
         let RenderArgs {
-            key,
             component,
             pos,
             size,
-            retain_unmounted_state,
             signals: signal_handling,
         } = args;
 
         let pos = pos.as_ref().cloned().unwrap_or_default();
         let size = size.as_ref().cloned().unwrap_or(self.size());
-        let key = key.ok_or(UIError::InvalidRenderArgs {
-            msg: "Render arguments is missing the required property 'key'".to_string()
-        })?;
 
         let new_area = Rect {
             x: (self.current_area.x as i32 + pos.x).try_into().unwrap_or(0),
@@ -67,7 +62,7 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
 
         // TODO set child area
         let output = component.render(self)
-            .map_err(|err| err.nested::<C>(key));
+            .map_err(|err| err.nested::<C>());
 
         self.current_area = old_area;
 
@@ -88,11 +83,10 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
 
     pub fn measure_component<C>(
         &self,
-        key: &str,
         component: &C,
     ) -> UIResult<Size> where C : MeasurableComponent {
         let measurement = component.measure(&self)
-            .map_err(|err| err.nested::<C>(key));
+            .map_err(|err| err.nested::<C>());
 
         measurement
     }
@@ -137,40 +131,28 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
 #[derive(Clone)]
 pub struct RenderArgs<'a, Output, C> where C : Component<Output = Output>
 {
-    pub key: Option<&'a str>,
     pub component: &'a C,
     pub pos: Option<Position>,
     pub size: Option<Size>,
     pub signals: SignalHandling,
-    pub retain_unmounted_state: bool,
 }
 impl<'a, Output, C> RenderArgs<'a, Output, C> where C : Component<Output = Output> {
     pub fn new(component: &'a C) -> RenderArgs<'a, Output, C> {
         RenderArgs {
-            key: None,
             component,
             pos: None,
             size: None,
             signals: SignalHandling::Forward,
-            retain_unmounted_state: false,
         }
     }
 
     pub fn from(other: &RenderArgs<'a, Output, C>) -> RenderArgs<'a, Output, C> {
         RenderArgs {
-            key: other.key.clone(),
             component: other.component.clone(),
             pos: other.pos.clone(),
             size: other.size.clone(),
             signals: other.signals.clone(),
-            retain_unmounted_state: other.retain_unmounted_state,
         }
-    }
-
-    pub fn key(self, key: &'a str) -> Self {
-        let mut self_mut = self;
-        self_mut.key = Some(key);
-        self_mut
     }
 
     pub fn pos<X : Into<i32>, Y: Into<i32>>(self, x: X, y: Y) -> Self {
@@ -188,12 +170,6 @@ impl<'a, Output, C> RenderArgs<'a, Output, C> where C : Component<Output = Outpu
     pub fn signals(self, signals: SignalHandling) -> Self {
         let mut self_mut = self;
         self_mut.signals = signals;
-        self_mut
-    }
-
-    pub fn retain_unmounted_state(self, retain_unmounted_state: bool) -> Self {
-        let mut self_mut = self;
-        self_mut.retain_unmounted_state = retain_unmounted_state;
         self_mut
     }
 }

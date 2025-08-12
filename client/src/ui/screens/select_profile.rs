@@ -48,7 +48,6 @@ impl<'a> Component for SelectProfileScreen<'a> {
                 )
                 .align(Align::Center),
             )
-            .key("content"),
         )
     }
 }

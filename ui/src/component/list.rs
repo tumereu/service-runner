@@ -54,7 +54,6 @@ where
 
     fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         struct ResolvedElement<Element> {
-            key: String,
             element: Element,
             size: Size,
             index: usize,
@@ -67,11 +66,9 @@ where
             Vec::with_capacity(self.items.len());
         for (index, item) in self.items.iter().enumerate() {
             let element = create_element(item, index);
-            let key = index.to_string();
-            let size = context.measure_component(&key, &element)?;
+            let size = context.measure_component(&element)?;
 
             resolved_elements.push(ResolvedElement {
-                key,
                 element,
                 size,
                 index,
@@ -116,7 +113,6 @@ where
         let mut current_y = -state.scroll_offset;
 
         for ResolvedElement {
-            key,
             element,
             size,
             index,
@@ -139,7 +135,6 @@ where
 
             context.render_component(
                 RenderArgs::new(&element)
-                    .key(&key)
                     .pos(0, current_y)
                     .size(self_size.width, size.height),
             )?;
@@ -165,7 +160,7 @@ where
 
         for (index, item) in self.items.iter().enumerate() {
             let element = create_element(item, index);
-            let size = context.measure_component(&index.to_string(), &element)?;
+            let size = context.measure_component(&element)?;
             height += size.height;
             width = size.width.max(width);
         }

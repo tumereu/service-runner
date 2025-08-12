@@ -25,7 +25,7 @@ impl Component for ViewRoot {
                 &SelectProfileScreen {
                     profiles: &state.config.profiles,
                 }
-            ).key("select-profile")
+            )
         )?;
 
         Ok(())
