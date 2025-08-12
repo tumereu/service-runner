@@ -171,7 +171,8 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
             }
             context.render_widget(
                 block,
-                size.rect_at_origin(),
+                (0, 0).into(),
+                size,
             );
         }
 

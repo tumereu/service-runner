@@ -15,7 +15,7 @@ pub struct Text {
     pub bg: Option<Color>,
 }
 impl Text {
-    pub const ATTR_DEFAULT_FG: &'static str = "theme.Text.fg";
+    pub const ATTR_COLOR_FG: &'static str = "colors.Text.fg";
 
     pub fn new(text: String) -> Self {
         Self {
@@ -46,7 +46,7 @@ impl Component for Text {
     fn render(&self, context: &FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
         let mut style = Style::default()
             .fg(self.fg.unwrap_or(
-                context.req_attr::<Color>(Self::ATTR_DEFAULT_FG)?.clone()
+                context.req_attr::<Color>(Self::ATTR_COLOR_FG)?.clone()
             ));
 
         if let Some(bg) = self.bg {
@@ -55,13 +55,15 @@ impl Component for Text {
 
         context.render_widget(
             Paragraph::new(Span::styled(self.text.clone(), style)),
-            context.size().rect_at_origin(),
+            (0, 0).into(),
+            context.size(),
         );
         
         if context.signals().is_key_pressed(KeyMatcher::char('d')) {
             context.render_widget(
                 Paragraph::new(Span::styled("ddddd", style)),
-                context.size().rect_at_origin(),
+                (0, 0).into(),
+                context.size(),
             );
         }
 

@@ -1,4 +1,4 @@
-use crate::component::{Component, Text};
+use crate::component::{Component, Text, ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_UP};
 use crate::frame_ctx::{FrameContext, RenderArgs};
 use crate::state_store::StateTreeNode;
 use crate::{SignalHandling, Signals, UIError, UIResult};
@@ -9,6 +9,8 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use crossterm::event::KeyCode;
+use crate::input::KeyMatcher;
 
 pub struct ComponentRenderer {
     store: Rc<StateTreeNode>,
@@ -73,7 +75,13 @@ impl ComponentRenderer {
     }
     
     pub fn assign_default_attributes(&mut self) {
-        self.set_attr(Text::ATTR_DEFAULT_FG, Color::White);
+        self.set_attr(Text::ATTR_COLOR_FG, Color::White);
+        self.set_attr(ATTR_COLOR_HIGHLIGHT, Color::Blue);
+        
+        self.set_attr(ATTR_KEY_NAV_DOWN, KeyMatcher::new(KeyCode::Down));
+        self.set_attr(ATTR_KEY_NAV_UP, KeyMatcher::new(KeyCode::Up));
+        self.set_attr(ATTR_KEY_NAV_LEFT, KeyMatcher::new(KeyCode::Left));
+        self.set_attr(ATTR_KEY_NAV_RIGHT, KeyMatcher::new(KeyCode::Right));
     }
     
     pub fn set_attr<T>(&mut self, key: &str, value: T) where T : Any + 'static {

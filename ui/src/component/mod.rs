@@ -24,3 +24,10 @@ pub trait Component {
 pub trait MeasurableComponent: Component {
     fn measure(&self, context: &FrameContext, state: &Self::State) -> UIResult<Size>;
 }
+
+pub const ATTR_KEY_NAV_DOWN: &'static str = "keybinds.common.nav_down";
+pub const ATTR_KEY_NAV_UP: &'static str = "keybinds.common.nav_up";
+pub const ATTR_KEY_NAV_LEFT: &'static str = "keybinds.common.nav_left";
+pub const ATTR_KEY_NAV_RIGHT: &'static str = "keybinds.common.nav_right";
+
+pub const ATTR_COLOR_HIGHLIGHT: &'static str = "colors.common.highlight";

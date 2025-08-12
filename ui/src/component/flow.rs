@@ -73,15 +73,19 @@ impl Component for Flow {
     type State = ();
 
     fn render(&self, context: &FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
-        let area = context.area();
+        let self_size = context.size();
         if let Some(bg) = self.bg {
-            context.render_widget(Block::default().style(Style::default().bg(bg)), area);
+            context.render_widget(
+                Block::default().style(Style::default().bg(bg)),
+                (0, 0).into(),
+                self_size,
+            );
         }
 
         let mut free_space = if self.direction == Dir::UpDown {
-            area.height
+            self_size.height
         } else {
-            area.width
+            self_size.width
         };
         let mut num_fills = 0;
 
@@ -108,14 +112,14 @@ impl Component for Flow {
             let measured_size = flowable.measure(context, idx)?;
             let size_in_layout: Size = (
                 if self.direction == Dir::UpDown {
-                    area.width
+                    self_size.width
                 } else if args.fill {
                     fill_size
                 } else {
                     measured_size.width
                 },
                 if self.direction == Dir::LeftRight {
-                    area.height
+                    self_size.height
                 } else if args.fill {
                     fill_size
                 } else {
@@ -126,8 +130,8 @@ impl Component for Flow {
 
             // Clamp the size-in-layout to be a maximum of the remaining size
             let max_size: Size = match self.direction {
-                Dir::UpDown => (area.width, area.height - current_pos).into(),
-                Dir::LeftRight => (area.width - current_pos, area.height).into(),
+                Dir::UpDown => (self_size.width, self_size.height - current_pos).into(),
+                Dir::LeftRight => (self_size.width - current_pos, self_size.height).into(),
             };
             let size_in_layout: Size = (
                 min(size_in_layout.width, max_size.width),

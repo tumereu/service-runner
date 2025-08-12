@@ -90,18 +90,18 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         output
     }
 
-    pub fn render_widget<W>(&self, widget: W, rect: Rect) where W : Widget {
+    pub fn render_widget<W>(&self, widget: W, pos: Position, size: Size) where W : Widget {
         let ctx = self.current.borrow();
         let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
 
         self.frame.borrow_mut().render_widget(
             widget,
-            rect.offset(
-                Offset {
-                    x: ctx.area.x as i32,
-                    y: ctx.area.y as i32,
-                }
-            ).intersection(ctx.area)
+            Rect {
+                x: (ctx.area.x as i32 + pos.x).try_into().unwrap_or(0),
+                y: (ctx.area.y as i32 + pos.y).try_into().unwrap_or(0),
+                width: size.width,
+                height: size.height,
+            }.intersection(ctx.area)
         );
     }
 

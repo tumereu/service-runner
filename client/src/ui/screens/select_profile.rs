@@ -22,17 +22,19 @@ impl<'a> Component for SelectProfileScreen<'a> {
         let max_width = context.size().width / 2;
         let max_height = context.size().height / 3;
 
+        let mock_profiles = (0..10000).into_iter()
+            .map(|i| {
+                ProfileDefinition {
+                    id: i.to_string(),
+                    ..self.profiles[0].clone()
+                }
+            }).collect::<Vec<_>>();
+
         context.render_component(
             RenderArgs::new(
                 &Cell::new(
-                    Cell::new(List::new(self.profiles, |profile, index| {
-                        Cell::new(Text::new(profile.id.clone())).bg(
-                            if index == state.selected_idx {
-                                Some(Color::Blue)
-                            } else {
-                                None
-                            },
-                        ).align(Align::Center)
+                    Cell::new(List::new(&mock_profiles, |profile, _| {
+                        Cell::new(Text::new(profile.id.clone())).align(Align::Center)
                     }))
                     .border(Color::Yellow, "Select profile")
                     .bg(Color::Reset)
