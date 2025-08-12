@@ -9,6 +9,7 @@ use crossterm::{
 use log::{debug, error, info, LevelFilter};
 use ratatui::{backend::CrosstermBackend, Terminal};
 use ::ui::{ComponentRenderer, UIError, UIResult};
+use ::ui::input::{collect_input_events, KeyMatcher};
 use config::read_config;
 
 use crate::input::process_inputs;
@@ -137,7 +138,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut ui_result: UIResult<()> = Ok(());
 
     loop {
-        process_inputs(state_arc.clone());
+        let input_events = collect_input_events();
+        // TODO move to proper input handler
+        if input_events.iter().any(|ev| {
+            KeyMatcher::char('q').ctrl().matches_event(ev)
+        }) {
+            break;
+        }
+        
+        // TODO add custom input handling
+        renderer.send_input_signals(input_events);
 
         match renderer.render_root(
             &mut terminal,

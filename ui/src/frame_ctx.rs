@@ -1,12 +1,12 @@
 use std::any::Any;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 use ratatui::Frame;
 use ratatui::layout::{Offset, Rect, Size};
 use ratatui::widgets::Widget;
 use crate::component::{Component, MeasurableComponent};
 use crate::{ComponentRenderer, UIError, UIResult};
-use crate::signal::Signals;
+use crate::signals::Signals;
 use crate::space::{Position};
 use crate::state_store::StateTreeNode;
 
@@ -159,15 +159,13 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         }
     }
 
-    pub fn on_signal<T, R>(&self, handle: impl FnOnce(T) -> R) -> Option<R>
-    where
-        T: Clone + 'static,
-        R: 'static,
-    {
-        let ctx = self.current.borrow();
-        let ctx = ctx.as_ref().expect("Context does not exist -- this indicates a bug in Canvas implementation");
-
-        ctx.signals.recv::<T>().map(handle)
+    pub fn signals(&self) -> Ref<Signals> {
+        Ref::map(
+            self.current.borrow(),
+            |ctx| &ctx.as_ref()
+                .expect("Context does not exist -- this indicates a bug in Canvas implementation")
+                .signals
+        )
     }
 
     pub fn get_attr<T>(&self, key: &str) -> Option<&T> where T : Any + 'static {

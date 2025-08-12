@@ -7,7 +7,7 @@ use ratatui::style::Color;
 use ratatui::Terminal;
 use crate::frame_ctx::{FrameContext, RenderArgs};
 use crate::component::{Component, Text};
-use crate::{UIError, Signal, SignalHandling, Signals, UIResult};
+use crate::{UIError, SignalHandling, Signals, UIResult};
 use crate::state_store::StateTreeNode;
 
 pub struct ComponentRenderer {
@@ -24,8 +24,20 @@ impl ComponentRenderer {
         }
     }
 
-    pub fn send_signal<T>(&mut self, payload:  T) where T : Any + 'static {
-        self.signals.push(Signal::of(payload));
+    pub fn send_signal<T>(&mut self, signal:  T) where T : Any + 'static {
+        self.signals.push(signal);
+    }
+
+    pub fn send_input_signals(&mut self, inputs: Vec<crossterm::event::Event>) {
+        for input in inputs {
+            match input { 
+                crossterm::event::Event::Key(key) => {
+                    self.send_signal(key);
+                },
+                // TODO other types of events
+                _ => {}
+            }
+        }
     }
 
     pub fn render_root<S, B, O>(

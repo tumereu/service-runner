@@ -4,6 +4,7 @@ use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
 use crate::frame_ctx::FrameContext;
 use crate::component::{Component, MeasurableComponent};
+use crate::input::{KeyMatcher, KeyMatcherQueryable};
 use crate::UIResult;
 use crate::space::RectAtOrigin;
 
@@ -56,6 +57,13 @@ impl Component for Text {
             Paragraph::new(Span::styled(self.text.clone(), style)),
             context.size().rect_at_origin(),
         );
+        
+        if context.signals().is_key_pressed(KeyMatcher::char('d')) {
+            context.render_widget(
+                Paragraph::new(Span::styled("ddddd", style)),
+                context.size().rect_at_origin(),
+            );
+        }
 
         Ok(())
     }

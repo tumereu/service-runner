@@ -5,15 +5,16 @@
 
 pub mod component;
 pub mod space;
+pub mod input;
 
 mod frame_ctx;
 mod renderer;
-mod signal;
+mod signals;
 mod state_store;
 
 pub use frame_ctx::*;
 pub use renderer::*;
-pub use signal::*;
+pub use signals::*;
 pub use state_store::*;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
