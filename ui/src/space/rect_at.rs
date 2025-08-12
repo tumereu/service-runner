@@ -1,6 +1,6 @@
+use crate::space::Position;
 use ratatui::layout::Rect;
 use ratatui::prelude::Size;
-use crate::space::Position;
 
 pub trait RectAt {
     fn rect_at(&self, pos: Position) -> Rect;

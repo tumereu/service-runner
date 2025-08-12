@@ -1,6 +1,5 @@
 use std::cmp::max;
 
-use ratatui::backend::Backend;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::Frame;

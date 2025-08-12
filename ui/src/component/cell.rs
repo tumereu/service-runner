@@ -1,12 +1,11 @@
-use std::cmp::{max, min};
-use log::debug;
+use crate::component::{Component, MeasurableComponent};
+use crate::space::RectAtOrigin;
+use crate::{FrameContext, RenderArgs, UIError, UIResult};
 use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders};
 use ratatui::text::Line;
-use crate::component::{Component, MeasurableComponent};
-use crate::{FrameContext, RenderArgs, UIError, UIResult};
-use crate::space::RectAtOrigin;
+use ratatui::widgets::{Block, Borders};
+use std::cmp::{max, min};
 
 pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> {
     content: Option<C>,

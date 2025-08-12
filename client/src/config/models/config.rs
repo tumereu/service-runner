@@ -1,7 +1,7 @@
 use serde_derive::Deserialize;
 
-use crate::config::{ProfileDefinition, ServiceDefinition};
 use crate::config::models::theme::{RawTheme, Theme};
+use crate::config::{ProfileDefinition, ServiceDefinition};
 
 #[derive(Debug, Clone)]
 pub struct Settings {

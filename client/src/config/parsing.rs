@@ -1,13 +1,13 @@
+use itertools::Itertools;
+use log::{debug, info};
+use serde::Deserialize;
 use std::error::Error;
 use std::fmt::{format, Display, Formatter};
 use std::fs::{read_to_string, File};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use Vec;
-use itertools::Itertools;
-use log::{debug, info};
-use serde::Deserialize;
 use walkdir::WalkDir;
+use Vec;
 
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
 use crate::config::{RawSettings, Settings};

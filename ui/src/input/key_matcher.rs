@@ -1,6 +1,6 @@
+use crate::Signals;
+use crossterm::event::{KeyCode, KeyEventKind};
 use std::borrow::Borrow;
-use crate::{Signals};
-use crossterm::event::{KeyCode, KeyEventKind, KeyEventState};
 
 pub struct KeyMatcher {
     key: KeyCode,

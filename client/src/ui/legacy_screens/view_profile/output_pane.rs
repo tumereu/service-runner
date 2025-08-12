@@ -1,9 +1,9 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::iter;
-use ratatui::style::Color;
 use crate::models::{get_active_outputs, OutputKind, Profile};
 use crate::system_state::SystemState;
 use crate::ui::widgets::{Align, Cell, Dir, Flow, IntoCell, LinePart, OutputDisplay, OutputLine, Spinner};
+use ratatui::style::Color;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::iter;
 
 pub struct OutputPane<'a> {
     pub height: usize,

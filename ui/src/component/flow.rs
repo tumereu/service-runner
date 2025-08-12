@@ -1,10 +1,10 @@
-use std::cmp::{max, min};
-use crate::component::{Align, Cell, Component, MeasurableComponent};
+use crate::component::{Component, MeasurableComponent};
 use crate::space::Position;
-use crate::{FrameContext, RenderArgs, UIResult, SignalHandling, UIError};
-use ratatui::layout::{Rect, Size};
+use crate::{FrameContext, RenderArgs, SignalHandling, UIResult};
+use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Block;
+use std::cmp::{max, min};
 
 pub trait Flowable {
     fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size>;

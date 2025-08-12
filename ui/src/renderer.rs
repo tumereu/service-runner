@@ -1,14 +1,14 @@
+use crate::component::{Component, Text};
+use crate::frame_ctx::{FrameContext, RenderArgs};
+use crate::state_store::StateTreeNode;
+use crate::{SignalHandling, Signals, UIError, UIResult};
+use ratatui::backend::Backend;
+use ratatui::style::Color;
+use ratatui::Terminal;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use ratatui::backend::Backend;
-use ratatui::style::Color;
-use ratatui::Terminal;
-use crate::frame_ctx::{FrameContext, RenderArgs};
-use crate::component::{Component, Text};
-use crate::{UIError, SignalHandling, Signals, UIResult};
-use crate::state_store::StateTreeNode;
 
 pub struct ComponentRenderer {
     store: Rc<StateTreeNode>,

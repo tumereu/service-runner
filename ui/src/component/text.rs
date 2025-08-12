@@ -1,12 +1,12 @@
+use crate::component::{Component, MeasurableComponent};
+use crate::frame_ctx::FrameContext;
+use crate::input::{KeyMatcher, KeyMatcherQueryable};
+use crate::space::RectAtOrigin;
+use crate::UIResult;
 use ratatui::layout::Size;
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
-use crate::frame_ctx::FrameContext;
-use crate::component::{Component, MeasurableComponent};
-use crate::input::{KeyMatcher, KeyMatcherQueryable};
-use crate::UIResult;
-use crate::space::RectAtOrigin;
 
 #[derive(Debug, Default)]
 pub struct Text {

@@ -1,6 +1,6 @@
-use ratatui::layout::Size;
 use crate::component::{Component, MeasurableComponent};
 use crate::{FrameContext, UIResult};
+use ratatui::layout::Size;
 
 pub struct FixedMeasurement<S, O, C>
 where

@@ -1,14 +1,14 @@
+use crate::component::{Component, MeasurableComponent};
+use crate::signals::Signals;
+use crate::space::Position;
+use crate::state_store::StateTreeNode;
+use crate::{ComponentRenderer, UIError, UIResult};
+use ratatui::layout::{Offset, Rect, Size};
+use ratatui::widgets::Widget;
+use ratatui::Frame;
 use std::any::Any;
 use std::cell::{Ref, RefCell};
 use std::rc::Rc;
-use ratatui::Frame;
-use ratatui::layout::{Offset, Rect, Size};
-use ratatui::widgets::Widget;
-use crate::component::{Component, MeasurableComponent};
-use crate::{ComponentRenderer, UIError, UIResult};
-use crate::signals::Signals;
-use crate::space::{Position};
-use crate::state_store::StateTreeNode;
 
 pub struct FrameContext<'a, 'b, 'c> {
     frame: RefCell<&'a mut Frame<'b>>,

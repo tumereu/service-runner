@@ -2,7 +2,6 @@ use std::fmt::{Debug, Formatter};
 use std::iter;
 
 use itertools::Itertools;
-use ratatui::backend::Backend;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::widgets::Clear;

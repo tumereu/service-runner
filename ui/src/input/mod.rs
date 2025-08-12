@@ -2,8 +2,8 @@ mod key_matcher;
 
 pub use key_matcher::*;
 
-use std::time::Duration;
 use crossterm::event::Event;
+use std::time::Duration;
 
 pub fn collect_input_events() -> Vec<Event> {
     let mut events: Vec<Event> = Vec::new();

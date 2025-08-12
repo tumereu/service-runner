@@ -1,10 +1,10 @@
 use std::sync::{Arc, Mutex};
 
-pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
-use ui::{FrameContext, RenderArgs, UIResult};
-use ui::component::{Component};
-use crate::SystemState;
 use crate::ui::screens::select_profile::SelectProfileScreen;
+use crate::SystemState;
+pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
+use ui::component::Component;
+use ui::{FrameContext, RenderArgs, UIResult};
 
 mod legacy_screens;
 mod state;

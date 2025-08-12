@@ -2,12 +2,12 @@ use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::rc::Rc;
 
+use crate::ui::widgets::{Renderable, Size};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
+use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Clear};
 use ratatui::Frame;
-use ratatui::text::Line;
-use crate::ui::widgets::{Renderable, Size};
 
 #[derive(Default, Debug)]
 pub struct Cell {

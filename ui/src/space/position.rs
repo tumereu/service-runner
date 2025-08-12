@@ -1,5 +1,5 @@
-use std::ops::{Add, Sub};
 use ratatui::layout::Offset;
+use std::ops::{Add, Sub};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Position {

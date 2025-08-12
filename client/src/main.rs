@@ -2,15 +2,15 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 
+use config::read_config;
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use log::{debug, error, info, LevelFilter};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use ::ui::{ComponentRenderer, UIError, UIResult};
 use ::ui::input::{collect_input_events, KeyMatcher};
-use config::read_config;
+use ::ui::{ComponentRenderer, UIError, UIResult};
 
 use crate::input::process_inputs;
 use crate::models::Action::ActivateProfile;
@@ -21,7 +21,7 @@ use crate::runner::process_action::process_action;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
-use crate::ui::{ViewRoot};
+use crate::ui::ViewRoot;
 
 mod system_state;
 mod input;
@@ -146,7 +146,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             break;
         }
         
-        // TODO add custom input handling
         renderer.send_input_signals(input_events);
 
         match renderer.render_root(

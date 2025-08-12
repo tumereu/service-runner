@@ -1,9 +1,7 @@
 use std::cell::RefCell;
 use std::cmp::{max, min};
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
-use std::iter;
 use std::rc::Rc;
 
 use itertools::Itertools;
@@ -12,15 +10,15 @@ use ratatui::style::Color;
 use ratatui::Frame;
 
 use crate::config::{AutomationMode, Block};
-use crate::models::{get_active_outputs, BlockStatus, OutputKind, Profile, WorkStep};
+use crate::models::{BlockStatus, Profile, WorkStep};
 use crate::system_state::SystemState;
+use crate::ui::legacy_screens::view_profile::output_pane::OutputPane;
 use crate::ui::state::{ViewProfilePane, ViewProfileState};
 use crate::ui::widgets::{
-    render_at_pos, render_root, Align, Cell, Dir, Flow, IntoCell, LinePart, List, OutputDisplay,
-    OutputLine, Spinner, Text,
+    render_at_pos, render_root, Align, Cell, Dir, Flow, IntoCell, List
+    , Spinner, Text,
 };
 use crate::ui::{CurrentScreen, ViewProfileFloatingPane};
-use crate::ui::legacy_screens::view_profile::output_pane::OutputPane;
 
 mod output_pane;
 

@@ -5,13 +5,13 @@ mod text;
 mod fixed_measurement;
 
 pub use cell::*;
+pub use fixed_measurement::*;
 pub use flow::*;
 pub use list::*;
 pub use text::*;
-pub use fixed_measurement::*;
 
 use crate::frame_ctx::FrameContext;
-use crate::{UIResult};
+use crate::UIResult;
 use ratatui::layout::Size;
 
 pub trait Component {

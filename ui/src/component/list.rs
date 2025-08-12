@@ -1,7 +1,6 @@
-use crate::component::{Align, Cell, Component, Dir, Flow, FlowableArgs, MeasurableComponent};
-use crate::{FrameContext, RenderArgs, UIError, UIResult};
+use crate::component::{Component, Dir, Flow, FlowableArgs, MeasurableComponent};
+use crate::{FrameContext, RenderArgs, UIResult};
 use ratatui::layout::Size;
-use ratatui::style::Color;
 
 pub struct List<'a, ElementState, ElementOutput, Item, Element, CreateElement>
 where

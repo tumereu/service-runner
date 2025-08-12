@@ -1,10 +1,9 @@
 use crate::config::ProfileDefinition;
-use crate::models::Profile;
 use crate::system_state::SystemState;
 use crate::ui::CurrentScreen;
-use ratatui::Frame;
 use ratatui::style::Color;
-use ui::component::{Align, Cell, Component, Dir, Flow, FlowableArgs, List, Text, WithMeasurement};
+use ratatui::Frame;
+use ui::component::{Align, Cell, Component, List, Text, WithMeasurement};
 use ui::{FrameContext, RenderArgs, UIResult};
 
 #[derive(Default)]

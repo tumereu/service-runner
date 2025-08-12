@@ -1,7 +1,6 @@
 use std::time::Instant;
 
 use once_cell::sync::Lazy;
-use ratatui::backend::Backend;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;

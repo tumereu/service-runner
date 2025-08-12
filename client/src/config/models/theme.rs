@@ -1,5 +1,5 @@
 use ratatui::style::Color;
-use serde::de::{Error, SeqAccess, Unexpected, Visitor};
+use serde::de::{Error, SeqAccess, Visitor};
 use serde::Deserializer;
 use serde_derive::Deserialize;
 
