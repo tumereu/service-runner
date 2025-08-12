@@ -1,23 +1,24 @@
 mod text;
 mod cell;
 mod flow;
-mod vlist;
+mod list;
 
 pub use text::*;
 pub use cell::*;
 pub use flow::*;
-pub use vlist::*;
+pub use list::*;
 
 use ratatui::layout::Size;
 use crate::frame_ctx::FrameContext;
+use crate::{RenderError, UIResult};
 
 pub trait Component {
     type State : Default + 'static;
     type Output;
 
-    fn render(&self, context: &FrameContext, state: &mut Self::State) -> Self::Output;
+    fn render(&self, context: &FrameContext, state: &mut Self::State) -> UIResult<Self::Output>;
 }
 
 pub trait MeasurableComponent : Component {
-    fn measure(&self, context: &FrameContext, state: &Self::State) -> Size;
+    fn measure(&self, context: &FrameContext, state: &Self::State) -> UIResult<Size>;
 }

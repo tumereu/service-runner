@@ -4,6 +4,7 @@ use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
 use crate::frame_ctx::FrameContext;
 use crate::component::{Component, MeasurableComponent};
+use crate::UIResult;
 use crate::space::RectAtOrigin;
 
 #[derive(Debug, Default)]
@@ -13,6 +14,23 @@ pub struct Text {
     pub bg: Option<Color>,
 }
 impl Text {
+    pub fn new(text: String) -> Self {
+        Self {
+            text,
+            ..Default::default()
+        }
+    }
+
+    pub fn fg(mut self, fg: Color) -> Self {
+        self.fg = Some(fg);
+        self
+    }
+
+    pub fn bg(mut self, bg: Color) -> Self {
+        self.bg = Some(bg);
+        self
+    }
+
     pub fn size(&self) -> Size {
         (self.text.len() as u16, 1u16).into()
     }
@@ -22,7 +40,7 @@ impl Component for Text {
     type State = ();
     type Output = ();
 
-    fn render(&self, context: &FrameContext, _state: &mut Self::State) -> Self::Output {
+    fn render(&self, context: &FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
         let mut style = Style::default()
             .fg(self.fg.unwrap_or(Color::Reset));
 
@@ -34,10 +52,12 @@ impl Component for Text {
             Paragraph::new(Span::styled(self.text.clone(), style)),
             self.size().rect_at_origin(),
         );
+
+        Ok(())
     }
 }
 impl MeasurableComponent for Text {
-    fn measure(&self, _context: &FrameContext, _state: &Self::State) -> Size {
-        self.size()
+    fn measure(&self, _context: &FrameContext, _state: &Self::State) -> UIResult<Size> {
+        Ok(self.size())
     }
 }

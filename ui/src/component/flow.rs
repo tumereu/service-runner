@@ -1,24 +1,24 @@
 use std::cmp::{max, min};
 use crate::component::{Align, Cell, Component, MeasurableComponent};
 use crate::space::Position;
-use crate::{FrameContext, RenderArgs, SignalHandling};
+use crate::{FrameContext, RenderArgs, UIResult, SignalHandling};
 use ratatui::layout::{Rect, Size};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Block;
 
 pub trait Flowable {
-    fn measure(&self, ctx: &FrameContext, idx: usize) -> Size;
+    fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size>;
     // TODO output?
-    fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size);
+    fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()>;
 }
 
 impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flowable for C
 {
-    fn measure(&self, ctx: &FrameContext, idx: usize) -> Size {
+    fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size> {
         ctx.measure_component(&idx.to_string(), self)
     }
 
-    fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size) {
+    fn render(&self, ctx: &FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()> {
         ctx.render_component(
             RenderArgs::new(self)
                 .pos(pos.x, pos.y)
@@ -27,7 +27,9 @@ impl<S: Default + 'static, O, C: MeasurableComponent<State = S, Output = O>> Flo
                 .signals(SignalHandling::Forward)
                 .retain_unmounted_state(false)
                 .key(&idx.to_string())
-        );
+        )?;
+        
+        Ok(())
     }
 }
 
@@ -70,7 +72,7 @@ impl Component for Flow {
     type Output = ();
     type State = ();
 
-    fn render(&self, context: &FrameContext, _: &mut Self::State) -> Self::Output {
+    fn render(&self, context: &FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
         let area = context.area();
         if let Some(bg) = self.bg {
             context.render_widget(Block::default().style(Style::default().bg(bg)), area);
@@ -88,7 +90,7 @@ impl Component for Flow {
                 num_fills += 1;
                 0
             } else {
-                let measured_size = cell.measure(context, idx);
+                let measured_size = cell.measure(context, idx)?;
 
                 if self.direction == Dir::UpDown {
                     measured_size.height
@@ -102,8 +104,8 @@ impl Component for Flow {
         let fill_size = free_space / max(1, num_fills);
         let mut current_pos = 0;
 
-        for (idx, (cell, args)) in self.flowables.iter().enumerate() {
-            let measured_size = cell.measure(context, idx);
+        for (idx, (flowable, args)) in self.flowables.iter().enumerate() {
+            let measured_size = flowable.measure(context, idx)?;
             let size_in_layout: Size = (
                 if self.direction == Dir::UpDown {
                     area.width
@@ -146,17 +148,19 @@ impl Component for Flow {
                 size_in_layout.width
             };
 
-            cell.render(context, idx, (x, y).into(), size_in_layout);
+            flowable.render(context, idx, (x, y).into(), size_in_layout)?;
         }
+        
+        Ok(())
     }
 }
 impl MeasurableComponent for Flow {
-    fn measure(&self, context: &FrameContext, _: &Self::State) -> Size {
+    fn measure(&self, context: &FrameContext, _: &Self::State) -> UIResult<Size> {
         let mut width: u16 = 0;
         let mut height: u16 = 0;
 
-        for (idx, (cell, _)) in self.flowables.iter().enumerate() {
-            let child_size = cell.measure(context, idx);
+        for (idx, (flowable, _)) in self.flowables.iter().enumerate() {
+            let child_size = flowable.measure(context, idx)?;
 
             if self.direction == Dir::UpDown {
                 width = max(width, child_size.width);
@@ -167,7 +171,7 @@ impl MeasurableComponent for Flow {
             }
         }
 
-        (width, height).into()
+        Ok((width, height).into())
     }
 }
 

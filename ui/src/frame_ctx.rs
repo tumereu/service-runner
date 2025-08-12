@@ -6,6 +6,7 @@ use ratatui::layout::{Offset, Rect, Size};
 use ratatui::widgets::Widget;
 use log::debug;
 use crate::component::{Component, MeasurableComponent};
+use crate::{RenderError, UIResult};
 use crate::signal::Signals;
 use crate::space::{Position};
 use crate::state_store::StateTreeNode;
@@ -33,7 +34,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
     pub fn render_component<State, Output, C>(
         &self,
         args: RenderArgs<State, Output, C>,
-    ) -> Output where State: Default + 'static, C : Component<State = State, Output = Output> {
+    ) -> Result<Output, RenderError> where State: Default + 'static, C : Component<State = State, Output = Output> {
         let RenderArgs {
             key,
             component,
@@ -59,7 +60,9 @@ impl<'a, 'b> FrameContext<'a, 'b> {
             height: size.height,
         }.intersection(current_area);
         let child_state_node = current_state_node.child(
-            key.unwrap(),
+            key.ok_or(RenderError::RenderArg {
+                msg: "Render arguments is missing the required property 'key'".to_string()
+            })?,
             Some(retain_unmounted_state)
         );
         let mut state = child_state_node.take_state::<State>();
@@ -74,6 +77,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
                 SignalHandling::Add(added_signals) => Signals::merged(&current_signals, &added_signals),
             }
         }));
+        // TODO map error, add context to error recursively?
         let output = component.render(&self, &mut state);
 
         let used_child_context = self.current.replace(Some(CurrentComponentContext {
@@ -105,7 +109,7 @@ impl<'a, 'b> FrameContext<'a, 'b> {
         &self,
         key: &str,
         component: &C,
-    ) -> Size where State: Default + 'static, C : MeasurableComponent<State = State> {
+    ) -> UIResult<Size> where State: Default + 'static, C : MeasurableComponent<State = State> {
         let CurrentComponentContext {
             area: current_area,
             state_node: current_state_node,

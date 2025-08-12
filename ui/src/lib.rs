@@ -15,3 +15,11 @@ pub use renderer::*;
 pub use frame_ctx::*;
 pub use state_store::*;
 pub use signal::*;
+
+pub enum RenderError {
+    ComponentArg { msg: String },
+    ComponentState { msg: String },
+    RenderArg { msg: String },
+}
+
+pub type UIResult<T> = Result<T, RenderError>;

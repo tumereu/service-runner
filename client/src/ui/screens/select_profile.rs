@@ -3,7 +3,7 @@ use crate::ui::CurrentScreen;
 use ratatui::Frame;
 use ratatui::style::Color;
 use ui::component::{Align, Cell, Component, Dir, Flow, FlowableArgs, Text};
-use ui::{FrameContext, RenderArgs};
+use ui::{FrameContext, RenderArgs, UIResult};
 
 #[derive(Default)]
 pub struct SelectProfileState {
@@ -15,18 +15,18 @@ impl Component for SelectProfileScreen {
     type State = SelectProfileState;
     type Output = ();
 
-    fn render(&self, context: &FrameContext, _state: &mut Self::State) -> Self::Output {
+    fn render(&self, context: &FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
         let text = context.on_signal(|signal: String| signal.to_owned());
 
 
         context.render_component(
             RenderArgs::new(
-                &Cell::containing(
-                    Cell::containing(
+                &Cell::new(
+                    Cell::new(
                         Flow::new()
                             .dir(Dir::UpDown)
                             .element(
-                                Cell::containing(Text {
+                                Cell::new(Text {
                                     text: text.unwrap_or("Hello cell".into()),
                                     fg: Some(Color::Cyan),
                                     ..Default::default()
@@ -34,7 +34,7 @@ impl Component for SelectProfileScreen {
                                 FlowableArgs { fill: false },
                             )
                             .element(
-                                Cell::containing(Text {
+                                Cell::new(Text {
                                     text: "Middle".into(),
                                     fg: Some(Color::Red),
                                     ..Default::default()
@@ -44,7 +44,7 @@ impl Component for SelectProfileScreen {
                                 FlowableArgs { fill: true },
                             )
                             .element(
-                                Cell::containing(Text {
+                                Cell::new(Text {
                                     text: "Last one".into(),
                                     fg: Some(Color::Cyan),
                                     bg: Some(Color::Green),
@@ -61,7 +61,7 @@ impl Component for SelectProfileScreen {
                 .align(Align::Center),
             )
             .key("root"),
-        );
+        )
     }
 }
 

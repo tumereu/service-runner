@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
-use ui::{FrameContext, RenderArgs};
+use ui::{FrameContext, RenderArgs, UIResult};
 use ui::component::{Component};
 use crate::SystemState;
 use crate::ui::screens::select_profile::SelectProfileScreen;
@@ -18,13 +18,15 @@ impl Component for ViewRoot {
     type State = ();
     type Output = ();
 
-    fn render(&self, context: &FrameContext, _state: &mut Self::State) -> Self::Output {
+    fn render(&self, context: &FrameContext, _state: &mut Self::State) -> UIResult<Self::Output> {
         context.render_component(
             RenderArgs::new(
                 &SelectProfileScreen {
 
                 }
             ).key("select-profile")
-        );
+        )?;
+
+        Ok(())
     }
 }

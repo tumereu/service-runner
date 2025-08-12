@@ -4,7 +4,7 @@ use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders};
 use ratatui::text::Line;
 use crate::component::{Component, MeasurableComponent};
-use crate::{FrameContext, RenderArgs};
+use crate::{FrameContext, RenderArgs, RenderError, UIResult};
 use crate::space::RectAtOrigin;
 
 pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> {
@@ -23,7 +23,7 @@ pub struct Cell<S : Default + 'static, O, C : MeasurableComponent<State = S, Out
     pub max_height: u16,
 }
 impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> Cell<S, O, C> {
-    pub fn containing(element: C) -> Cell<S, O, C> {
+    pub fn new(element: C) -> Cell<S, O, C> {
         Cell {
             content: Some(element),
             bg: None,
@@ -148,9 +148,9 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
 
 impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> Component for Cell<S, O, C> {
     type State = ();
-    type Output = ();
+    type Output = O;
 
-    fn render(&self, context: &FrameContext, _: &mut Self::State) -> Self::Output {
+    fn render(&self, context: &FrameContext, _: &mut Self::State) -> UIResult<Self::Output> {
         let size = context.size();
         let size: Size = (
             min(size.width, self.max_width),
@@ -188,7 +188,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
         }
 
         if let Some(content) = self.content.as_ref() {
-            let content_size = context.measure_component::<S, C>("el", &content);
+            let content_size = context.measure_component::<S, C>("el", &content)?;
             let rect = size.rect_at_origin();
 
             let max_width = rect.width.saturating_sub(padding_left + padding_right);
@@ -221,18 +221,22 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> C
                     .key("content")
                     .pos(x, y)
                     .size(width, height)
-            );
+            )
+        } else {
+            Err(RenderError::ComponentArg {
+                msg: "Missing required property 'content'".to_string(),
+            })
         }
     }
 }
 
 impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> MeasurableComponent for Cell<S, O, C> {
-    fn measure(&self, context: &FrameContext, _: &Self::State) -> Size {
+    fn measure(&self, context: &FrameContext, _: &Self::State) -> UIResult<Size> {
         let content_size = self
             .content
             .as_ref()
             .map(|content| context.measure_component::<S, C>("el", &content))
-            .unwrap_or_default();
+            .unwrap_or_else(|| Ok(Default::default()))?;
 
         let border_pad = if self.border.is_some() {
             2
@@ -248,7 +252,7 @@ impl<S : Default + 'static, O, C : MeasurableComponent<State = S, Output = O>> M
         height = max(height, self.min_height);
         height = min(height, self.max_height);       
 
-        (width, height).into()
+        Ok((width, height).into())
     }
 }
 
