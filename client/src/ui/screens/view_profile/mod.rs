@@ -8,6 +8,7 @@ use crate::ui::theming::{ATTR_COLOR_FOCUSED_ELEMENT, ATTR_COLOR_UNFOCUSED_ELEMEN
 use ratatui::prelude::Color;
 use ui::component::{Align, Cell, Component, StatefulComponent, WithMeasurement};
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
+use ui::input::{KeyMatcher, KeyMatcherQueryable};
 
 pub struct ViewProfileScreen<'a> {
     pub state: &'a SystemState,
@@ -37,6 +38,11 @@ impl<'a> StatefulComponent for ViewProfileScreen<'a> {
         let unfocused_color = context
             .req_attr::<Color>(ATTR_COLOR_UNFOCUSED_ELEMENT)?
             .clone();
+
+        // TODO move into settings file and attributes
+        if context.signals().is_key_pressed(vec![KeyMatcher::char('w')]) {
+            state.wrap_output = !state.wrap_output;
+        }
 
         let profile_name = &self
             .state

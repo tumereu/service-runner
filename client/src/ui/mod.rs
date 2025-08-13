@@ -8,9 +8,7 @@ use ui::{ComponentRenderer, FrameContext, RenderArgs, UIResult};
 use crate::ui::actions::ActionStore;
 use crate::ui::screens::view_profile::ViewProfileScreen;
 
-mod legacy_screens;
 mod state;
-mod widgets;
 mod screens;
 
 pub mod theming;

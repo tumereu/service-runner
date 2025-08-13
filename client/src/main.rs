@@ -167,7 +167,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         if system_state.read().unwrap().should_exit {
             break;
         } else {
-            thread::sleep(Duration::from_millis(10));
+            thread::sleep(Duration::from_millis(50));
         }
     }
 

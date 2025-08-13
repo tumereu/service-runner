@@ -103,11 +103,11 @@ impl<'a> Component for OutputPane<'a> {
                                 LinePart {
                                     text: format!(
                                         "{name} | ",
-                                        name = Self::force_len(&key.source_name, 5)
+                                        name = key.source_name
                                     ),
                                     color: Some(
                                         theme.source_colors[Self::hash_name(&key.source_name)
-                                            & theme.source_colors.len()],
+                                            % theme.source_colors.len()],
                                     ),
                                 },
                             ],
