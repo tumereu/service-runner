@@ -20,6 +20,7 @@ use crate::runner::process_action::process_action;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
+use crate::ui::theming::RegisterTheme;
 use crate::ui::ViewRoot;
 
 mod system_state;
@@ -134,6 +135,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
     let mut renderer = ComponentRenderer::new();
     renderer.assign_default_attributes();
+    renderer.register_theme(&system_state.read().unwrap().config.settings.theme);
+
     let mut ui_result: UIResult<()> = Ok(());
 
     loop {

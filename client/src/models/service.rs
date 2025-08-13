@@ -10,6 +10,7 @@ pub struct Service {
     pub definition: ServiceDefinition,
     block_statuses: HashMap<String, BlockStatus>,
     block_actions: HashMap<String, BlockAction>,
+    pub output_enabled: bool,
 }
 impl Service {
     pub fn update_block_status(&mut self, block_id: &str, status: BlockStatus)
@@ -51,6 +52,7 @@ impl From<ServiceDefinition> for Service {
                 .map(|block| (block.id.clone(), BlockAction::Run))
                 .collect(),
             definition: value,
+            output_enabled: true,
         }
     }
 }

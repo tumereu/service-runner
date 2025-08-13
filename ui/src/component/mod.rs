@@ -4,6 +4,7 @@ mod list;
 mod text;
 mod fixed_measurement;
 mod space;
+mod spinner;
 
 pub use cell::*;
 pub use fixed_measurement::*;
@@ -11,6 +12,7 @@ pub use flow::*;
 pub use list::*;
 pub use text::*;
 pub use space::*;
+pub use spinner::*;
 
 use crate::frame_ctx::FrameContext;
 use crate::UIResult;

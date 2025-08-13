@@ -33,12 +33,12 @@ def run_startup_sequence():
 
 def serve(port: int):
     socketserver.TCPServer.allow_reuse_address=True
-    httpd = socketserver.TCPServer(('', 8000), Handler)
+    httpd = socketserver.TCPServer(('', port), Handler)
     httpd.serve_forever()
 
 def main():
     run_startup_sequence()
-    serve(8000)
+    serve(8001)
 
 if __name__ == "__main__":
     main()

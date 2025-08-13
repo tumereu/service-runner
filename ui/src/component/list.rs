@@ -10,7 +10,7 @@ pub struct List<'a, ElementOutput, Item, Element, CreateElement>
 where
     ElementOutput: 'static,
     Element: MeasurableComponent<Output = ElementOutput> + 'static,
-    CreateElement: Fn(&Item, usize) -> Element,
+    CreateElement: Fn(&Item, usize) -> UIResult<Element>,
 {
     pub items: &'a Vec<Item>,
     pub create_element: CreateElement,
@@ -21,7 +21,7 @@ impl<'a, ElementOutput, Item, Element, CreateElement>
 where
     ElementOutput: 'static,
     Element: MeasurableComponent<Output = ElementOutput> + 'static,
-    CreateElement: Fn(&Item, usize) -> Element,
+    CreateElement: Fn(&Item, usize) -> UIResult<Element>,
 {
     pub fn new(id: &str, items: &'a Vec<Item>, create_element: CreateElement) -> Self {
         Self {
@@ -47,7 +47,7 @@ impl<'a, ElementOutput, Item, Element, CreateElement> StatefulComponent
 where
     ElementOutput: 'static,
     Element: MeasurableComponent<Output = ElementOutput> + 'static,
-    CreateElement: Fn(&Item, usize) -> Element,
+    CreateElement: Fn(&Item, usize) -> UIResult<Element>,
 {
     type State = ListState;
     type Output = ListOutput;
@@ -75,7 +75,7 @@ where
         let mut resolved_elements: Vec<ResolvedElement<Element>> =
             Vec::with_capacity(self.items.len());
         for (index, item) in self.items.iter().enumerate() {
-            let element = create_element(item, index);
+            let element = create_element(item, index)?;
             let size = context.measure_component(&element)?;
 
             resolved_elements.push(ResolvedElement {
@@ -163,7 +163,7 @@ impl<'a, ElementOutput, Item, Element, CreateElement> MeasurableComponent
 where
     ElementOutput: 'static,
     Element: MeasurableComponent<Output = ElementOutput> + 'static,
-    CreateElement: Fn(&Item, usize) -> Element,
+    CreateElement: Fn(&Item, usize) -> UIResult<Element>,
 {
     fn measure(&self, context: &FrameContext) -> UIResult<Size> {
         let create_element = &self.create_element;
@@ -171,7 +171,7 @@ where
         let mut width = 0;
 
         for (index, item) in self.items.iter().enumerate() {
-            let element = create_element(item, index);
+            let element = create_element(item, index)?;
             let size = context.measure_component(&element)?;
             height += size.height;
             width = size.width.max(width);

@@ -11,7 +11,7 @@ blocks:
         args:
           - assemble.py
     status_line:
-      symbol: Bld
+      symbol: B
       slot: 20
     health:
       requirements:
@@ -28,7 +28,7 @@ blocks:
       - type: state
         query: self.blocks.build.status == OK
     status_line:
-      symbol: Run
+      symbol: R
       slot: 10
     health:
       timeout: 20s

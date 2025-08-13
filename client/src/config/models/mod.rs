@@ -4,6 +4,7 @@ pub use executable_entry::*;
 pub use profile_definition::*;
 pub use requirement::*;
 pub use service_definition::*;
+pub use theme::*;
 
 mod executable_entry;
 mod requirement;

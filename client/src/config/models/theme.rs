@@ -12,6 +12,9 @@ pub struct Theme {
     pub processing_color: Color,
     pub error_color: Color,
     pub inactive_color: Color,
+    pub idle_color: Color,
+    pub focused_element: Color,
+    pub unfocused_element: Color,
 }
 impl Default for Theme {
     fn default() -> Self {
@@ -23,6 +26,9 @@ impl Default for Theme {
             processing_color: Color::Rgb(230, 180, 0),
             error_color: Color::Rgb(180, 0, 0),
             inactive_color: Color::Gray,
+            idle_color: Color::White,
+            focused_element: Color::Rgb(180, 180, 0),
+            unfocused_element: Color::Rgb(100, 100, 0),
         }
     }
 }
@@ -31,8 +37,6 @@ impl Default for Theme {
 pub struct RawTheme {
     #[serde(default)]
     pub service_colors: Vec<String>,
-    #[serde(default)]
-    pub block_colors: Vec<String>,
     #[serde(default)]
     pub source_colors: Vec<String>,
     #[serde(default)]
@@ -45,6 +49,12 @@ pub struct RawTheme {
     pub error_color: Option<String>,
     #[serde(default)]
     pub inactive_color: Option<String>,
+    #[serde(default)]
+    pub idle_color: Option<String>,
+    #[serde(default)]
+    pub focused_element: Option<String>,
+    #[serde(default)]
+    pub unfocused_element: Option<String>,
 }
 impl TryInto<Theme> for RawTheme {
     type Error = String;
@@ -54,13 +64,15 @@ impl TryInto<Theme> for RawTheme {
 
         let RawTheme {
             service_colors,
-            block_colors,
             source_colors,
             active_color,
             waiting_to_process_color,
             processing_color,
             error_color,
             inactive_color,
+            idle_color,
+            focused_element,
+            unfocused_element,
         } = self;
 
         if service_colors.len() > 0 {
@@ -85,6 +97,16 @@ impl TryInto<Theme> for RawTheme {
         theme.inactive_color = inactive_color
             .map(|color| Self::try_into_theme_color(color, "inactive_color"))
             .unwrap_or(Ok(theme.inactive_color))?;
+        theme.idle_color = idle_color
+            .map(|color| Self::try_into_theme_color(color, "idle_color"))
+            .unwrap_or(Ok(theme.idle_color))?;
+
+        theme.focused_element = focused_element
+            .map(|color| Self::try_into_theme_color(color, "focused_element"))
+            .unwrap_or(Ok(theme.focused_element))?;
+        theme.unfocused_element = unfocused_element
+            .map(|color| Self::try_into_theme_color(color, "unfocused_element"))
+            .unwrap_or(Ok(theme.unfocused_element))?;
 
         Ok(theme)
     }

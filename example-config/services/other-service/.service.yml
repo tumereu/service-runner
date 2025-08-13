@@ -8,7 +8,7 @@ blocks:
         args:
           - build.py
     status_line:
-      symbol: Bld
+      symbol: B
       slot: 20
   - id: assemble
     type: cmd-seq
@@ -20,7 +20,7 @@ blocks:
       - type: state
         query: self.blocks.build.status == OK
     status_line:
-      symbol: Asb
+      symbol: M
       slot: 15
     health:
       requirements:
@@ -37,17 +37,17 @@ blocks:
       - type: state
         query: self.blocks.build.status == OK && self.blocks.assemble.status == OK
     status_line:
-      symbol: Run
+      symbol: R
       slot: 10
     health:
       timeout: 20s
       requirements:
         - type: port
-          port: 8000
+          port: 8001
         - type: http
           timeout: 500ms
           method: GET
-          url: http://localhost:8000/status
+          url: http://localhost:8001/status
           status: 200
 tasks:
   - id: "clean-build"
