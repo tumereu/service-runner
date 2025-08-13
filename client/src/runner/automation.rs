@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -7,11 +7,11 @@ use crate::system_state::SystemState;
 
 /// Starts a new thread that periodically checks the system's pending automations and returns a join handle for the
 /// started thread.
-pub fn start_automation_processor(system_arc: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
+pub fn start_automation_processor(system_arc: Arc<RwLock<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        while !system_arc.lock().unwrap().should_exit {
+        while !system_arc.read().unwrap().should_exit {
             {
-                let mut system = system_arc.lock().unwrap();
+                let mut system = system_arc.write().unwrap();
                 process_pending_automations(&mut system);
             }
 

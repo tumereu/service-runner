@@ -1,0 +1,66 @@
+id: "other-service"
+workdir: "./example-config/services/other-service"
+blocks:
+  - id: build
+    type: cmd-seq
+    commands:
+      - executable: /usr/bin/python3
+        args:
+          - build.py
+    status_line:
+      symbol: Bld
+      slot: 20
+  - id: assemble
+    type: cmd-seq
+    commands:
+      - executable: /usr/bin/python3
+        args:
+          - assemble.py
+    prerequisites:
+      - type: state
+        query: self.blocks.build.status == OK
+    status_line:
+      symbol: Asb
+      slot: 15
+    health:
+      requirements:
+        - type: file
+          paths:
+            - build/build-artifact.example
+  - id: run
+    type: process
+    command:
+      executable: /usr/bin/python3
+      args:
+        - run.py
+    prerequisites:
+      - type: state
+        query: self.blocks.build.status == OK && self.blocks.assemble.status == OK
+    status_line:
+      symbol: Run
+      slot: 10
+    health:
+      timeout: 20s
+      requirements:
+        - type: port
+          port: 8000
+        - type: http
+          timeout: 500ms
+          method: GET
+          url: http://localhost:8000/status
+          status: 200
+tasks:
+  - id: "clean-build"
+    steps:
+      - action: cancel(self.id, self.blocks.build.id)
+      - action: cancel(self.id, self.blocks.assemble.id)
+      - executable: /usr/bin/python3
+        args:
+          - clean.py
+      - action: rerun(self.id, "build")
+  - id: "toggle-all"
+    steps:
+      - action: |
+          toggle(self.id, self.blocks.build.id);
+          toggle(self.id, self.blocks.assemble.id);
+          toggle(self.id, self.blocks.run.id);

@@ -62,14 +62,14 @@ impl KeyMatcher {
 }
 
 pub trait KeyMatcherQueryable {
-    fn is_key_pressed<B : Borrow<KeyMatcher>>(&self, matcher: B) -> bool;
+    fn is_key_pressed<B : Borrow<Vec<KeyMatcher>>>(&self, matcher: B) -> bool;
 }
 impl KeyMatcherQueryable for Signals {
-    fn is_key_pressed<B : Borrow<KeyMatcher>>(&self, matcher: B) -> bool {
+    fn is_key_pressed<B : Borrow<Vec<KeyMatcher>>>(&self, matcher: B) -> bool {
         self.matching::<crossterm::event::KeyEvent>()
             .iter()
             .any(|ev| {
-                ev.kind == KeyEventKind::Press && matcher.borrow().matches(ev)
+                ev.kind == KeyEventKind::Press && matcher.borrow().iter().any(|matcher| matcher.matches(ev))
             })
     }
 }

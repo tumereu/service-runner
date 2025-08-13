@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -18,11 +18,11 @@ pub struct FileWatcherState {
     pub latest_recompiles: HashMap<String, Instant>,
 }
 
-pub fn start_file_watcher(system_arc: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
+pub fn start_file_watcher(system_arc: Arc<RwLock<SystemState>>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        while !system_arc.lock().unwrap().should_exit {
+        while !system_arc.read().unwrap().should_exit {
             let rebuild_watchers = {
-                let system = system_arc.lock().unwrap();
+                let system = system_arc.read().unwrap();
                 match (system.get_profile_name(), &system.file_watchers) {
                     (None, None) => false,
                     (None, Some(_)) => true,
@@ -40,13 +40,13 @@ pub fn start_file_watcher(system_arc: Arc<Mutex<SystemState>>) -> thread::JoinHa
         }
 
         // Dropping the file watcher state should automatically clean up the created watchers
-        system_arc.lock().unwrap().file_watchers = None;
+        system_arc.write().unwrap().file_watchers = None;
     })
 }
 
 
-fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
-    let mut system = system_arc.lock().unwrap();
+fn setup_watchers(system_arc: Arc<RwLock<SystemState>>) {
+    let mut system = system_arc.write().unwrap();
 
     let new_watchers = if let Some(profile_name) = system.get_profile_name() {
         let watchers: Vec<RecommendedWatcher> = system.iter_services()
@@ -77,7 +77,7 @@ fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
                         match res {
                             Ok(event) => {
                                 trace!("Received filesystem event for service {service_name}: {event:?}");
-                                let mut system = system_arc.lock().unwrap();
+                                let mut system = system_arc.write().unwrap();
 
                                 enqueue_automation(&mut system, &service_name, &automation_entry);
                                 process_pending_automations(&mut system);

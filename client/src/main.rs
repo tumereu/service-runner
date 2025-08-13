@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 
@@ -12,7 +12,6 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use ::ui::input::{collect_input_events, KeyMatcher};
 use ::ui::{ComponentRenderer, UIError, UIResult};
 
-use crate::input::process_inputs;
 use crate::models::Action::ActivateProfile;
 use crate::models::Profile;
 use crate::runner::automation::start_automation_processor;
@@ -49,9 +48,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         process::exit(1);
     }
 
-    let state_arc = Arc::new(Mutex::new(SystemState::new(config.unwrap())));
-    let num_profiles = state_arc.lock().unwrap().config.profiles.len();
-    let num_services = state_arc.lock().unwrap().config.services.len();
+    let system_state = Arc::new(RwLock::new(SystemState::new(config.unwrap())));
+    let num_profiles = system_state.read().unwrap().config.profiles.len();
+    let num_services = system_state.read().unwrap().config.services.len();
 
     info!(
         "Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)"
@@ -62,26 +61,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen)?;
 
-    let rhai_executor = Arc::new(RhaiExecutor::new(state_arc.clone()));
-    let service_worker = Arc::new(ServiceWorker::new(state_arc.clone(), rhai_executor.clone()));
+    let rhai_executor = Arc::new(RhaiExecutor::new(system_state.clone()));
+    let service_worker = Arc::new(ServiceWorker::new(system_state.clone(), rhai_executor.clone()));
 
     let mut handles = vec![
-        ("file-watcher".into(), start_file_watcher(state_arc.clone())),
-        ("automation-processor".into(), start_automation_processor(state_arc.clone())),
+        ("file-watcher".into(), start_file_watcher(system_state.clone())),
+        ("automation-processor".into(), start_automation_processor(system_state.clone())),
         ("rhai-executor".into(), rhai_executor.start()),
         ("service-worker".into(), service_worker.start()),
     ];
 
-    state_arc.lock().unwrap().active_threads.append(&mut handles);
+    system_state.write().unwrap().active_threads.append(&mut handles);
 
     let join_threads = {
-        let state_arc = state_arc.clone();
+        let state_arc = system_state.clone();
         thread::spawn(move || {
             let mut last_print = Instant::now();
 
             loop {
                 {
-                    let mut state = state_arc.lock().unwrap();
+                    let mut state = state_arc.write().unwrap();
                     if state.should_exit && state.active_threads.is_empty() {
                         break;
                     }
@@ -119,7 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Check for autolaunched profile
     {
-        let mut system = state_arc.lock().unwrap();
+        let mut system = system_state.write().unwrap();
 
         if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
             let selection = system.config.profiles.iter()
@@ -151,7 +150,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         match renderer.render_root(
             &mut terminal,
             ViewRoot {
-                state: state_arc.clone(),
+                state: system_state.clone(),
             }
         ) {
             Ok(_) => {},
@@ -162,14 +161,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
 
-        if state_arc.lock().unwrap().should_exit {
+        if system_state.read().unwrap().should_exit {
             break;
         } else {
             thread::sleep(Duration::from_millis(10));
         }
     }
 
-    state_arc.lock().unwrap().should_exit = true;
+    system_state.write().unwrap().should_exit = true;
     service_worker.stop();
     rhai_executor.stop();
 

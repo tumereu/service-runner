@@ -1,15 +1,18 @@
-use crate::component::{Component, Text, ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_UP};
+use crate::component::{
+    ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_RIGHT,
+    ATTR_KEY_NAV_UP, ATTR_KEY_SELECT, Component, Text,
+};
 use crate::frame_ctx::{FrameContext, RenderArgs};
+use crate::input::KeyMatcher;
 use crate::{SignalHandling, Signals, UIError, UIResult};
+use crossterm::event::KeyCode;
+use ratatui::Terminal;
 use ratatui::backend::Backend;
 use ratatui::style::Color;
-use ratatui::Terminal;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use crossterm::event::KeyCode;
-use crate::input::KeyMatcher;
 
 pub struct ComponentRenderer {
     states: HashMap<String, Box<dyn Any>>,
@@ -25,7 +28,10 @@ impl ComponentRenderer {
         }
     }
 
-    pub fn send_signal<T>(&mut self, signal:  T) where T : Any + 'static {
+    pub fn send_signal<T>(&mut self, signal: T)
+    where
+        T: Any + 'static,
+    {
         self.signals.push(signal);
     }
 
@@ -34,7 +40,7 @@ impl ComponentRenderer {
             match input {
                 crossterm::event::Event::Key(key) => {
                     self.send_signal(key);
-                },
+                }
                 // TODO other types of events
                 _ => {}
             }
@@ -47,24 +53,22 @@ impl ComponentRenderer {
         root: impl Component<Output = O>,
     ) -> UIResult<O>
     where
-        B : Backend,
+        B: Backend,
     {
         let signals = std::mem::take(&mut self.signals);
         let result_holder: Rc<RefCell<Option<UIResult<O>>>> = Rc::new(RefCell::new(None));
 
-        terminal.draw(|frame| {
-            let frame_area = frame.area();
-            let mut canvas = FrameContext::new(
-                frame,
-                self,
-                frame_area,
-            );
+        terminal
+            .draw(|frame| {
+                let frame_area = frame.area();
+                let mut canvas = FrameContext::new(frame, self, frame_area);
 
-            let result = canvas.render_component(RenderArgs::new(&root)
-                .signals(SignalHandling::Overwrite(signals))
-            );
-            result_holder.borrow_mut().replace(result);
-        }).map_err(|err| UIError::IO(err))?;
+                let result = canvas.render_component(
+                    RenderArgs::new(&root).signals(SignalHandling::Overwrite(signals)),
+                );
+                result_holder.borrow_mut().replace(result);
+            })
+            .map_err(|err| UIError::IO(err))?;
 
         self.signals.clear();
 
@@ -75,26 +79,73 @@ impl ComponentRenderer {
         self.set_attr(Text::ATTR_COLOR_FG, Color::White);
         self.set_attr(ATTR_COLOR_HIGHLIGHT, Color::Blue);
 
-        self.set_attr(ATTR_KEY_NAV_DOWN, KeyMatcher::new(KeyCode::Down));
-        self.set_attr(ATTR_KEY_NAV_UP, KeyMatcher::new(KeyCode::Up));
-        self.set_attr(ATTR_KEY_NAV_LEFT, KeyMatcher::new(KeyCode::Left));
-        self.set_attr(ATTR_KEY_NAV_RIGHT, KeyMatcher::new(KeyCode::Right));
+        self.set_attr(
+            ATTR_KEY_NAV_DOWN,
+            vec![
+                KeyMatcher::new(KeyCode::Down),
+                KeyMatcher::new(KeyCode::Char('j')),
+            ],
+        );
+        self.set_attr(
+            ATTR_KEY_NAV_UP,
+            vec![
+                KeyMatcher::new(KeyCode::Up),
+                KeyMatcher::new(KeyCode::Char('k')),
+            ],
+        );
+        self.set_attr(
+            ATTR_KEY_NAV_LEFT,
+            vec![
+                KeyMatcher::new(KeyCode::Left),
+                KeyMatcher::new(KeyCode::Char('h')),
+            ],
+        );
+        self.set_attr(
+            ATTR_KEY_NAV_RIGHT,
+            vec![
+                KeyMatcher::new(KeyCode::Right),
+                KeyMatcher::new(KeyCode::Char('l')),
+            ],
+        );
+        self.set_attr(
+            ATTR_KEY_SELECT,
+            vec![
+                KeyMatcher::new(KeyCode::Enter),
+                KeyMatcher::new(KeyCode::Char(' ')),
+            ],
+        )
     }
 
-    pub fn set_attr<T>(&mut self, key: &str, value: T) where T : Any + 'static {
+    pub fn set_attr<T>(&mut self, key: &str, value: T)
+    where
+        T: Any + 'static,
+    {
         self.attributes.insert(key.to_string(), Box::new(value));
     }
 
-    pub fn get_attr<T>(&self, key: &str) -> Option<&T> where T : Any + 'static {
+    pub fn get_attr<T>(&self, key: &str) -> Option<&T>
+    where
+        T: Any + 'static,
+    {
         self.attributes.get(key).and_then(|v| v.downcast_ref::<T>())
     }
 
-    pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T> where T : Any + 'static {
-        self.attributes.get(attr).and_then(|v| v.downcast_ref::<T>())
-            .ok_or(UIError::MissingAttr { attr: attr.to_string() })
+    pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T>
+    where
+        T: Any + 'static,
+    {
+        self.attributes
+            .get(attr)
+            .and_then(|v| v.downcast_ref::<T>())
+            .ok_or(UIError::MissingAttr {
+                attr: attr.to_string(),
+            })
     }
 
-    pub fn take_state<T>(&mut self, key: &str) -> T where T : Any + Default + 'static {
+    pub fn take_state<T>(&mut self, key: &str) -> T
+    where
+        T: Any + Default + 'static,
+    {
         if !self.states.get(key).map(|v| v.is::<T>()).unwrap_or(false) {
             T::default()
         } else {
@@ -102,7 +153,10 @@ impl ComponentRenderer {
         }
     }
 
-    pub fn return_state<T>(&mut self, key: &str, state: T) where T : Any + Default + 'static {
+    pub fn return_state<T>(&mut self, key: &str, state: T)
+    where
+        T: Any + Default + 'static,
+    {
         self.states.insert(key.to_string(), Box::new(state));
     }
 }

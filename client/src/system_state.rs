@@ -53,6 +53,18 @@ impl SystemState {
         }
     }
 
+    pub fn select_profile(&mut self, definition_id: &str) {
+        self.current_profile = Some(Profile::new(
+            self.config
+                .profiles
+                .iter()
+                .find(|def| def.id == definition_id)
+                .expect(&format!("No definition found with id {definition_id}"))
+                .clone(),
+            &self.config.services,
+        ))
+    }
+
     pub fn get_profile_name(&self) -> Option<&str> {
         self.current_profile
             .as_ref()
@@ -140,14 +152,13 @@ impl SystemState {
         id: &TaskDefinitionId,
         service_id: Option<String>,
     ) -> Option<&TaskDefinition> {
-        let result = self.current_profile.as_ref()
-            .and_then(|profile| {
-                profile
-                    .all_task_definitions
-                    .iter()
-                    .find(|(definition, service)| definition.id == *id && *service == service_id)
-                    .map(|(definition, _)| definition)
-            });
+        let result = self.current_profile.as_ref().and_then(|profile| {
+            profile
+                .all_task_definitions
+                .iter()
+                .find(|(definition, service)| definition.id == *id && *service == service_id)
+                .map(|(definition, _)| definition)
+        });
 
         result
     }
@@ -183,7 +194,8 @@ impl SystemState {
     where
         F: FnOnce(&mut Task),
     {
-        let task_option = self.current_profile
+        let task_option = self
+            .current_profile
             .as_mut()
             .and_then(|profile| profile.tasks.iter_mut().find(|task| task.id == *id));
 

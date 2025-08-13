@@ -9,17 +9,17 @@ use rhai::plugin::RhaiResult;
 use rhai::{Dynamic, Engine, Map, Scope};
 use std::future::Future;
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{mpsc, Arc, Mutex, PoisonError};
+use std::sync::{mpsc, Arc, Mutex, PoisonError, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 
 pub struct RhaiExecutor {
     keep_alive: Arc<Mutex<bool>>,
-    state: Arc<Mutex<SystemState>>,
+    state: Arc<RwLock<SystemState>>,
     tx: Arc<Mutex<Option<Sender<(RhaiRequest, Sender<RhaiResult>)>>>>,
 }
 impl RhaiExecutor {
-    pub fn new(state: Arc<Mutex<SystemState>>) -> Self {
+    pub fn new(state: Arc<RwLock<SystemState>>) -> Self {
         Self {
             keep_alive: Arc::new(Mutex::new(true)),
             state,
@@ -86,11 +86,11 @@ impl RhaiExecutor {
     }
 
     fn populate_rhai_scope(
-        state_arc: Arc<Mutex<SystemState>>,
+        state_arc: Arc<RwLock<SystemState>>,
         scope: &mut Scope,
         service_id: Option<String>,
     ) {
-        let state = state_arc.lock().unwrap();
+        let state = state_arc.read().unwrap();
 
         state.iter_services().for_each(|service| {
             let mut blocks = Map::new();
@@ -153,7 +153,7 @@ impl RhaiExecutor {
         engine
     }
 
-    fn register_functions(state_arc: Arc<Mutex<SystemState>>, function_engine: &mut Engine) {
+    fn register_functions(state_arc: Arc<RwLock<SystemState>>, function_engine: &mut Engine) {
         [
             ("disable", BlockAction::Disable),
             ("enable", BlockAction::Enable),
@@ -165,7 +165,7 @@ impl RhaiExecutor {
         ].into_iter().for_each(|(name, action)| {
             let state_arc = state_arc.clone();
             function_engine.register_fn(name, move |service: &str, block: &str| {
-                let mut state = state_arc.lock().unwrap();
+                let mut state = state_arc.write().unwrap();
                 state.update_service(service, |service| {
                     service.update_block_action(block, Some(action.clone()))
                 });
@@ -175,7 +175,7 @@ impl RhaiExecutor {
         {
             let state_arc = state_arc.clone();
             function_engine.register_fn("spawn_task", move |service: &str, definition_id: &str| {
-                let mut state = state_arc.lock().unwrap();
+                let mut state = state_arc.write().unwrap();
                 state.current_profile.iter_mut().for_each(|profile| {
                     profile.spawn_task(&TaskDefinitionId(definition_id.to_owned()), Some(service.to_owned()));
                 });
@@ -184,7 +184,7 @@ impl RhaiExecutor {
         {
             let state_arc = state_arc.clone();
             function_engine.register_fn("spawn_task", move |definition_id: &str| {
-                let mut state = state_arc.lock().unwrap();
+                let mut state = state_arc.write().unwrap();
                 state.current_profile.iter_mut().for_each(|profile| {
                     profile.spawn_task(&TaskDefinitionId(definition_id.to_owned()), None);
                 });

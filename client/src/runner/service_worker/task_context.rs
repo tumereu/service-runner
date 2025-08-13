@@ -12,17 +12,17 @@ use rhai::plugin::RhaiResult;
 use std::ops::Deref;
 use std::process::Child;
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 pub struct TaskContext {
-    system_state: Arc<Mutex<SystemState>>,
+    system_state: Arc<RwLock<SystemState>>,
     rhai_executor: Arc<RhaiExecutor>,
     pub task_id: TaskId,
     pub definition_id: TaskDefinitionId,
 }
 impl TaskContext {
     pub fn new(
-        system_state: Arc<Mutex<SystemState>>,
+        system_state: Arc<RwLock<SystemState>>,
         rhai_executor: Arc<RhaiExecutor>,
         task_id: TaskId,
         definition_id: TaskDefinitionId,
@@ -36,14 +36,14 @@ impl TaskContext {
     }
 
     pub fn clear_current_action(&self) {
-        let mut state = self.system_state.lock().unwrap();
+        let mut state = self.system_state.write().unwrap();
         state.update_task(&self.task_id, |task| {
             task.action = None;
         });
     }
 
     pub fn update_status(&self, status: TaskStatus) {
-        let mut state = self.system_state.lock().unwrap();
+        let mut state = self.system_state.write().unwrap();
         state.update_task(&self.task_id, |task| {
             task.status = status;
         });
@@ -53,7 +53,7 @@ impl TaskContext {
     where
         F: for<'a> FnOnce(&'a mut Task),
     {
-        let mut state = self.system_state.lock().unwrap();
+        let mut state = self.system_state.write().unwrap();
         state.update_task(&self.task_id, update);
     }
 
@@ -63,7 +63,7 @@ impl TaskContext {
         R: 'static,
     {
         let service_id = self.query_task(|task| task.service_id.clone())?;
-        let state = self.system_state.lock().unwrap();
+        let state = self.system_state.read().unwrap();
         Some(query(state.get_service(&service_id)?))
     }
 
@@ -72,7 +72,7 @@ impl TaskContext {
         F: for<'a> FnOnce(&'a SystemState) -> R,
         R: 'static,
     {
-        let state = self.system_state.lock().unwrap();
+        let state = self.system_state.read().unwrap();
         query(&state)
     }
 
@@ -80,7 +80,7 @@ impl TaskContext {
     where
         F: for<'a> FnOnce(&'a mut SystemState),
     {
-        let mut state = self.system_state.lock().unwrap();
+        let mut state = self.system_state.write().unwrap();
         query(&mut state);
     }
 
@@ -89,7 +89,7 @@ impl TaskContext {
         F: FnOnce(&Task) -> R,
         R: 'static,
     {
-        let state = self.system_state.lock().unwrap();
+        let state = self.system_state.read().unwrap();
         let task = state.get_task(&self.task_id).unwrap();
 
         query(task)
@@ -111,7 +111,7 @@ impl TaskContext {
 
     pub fn stop_concurrent_operation(&self) {
         self.system_state
-            .lock()
+            .write()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Task {
                 task_id: self.task_id.clone(),
@@ -134,7 +134,7 @@ impl TaskContext {
                     id = self.task_id,
                 );
 
-                self.system_state.lock().unwrap().set_concurrent_operation(
+                self.system_state.write().unwrap().set_concurrent_operation(
                     ConcurrentOperationKey::Task {
                         task_id: self.task_id.clone(),
                     },
@@ -149,7 +149,7 @@ impl TaskContext {
 
     pub fn get_concurrent_operation_status(&self) -> Option<ConcurrentOperationStatus> {
         self.system_state
-            .lock()
+            .read()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Task {
                 task_id: self.task_id.clone(),
@@ -201,7 +201,7 @@ impl WorkContext for TaskWorkContext<'_> {
             self.silent,
             work,
         );
-        self.system_state.lock().unwrap().set_concurrent_operation(
+        self.system_state.write().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Task {
                 task_id: self.task_id.clone(),
             },
@@ -217,7 +217,7 @@ impl WorkContext for TaskWorkContext<'_> {
             handle,
         );
 
-        self.system_state.lock().unwrap().set_concurrent_operation(
+        self.system_state.write().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Task {
                 task_id: self.task_id.clone(),
             },
@@ -240,7 +240,7 @@ impl WorkContext for TaskWorkContext<'_> {
         let source_name = self.get_task_definition_id().0;
 
         self.system_state
-            .lock()
+            .write()
             .unwrap()
             .add_output(
                 &OutputKey {

@@ -6,7 +6,7 @@ use crate::runner::service_worker::task_context::TaskContext;
 use crate::system_state::SystemState;
 pub use concurrent_operation::*;
 use itertools::Itertools;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -24,12 +24,12 @@ mod task_context;
 mod task_processor;
 
 pub struct ServiceWorker {
-    state: Arc<Mutex<SystemState>>,
+    state: Arc<RwLock<SystemState>>,
     rhai_executor: Arc<RhaiExecutor>,
     keep_running: Arc<Mutex<bool>>,
 }
 impl ServiceWorker {
-    pub fn new(state: Arc<Mutex<SystemState>>, rhai_executor: Arc<RhaiExecutor>) -> Self {
+    pub fn new(state: Arc<RwLock<SystemState>>, rhai_executor: Arc<RhaiExecutor>) -> Self {
         Self {
             state,
             rhai_executor,
@@ -58,13 +58,13 @@ impl ServiceWorker {
     }
 
     fn work_services(
-        state_arc: Arc<Mutex<SystemState>>,
+        state_arc: Arc<RwLock<SystemState>>,
         rhai_executor: Arc<RhaiExecutor>,
     ) {
         // A collection of (service_id, block_id) pairs describing all services and their blocks
         // that might need to be worked on.
         let blocks_to_work = {
-            let state = state_arc.lock().unwrap();
+            let state = state_arc.read().unwrap();
 
             state
                 .iter_services()
@@ -79,7 +79,7 @@ impl ServiceWorker {
         };
 
         let tasks_to_work = {
-            let state = state_arc.lock().unwrap();
+            let state = state_arc.read().unwrap();
 
             state.current_profile.iter().flat_map(|profile| profile.tasks.iter())
                 .filter(|task| matches!(task.status, TaskStatus::Running { .. }))
@@ -110,7 +110,7 @@ impl ServiceWorker {
         });
 
         // Clean up, remove finished tasks
-        state_arc.lock().unwrap().current_profile
+        state_arc.write().unwrap().current_profile
             .iter_mut().for_each(|profile| {
             profile.tasks.retain(|task| {
                 matches!(task.status, TaskStatus::Running { .. })

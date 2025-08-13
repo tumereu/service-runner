@@ -1,6 +1,6 @@
 use crate::component::{ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, Component, Dir, Flow, FlowableArgs, MeasurableComponent, StatefulComponent};
 use crate::input::KeyMatcherQueryable;
-use crate::{FrameContext, RenderArgs, UIResult};
+use crate::{FrameContext, RenderArgs, UIError, UIResult};
 use ratatui::layout::Size;
 use ratatui::prelude::Style;
 use ratatui::style::Color;
@@ -38,6 +38,10 @@ pub struct ListState {
     pub selection: usize,
 }
 
+pub struct ListOutput {
+    pub selected_index: usize,
+}
+
 impl<'a, ElementOutput, Item, Element, CreateElement> StatefulComponent
     for List<'a, ElementOutput, Item, Element, CreateElement>
 where
@@ -46,7 +50,7 @@ where
     CreateElement: Fn(&Item, usize) -> Element,
 {
     type State = ListState;
-    type Output = ();
+    type Output = ListOutput;
 
     fn state_id(&self) -> &str {
         &self.id
@@ -57,6 +61,12 @@ where
             element: Element,
             size: Size,
             index: usize,
+        }
+
+        if self.items.is_empty() {
+            return Err(UIError::InvalidProp {
+                msg: "List must have at least one item".to_string(),
+            });
         }
 
         let create_element = &self.create_element;
@@ -142,7 +152,9 @@ where
             current_y += size.height as i32;
         }
 
-        Ok(())
+        Ok(ListOutput {
+            selected_index: state.selection,
+        })
     }
 }
 

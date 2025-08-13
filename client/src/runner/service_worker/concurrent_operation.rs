@@ -1,7 +1,7 @@
 use std::io::{BufRead, BufReader};
 use std::ops::Neg;
 use std::process::{Child, Command, ExitStatus, Stdio};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
 use std::{io, thread};
 
@@ -48,7 +48,7 @@ pub struct WorkWrapper {
 }
 impl WorkWrapper {
     pub fn wrap<F>(
-        state_arc: Arc<Mutex<SystemState>>,
+        state_arc: Arc<RwLock<SystemState>>,
         service_id: Option<String>,
         work_name: String,
         silent: bool,
@@ -76,7 +76,7 @@ impl WorkWrapper {
             }
 
             if !silent {
-                let mut state = state_arc_copy.lock().unwrap();
+                let mut state = state_arc_copy.write().unwrap();
                 result.output.into_iter().for_each(|output| {
                     state.add_output(&output_key, output);
                 });
@@ -84,7 +84,7 @@ impl WorkWrapper {
         });
 
         {
-            let mut state = state_arc.lock().unwrap();
+            let mut state = state_arc.write().unwrap();
             state.active_threads.push((
                 format!("{full_name}-work"),
                 thread
@@ -109,7 +109,7 @@ pub struct ProcessWrapper {
 }
 impl ProcessWrapper {
     pub fn wrap(
-        state_arc: Arc<Mutex<SystemState>>,
+        state_arc: Arc<RwLock<SystemState>>,
         service_id: Option<String>,
         work_name: String,
         process: Child,
@@ -142,7 +142,7 @@ impl ProcessWrapper {
                                 killed = true;
                                 break;
                             }
-                            if state_arc.lock().unwrap().should_exit {
+                            if state_arc.read().unwrap().should_exit {
                                 killed = true;
                                 break;
                             }
@@ -152,7 +152,7 @@ impl ProcessWrapper {
                             thread::sleep(Duration::from_millis(10));
                         }
 
-                        let system_exiting = state_arc.lock().unwrap().should_exit;
+                        let system_exiting = state_arc.read().unwrap().should_exit;
                         let status = Self::kill_process(process_handle, !system_exiting);
                         let success = status.as_ref().map_or(false, |status| status.success());
 
@@ -186,7 +186,7 @@ impl ProcessWrapper {
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
-                                let mut state = state_arc.lock().unwrap();
+                                let mut state = state_arc.write().unwrap();
                                 state.output_store.add_output(&output_key, line);
                             }
                         }
@@ -214,7 +214,7 @@ impl ProcessWrapper {
 
                         for line in BufReader::new(stream).lines() {
                             if let Ok(line) = line {
-                                let mut state = state_arc.lock().unwrap();
+                                let mut state = state_arc.write().unwrap();
                                 state.output_store.add_output(&output_key, line);
                             }
                         }
@@ -224,7 +224,7 @@ impl ProcessWrapper {
         ];
 
         {
-            let mut state = state_arc.lock().unwrap();
+            let mut state = state_arc.write().unwrap();
             state.active_threads.append(&mut new_threads);
         }
 

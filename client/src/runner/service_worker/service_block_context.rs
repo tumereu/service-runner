@@ -12,17 +12,17 @@ use rhai::plugin::RhaiResult;
 use std::ops::Deref;
 use std::process::Child;
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 pub struct ServiceBlockContext {
-    system_state: Arc<Mutex<SystemState>>,
+    system_state: Arc<RwLock<SystemState>>,
     rhai_executor: Arc<RhaiExecutor>,
     pub service_id: String,
     pub block_id: String,
 }
 impl ServiceBlockContext {
     pub fn new(
-        system_state: Arc<Mutex<SystemState>>,
+        system_state: Arc<RwLock<SystemState>>,
         rhai_executor: Arc<RhaiExecutor>,
         service_id: String,
         block_id: String,
@@ -40,20 +40,20 @@ impl ServiceBlockContext {
         F: for<'a> FnOnce(&'a SystemState) -> R,
         R: 'static,
     {
-        let state = self.system_state.lock().unwrap();
+        let state = self.system_state.read().unwrap();
         let result = query(&*state);
         result
     }
 
     pub fn clear_current_action(&self) {
-        let mut state = self.system_state.lock().unwrap();
+        let mut state = self.system_state.write().unwrap();
         state.update_service(&self.service_id, |service| {
             service.update_block_action(&self.block_id, None)
         })
     }
 
     pub fn update_status(&self, status: BlockStatus) {
-        let mut state = self.system_state.lock().unwrap();
+        let mut state = self.system_state.write().unwrap();
         state.update_service(&self.service_id, |service| {
             service.update_block_status(&self.block_id, status)
         });
@@ -64,7 +64,7 @@ impl ServiceBlockContext {
         F: for<'a> FnOnce(&'a mut Service),
     {
         self.system_state
-            .lock()
+            .write()
             .unwrap()
             .update_service(&self.service_id, update);
     }
@@ -74,7 +74,7 @@ impl ServiceBlockContext {
         F: for<'a> FnOnce(&'a Service) -> R,
         R: 'static,
     {
-        let state = self.system_state.lock().unwrap();
+        let state = self.system_state.read().unwrap();
         let service = state.get_service(&self.service_id).unwrap();
 
         query(service)
@@ -85,7 +85,7 @@ impl ServiceBlockContext {
         F: for<'a> FnOnce(&'a Block) -> R,
         R: 'static,
     {
-        let state = self.system_state.lock().unwrap();
+        let state = self.system_state.read().unwrap();
         let block = state
             .get_service(&self.service_id)
             .unwrap()
@@ -105,7 +105,7 @@ impl ServiceBlockContext {
 
     pub fn get_concurrent_operation_status(&self, operation_type: OperationType) -> Option<ConcurrentOperationStatus> {
         self.system_state
-            .lock()
+            .read()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
@@ -116,7 +116,7 @@ impl ServiceBlockContext {
 
     pub fn stop_concurrent_operation(&self, operation_type: OperationType) {
         self.system_state
-            .lock()
+            .read()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
@@ -146,7 +146,7 @@ impl ServiceBlockContext {
                 Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
                     debug!("Removing stopped operation for {debug_id}");
 
-                    self.system_state.lock().unwrap().set_concurrent_operation(
+                    self.system_state.write().unwrap().set_concurrent_operation(
                         ConcurrentOperationKey::Block {
                             service_id: self.service_id.clone(),
                             block_id: self.block_id.clone(),
@@ -172,7 +172,7 @@ impl ServiceBlockContext {
 
     pub fn add_system_output(&self, output: String) {
         self.system_state
-            .lock()
+            .write()
             .unwrap()
             .add_output(
                 &OutputKey {
@@ -192,7 +192,7 @@ impl ServiceBlockContext {
             handle,
         );
 
-        self.system_state.lock().unwrap().set_concurrent_operation(
+        self.system_state.write().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),
@@ -231,7 +231,7 @@ impl WorkContext for BlockWorkContext<'_> {
             Some(ConcurrentOperationStatus::Failed | ConcurrentOperationStatus::Ok) => {
                 debug!("Removing stopped operation for {debug_id}");
 
-                self.system_state.lock().unwrap().set_concurrent_operation(
+                self.system_state.write().unwrap().set_concurrent_operation(
                     ConcurrentOperationKey::Block {
                         service_id: self.service_id.clone(),
                         block_id: self.block_id.clone(),
@@ -261,7 +261,7 @@ impl WorkContext for BlockWorkContext<'_> {
             self.silent,
             work,
         );
-        self.system_state.lock().unwrap().set_concurrent_operation(
+        self.system_state.write().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Block {
                 service_id: self.service_id.clone(),
                 block_id: self.block_id.clone(),

@@ -17,9 +17,9 @@ pub struct Text {
 impl Text {
     pub const ATTR_COLOR_FG: &'static str = "colors.Text.fg";
 
-    pub fn new(text: String) -> Self {
+    pub fn new<S : Into<String>>(text: S) -> Self {
         Self {
-            text,
+            text: text.into(),
             ..Default::default()
         }
     }
@@ -57,14 +57,6 @@ impl Component for Text {
             (0, 0).into(),
             context.size(),
         );
-        
-        if context.signals().is_key_pressed(KeyMatcher::char('d')) {
-            context.render_widget(
-                Paragraph::new(Span::styled("ddddd", style)),
-                (0, 0).into(),
-                context.size(),
-            );
-        }
 
         Ok(())
     }
