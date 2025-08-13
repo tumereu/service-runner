@@ -11,24 +11,17 @@ pub struct SelectProfileScreen<'a> {
     pub actions: &'a ActionStore,
 }
 
-impl<'a> StatefulComponent for SelectProfileScreen<'a> {
-    type State = SelectProfileScreenState;
+impl<'a> Component for SelectProfileScreen<'a> {
     type Output = ();
-
-    fn state_id(&self) -> &str {
-        "select-profile-screen"
-    }
 
     fn render(
         &self,
         context: &mut FrameContext,
-        state: &mut Self::State,
     ) -> UIResult<Self::Output> {
         let max_width = context.size().width / 2;
         let max_height = context.size().height / 3;
 
         let focused_color = context.req_attr::<Color>(ATTR_COLOR_FOCUSED_ELEMENT)?.clone();
-        let unfocused_color = context.req_attr::<Color>(ATTR_COLOR_UNFOCUSED_ELEMENT)?.clone();
 
         let list_output = context.render_component(
             RenderArgs::new(
@@ -39,11 +32,7 @@ impl<'a> StatefulComponent for SelectProfileScreen<'a> {
                         |profile, _| Ok(Cell::new(Text::new(profile.id.clone())).align(Align::Center)),
                     ))
                     .border(
-                        if state.focused_pane == FocusedPane::ServiceList {
-                            focused_color
-                        } else {
-                            unfocused_color
-                        },
+                        focused_color,
                         "Select profile"
                     )
                     .bg(Color::Reset)
@@ -62,21 +51,5 @@ impl<'a> StatefulComponent for SelectProfileScreen<'a> {
         }
 
         Ok(())
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct SelectProfileScreenState {
-    focused_pane: FocusedPane,
-}
-#[derive(Eq, PartialEq, Clone, Copy, Debug, Hash)]
-pub enum FocusedPane {
-    ServiceList,
-    OutputArea
-}
-
-impl Default for FocusedPane {
-    fn default() -> Self {
-        FocusedPane::ServiceList
     }
 }

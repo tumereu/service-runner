@@ -9,6 +9,7 @@ use ratatui::Frame;
 use std::any::Any;
 use std::cell::{Ref, RefCell};
 use std::rc::Rc;
+use log::debug;
 
 pub struct FrameContext<'a, 'b, 'c> {
     frame: &'a mut Frame<'b>,
@@ -60,7 +61,6 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
 
         let old_area = std::mem::replace(&mut self.current_area, new_area);
 
-        // TODO set child area
         let output = component.render(self)
             .map_err(|err| err.nested::<C>());
 
