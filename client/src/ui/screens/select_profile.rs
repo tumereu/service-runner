@@ -15,7 +15,7 @@ impl<'a> Component for SelectProfileScreen<'a> {
     type Output = ();
 
     fn render(
-        &self,
+        self,
         context: &mut FrameContext,
     ) -> UIResult<Self::Output> {
         let max_width = context.size().width / 2;
@@ -25,7 +25,7 @@ impl<'a> Component for SelectProfileScreen<'a> {
 
         let list_output = context.render_component(
             RenderArgs::new(
-                &Cell::new(
+                Cell::new(
                     Cell::new(List::new(
                         "select-profile-list",
                         &self.state.config.profiles,

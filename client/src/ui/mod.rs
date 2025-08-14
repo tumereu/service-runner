@@ -23,7 +23,7 @@ pub struct ViewRoot {
 impl Component for ViewRoot {
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let actions = {
             let state = self.state.read().unwrap();
             let has_profile = state.current_profile.is_some();
@@ -32,7 +32,7 @@ impl Component for ViewRoot {
             if has_profile {
                 context.render_component(
                     RenderArgs::new(
-                        &ViewProfileScreen {
+                        ViewProfileScreen {
                             state: &state,
                             actions: &actions
                         }
@@ -41,7 +41,7 @@ impl Component for ViewRoot {
             } else {
                 context.render_component(
                     RenderArgs::new(
-                        &SelectProfileScreen {
+                        SelectProfileScreen {
                             state: &state,
                             actions: &actions
                         }

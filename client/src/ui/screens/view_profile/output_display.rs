@@ -18,7 +18,7 @@ pub struct OutputDisplay {
 impl Component for OutputDisplay {
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output>
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output>
     {
         let size = context.size();
 
@@ -152,7 +152,7 @@ impl Component for OutputDisplay {
             flow = flow.element(inner_flow, FlowableArgs { fill: false });
         }
 
-        context.render_component(RenderArgs::new(&flow))?;
+        context.render_component(RenderArgs::new(flow))?;
 
         Ok(())
     }

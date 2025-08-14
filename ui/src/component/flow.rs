@@ -9,7 +9,7 @@ use std::cmp::{max, min};
 pub trait Flowable {
     fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size>;
     // TODO output?
-    fn render(&self, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()>;
+    fn render(self: Box<Self>, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()>;
 }
 
 impl<O, C: MeasurableComponent<Output = O>> Flowable for C
@@ -18,9 +18,9 @@ impl<O, C: MeasurableComponent<Output = O>> Flowable for C
         ctx.measure_component(self)
     }
 
-    fn render(&self, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()> {
+    fn render(self: Box<Self>, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()> {
         ctx.render_component(
-            RenderArgs::new(self)
+            RenderArgs::new(*self)
                 .pos(pos.x, pos.y)
                 .size(size.width, size.height)
                 // TODO parameterize?
@@ -69,7 +69,7 @@ impl Flow {
 impl Component for Flow {
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let self_size = context.size();
         if let Some(bg) = self.bg {
             context.render_widget(
@@ -105,7 +105,7 @@ impl Component for Flow {
         let fill_size = free_space / max(1, num_fills);
         let mut current_pos = 0;
 
-        for (idx, (flowable, args)) in self.flowables.iter().enumerate() {
+        for (idx, (flowable, args)) in self.flowables.into_iter().enumerate() {
             let measured_size = flowable.measure(context, idx)?;
             let size_in_layout: Size = (
                 if self.direction == Dir::UpDown {

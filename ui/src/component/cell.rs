@@ -149,7 +149,7 @@ impl<O, C : MeasurableComponent<Output = O>> Cell<O, C> {
 impl<O, C : MeasurableComponent<Output = O>> Component for Cell<O, C> {
     type Output = O;
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let size = context.size();
         let size: Size = (
             min(size.width, self.max_width),
@@ -187,7 +187,7 @@ impl<O, C : MeasurableComponent<Output = O>> Component for Cell<O, C> {
             padding_bottom += 1;
         }
 
-        if let Some(content) = self.content.as_ref() {
+        if let Some(content) = self.content {
             let content_size = context.measure_component::<C>(&content)?;
             let rect = size.rect_at_origin();
 

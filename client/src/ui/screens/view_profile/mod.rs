@@ -26,7 +26,7 @@ impl<'a> StatefulComponent for ViewProfileScreen<'a> {
     }
 
     fn render(
-        &self,
+        self,
         context: &mut FrameContext,
         state: &mut Self::State,
     ) -> UIResult<Self::Output> {
@@ -81,7 +81,7 @@ impl<'a> StatefulComponent for ViewProfileScreen<'a> {
 
         context.render_component(
             RenderArgs::new(
-                &Cell::new(service_list_component.with_zero_measurement())
+                Cell::new(service_list_component.with_zero_measurement())
                     .border(
                         if state.focused_pane == FocusedPane::ServiceList {
                             focused_color
@@ -103,7 +103,7 @@ impl<'a> StatefulComponent for ViewProfileScreen<'a> {
 
         context.render_component(
             RenderArgs::new(
-                &Cell::new(
+                Cell::new(
                     output_pane::OutputPane {
                         wrap_output: state.wrap_output,
                         state: self.state,

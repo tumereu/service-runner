@@ -27,7 +27,7 @@ impl Spinner {
 impl Component for Spinner {
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let style = Style::default()
             .fg(self.fg.unwrap_or(
                 context.req_attr::<Color>(Text::ATTR_COLOR_FG)?.clone()

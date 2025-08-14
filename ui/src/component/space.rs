@@ -20,7 +20,7 @@ impl Space {
 impl Component for Space {
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         Ok(())
     }
 }

@@ -50,7 +50,7 @@ impl ServiceList<'_> {
 impl<'a> Component for ServiceList<'a> {
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let services = &self.services()?;
         let slots = self.resolve_slots()?;
         let longest_name = services
@@ -66,7 +66,7 @@ impl<'a> Component for ServiceList<'a> {
         let waiting_color = context.req_attr::<Color>(ATTR_COLOR_WORK_WAITING_TO_PROCESS)?.clone();
         let error_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ERROR)?.clone();
 
-        context.render_component(RenderArgs::new(&List::new(
+        context.render_component(RenderArgs::new(List::new(
             &"view-profile-service-list",
             services,
             |service, _| {

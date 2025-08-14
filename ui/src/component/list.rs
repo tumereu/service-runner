@@ -63,7 +63,7 @@ where
         &self.id
     }
 
-    fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         struct ResolvedElement<Element> {
             element: Element,
             size: Size,
@@ -151,7 +151,7 @@ where
             }
 
             context.render_component(
-                RenderArgs::new(&element)
+                RenderArgs::new(element)
                     .pos(0, current_y)
                     .size(self_size.width, size.height),
             )?;

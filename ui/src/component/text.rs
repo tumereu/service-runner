@@ -42,7 +42,7 @@ impl Text {
 impl Component for Text {
     type Output = ();
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let mut style = Style::default()
             .fg(self.fg.unwrap_or(
                 context.req_attr::<Color>(Self::ATTR_COLOR_FG)?.clone()

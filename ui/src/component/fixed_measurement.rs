@@ -25,7 +25,7 @@ where
 
     type Output = O;
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         self.component.render(context)
     }
 }

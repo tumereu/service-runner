@@ -64,7 +64,7 @@ impl ComponentRenderer {
                 let mut canvas = FrameContext::new(frame, self, frame_area);
 
                 let result = canvas.render_component(
-                    RenderArgs::new(&root).signals(SignalHandling::Overwrite(signals)),
+                    RenderArgs::new(root).signals(SignalHandling::Overwrite(signals)),
                 );
                 result_holder.borrow_mut().replace(result);
             })

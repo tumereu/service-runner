@@ -128,29 +128,20 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
 }
 
 #[derive(Clone)]
-pub struct RenderArgs<'a, Output, C> where C : Component<Output = Output>
+pub struct RenderArgs<Output, C> where C : Component<Output = Output>
 {
-    pub component: &'a C,
+    pub component: C,
     pub pos: Option<Position>,
     pub size: Option<Size>,
     pub signals: SignalHandling,
 }
-impl<'a, Output, C> RenderArgs<'a, Output, C> where C : Component<Output = Output> {
-    pub fn new(component: &'a C) -> RenderArgs<'a, Output, C> {
+impl<'a, Output, C> RenderArgs<Output, C> where C : Component<Output = Output> {
+    pub fn new(component: C) -> RenderArgs<Output, C> {
         RenderArgs {
             component,
             pos: None,
             size: None,
             signals: SignalHandling::Forward,
-        }
-    }
-
-    pub fn from(other: &RenderArgs<'a, Output, C>) -> RenderArgs<'a, Output, C> {
-        RenderArgs {
-            component: other.component.clone(),
-            pos: other.pos.clone(),
-            size: other.size.clone(),
-            signals: other.signals.clone(),
         }
     }
 

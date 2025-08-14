@@ -48,7 +48,7 @@ impl<'a> StatefulComponent for OutputPane<'a> {
         "view-profile-output-pane"
     }
 
-    fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         let OutputPane {
             wrap_output,
             state: system_state,
@@ -59,7 +59,7 @@ impl<'a> StatefulComponent for OutputPane<'a> {
 
         let mut flow = Flow::new().dir(Dir::UpDown).element(
             OutputDisplay {
-                wrap: *wrap_output,
+                wrap: wrap_output,
                 pos_horiz: state.pos_horiz,
                 lines: system_state
                     .output_store
@@ -135,7 +135,7 @@ impl<'a> StatefulComponent for OutputPane<'a> {
             flow = flow.element(Spinner::new(true), FlowableArgs { fill: false });
         }
 
-        context.render_component(RenderArgs::new(&flow))?;
+        context.render_component(RenderArgs::new(flow))?;
 
         Ok(())
     }
