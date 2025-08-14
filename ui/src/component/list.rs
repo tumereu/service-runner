@@ -15,6 +15,7 @@ where
     pub items: &'a Vec<Item>,
     pub create_element: CreateElement,
     pub id: String,
+    pub hide_highlight: bool,
 }
 impl<'a, ElementOutput, Item, Element, CreateElement>
     List<'a, ElementOutput, Item, Element, CreateElement>
@@ -28,7 +29,13 @@ where
             id: id.to_string(),
             items,
             create_element,
+            hide_highlight: false,
         }
+    }
+
+    pub fn highlight_visible(mut self, visible: bool) -> Self {
+        self.hide_highlight = !visible;
+        self
     }
 }
 
@@ -129,7 +136,7 @@ where
         } in resolved_elements
         {
             // Render highlight for active selection
-            if state.selection == index {
+            if state.selection == index && !self.hide_highlight {
                 context.render_widget(
                     Block::default().style(
                         Style::default()

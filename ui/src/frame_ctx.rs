@@ -7,9 +7,6 @@ use ratatui::layout::{Offset, Rect, Size};
 use ratatui::widgets::Widget;
 use ratatui::Frame;
 use std::any::Any;
-use std::cell::{Ref, RefCell};
-use std::rc::Rc;
-use log::debug;
 
 pub struct FrameContext<'a, 'b, 'c> {
     frame: &'a mut Frame<'b>,
@@ -51,20 +48,22 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
             width: size.width,
             height: size.height,
         }.intersection(self.current_area);
-        match signal_handling {
-            SignalHandling::Overwrite(signals) => {
-                // TODO do properly
-                self.signals = signals;
-            },
-            _ => {},
-        }
-
+        
+        let old_signals = match signal_handling {
+            SignalHandling::Forward => None,
+            SignalHandling::Overwrite(signals) => Some(self.signals.overwrite(signals)),
+            SignalHandling::Add(signals) => Some(self.signals.extend(signals)),
+            SignalHandling::Block => Some(self.signals.take()),
+        };
         let old_area = std::mem::replace(&mut self.current_area, new_area);
 
         let output = component.render(self)
             .map_err(|err| err.nested::<C>());
 
         self.current_area = old_area;
+        if let Some(signals) = old_signals {
+            self.signals = signals;
+        }
 
         output
     }

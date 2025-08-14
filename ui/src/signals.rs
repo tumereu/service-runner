@@ -36,6 +36,19 @@ impl Signals {
                 .collect()
         )
     }
+    
+    pub fn overwrite(&mut self, other: Signals) -> Signals {
+        std::mem::replace(self, other)
+    }
+
+    pub fn extend(&mut self, other: Signals) -> Signals {
+        let merged = Self::merged(&self, &other);
+        std::mem::replace(self, merged)
+    }
+
+    pub fn take(&mut self) -> Signals {
+        std::mem::replace(self, Signals::empty())
+    }
 
     pub fn matching<T>(&self) -> Vec<Rc<T>>
     where

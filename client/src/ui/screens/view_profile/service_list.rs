@@ -10,6 +10,7 @@ use crate::ui::theming::{ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COL
 
 pub struct ServiceList<'a> {
     pub state: &'a SystemState,
+    pub show_selection: bool,
 }
 impl ServiceList<'_> {
     pub fn services(&self) -> UIResult<&Vec<Service>> {
@@ -149,7 +150,7 @@ impl<'a> Component for ServiceList<'a> {
 
                 Ok(flow)
             },
-        )))?;
+        ).highlight_visible(self.show_selection)))?;
 
         Ok(())
     }

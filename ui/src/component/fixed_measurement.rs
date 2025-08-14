@@ -1,10 +1,18 @@
-use crate::component::{Component, MeasurableComponent};
+use crate::component::{Component, MeasurableComponent, StatefulComponent};
 use crate::{FrameContext, UIResult};
 use ratatui::layout::Size;
 
 pub struct FixedMeasurement<O, C>
 where
     C: Component<Output = O>,
+{
+    component: C,
+    size: Size,
+}
+
+pub struct FixedStatefulMeasurement<O, S, C>
+where
+    C: StatefulComponent<Output = O, State = S>,
 {
     component: C,
     size: Size,
@@ -55,5 +63,18 @@ where
             component: self,
             size: Size { width: width.into(), height: height.into() },
         }
+    }
+}
+
+pub trait WithZeroMeasurement<O, C> where C : Component<Output = O> {
+    fn with_zero_measurement(self) -> FixedMeasurement<O, C>;
+}
+impl <O, C, W> WithZeroMeasurement<O, C> for W
+where
+    C: Component<Output = O>,
+    W: WithMeasurement<Output = O, Component = C>
+{
+    fn with_zero_measurement(self) -> FixedMeasurement<O, C> {
+        self.with_measurement(0u16, 0u16)
     }
 }

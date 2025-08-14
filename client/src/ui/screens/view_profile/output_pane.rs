@@ -4,13 +4,12 @@ use crate::ui::screens::view_profile::output_display::{LinePart, OutputDisplay, 
 use ratatui::style::Color;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use log::debug;
-use ui::component::{Component, Dir, Flow, FlowableArgs, Spinner};
+use ratatui::layout::Size;
+use ui::component::{Component, Dir, Flow, FlowableArgs, MeasurableComponent, Spinner, StatefulComponent};
 use ui::{FrameContext, RenderArgs, UIResult};
 
 pub struct OutputPane<'a> {
     pub wrap_output: bool,
-    pub pos_horiz: Option<u64>,
-    pub pos_vert: Option<u128>,
     pub state: &'a SystemState,
 }
 impl OutputPane<'_> {
@@ -35,30 +34,39 @@ impl OutputPane<'_> {
     }
 }
 
-impl<'a> Component for OutputPane<'a> {
-    type Output = ();
+#[derive(Default)]
+pub struct OutputPaneState {
+    pub pos_horiz: Option<u64>,
+    pub pos_vert: Option<u128>,
+}
 
-    fn render(&self, context: &mut FrameContext) -> UIResult<Self::Output> {
+impl<'a> StatefulComponent for OutputPane<'a> {
+    type Output = ();
+    type State = OutputPaneState;
+
+    fn state_id(&self) -> &str {
+        "view-profile-output-pane"
+    }
+
+    fn render(&self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         let OutputPane {
             wrap_output,
-            pos_horiz,
-            pos_vert,
-            state,
+            state: system_state,
         } = self;
-        let theme = &state.config.settings.theme;
-        let profile = state.current_profile.as_ref().unwrap();
+        let theme = &system_state.config.settings.theme;
+        let profile = system_state.current_profile.as_ref().unwrap();
         let size = context.size();
 
         let mut flow = Flow::new().dir(Dir::UpDown).element(
             OutputDisplay {
                 wrap: *wrap_output,
-                pos_horiz: *pos_horiz,
-                lines: state
+                pos_horiz: state.pos_horiz,
+                lines: system_state
                     .output_store
                     .query_lines_to(
                         size.height as usize,
-                        *pos_vert,
-                        &get_active_outputs(&state.output_store, state),
+                        state.pos_vert,
+                        &get_active_outputs(&system_state.output_store, system_state),
                     )
                     .into_iter()
                     .map(|(key, line)| {
@@ -122,7 +130,8 @@ impl<'a> Component for OutputPane<'a> {
             FlowableArgs { fill: true },
         );
 
-        if pos_vert.is_none() {
+        // TODO maybe we can display this in a manner that doesn't look like its loading something?
+        if state.pos_vert.is_none() {
             flow = flow.element(Spinner::new(true), FlowableArgs { fill: false });
         }
 
