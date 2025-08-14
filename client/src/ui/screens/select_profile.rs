@@ -1,6 +1,6 @@
 use crate::system_state::SystemState;
 use ratatui::style::Color;
-use ui::component::{Align, Cell, Component, List, StatefulComponent, Text, ATTR_KEY_SELECT};
+use ui::component::{Align, Cell, Component, SimpleList, StatefulComponent, Text, ATTR_KEY_SELECT};
 use ui::{FrameContext, RenderArgs, UIResult};
 use ui::input::KeyMatcherQueryable;
 use crate::ui::actions::{Action, ActionStore};
@@ -26,7 +26,7 @@ impl<'a> Component for SelectProfileScreen<'a> {
         let list_output = context.render_component(
             RenderArgs::new(
                 Cell::new(
-                    Cell::new(List::new(
+                    Cell::new(SimpleList::new(
                         "select-profile-list",
                         &self.state.config.profiles,
                         |profile, _| Ok(Cell::new(Text::new(profile.id.clone())).align(Align::Center)),
@@ -44,9 +44,9 @@ impl<'a> Component for SelectProfileScreen<'a> {
             )
         )?;
 
-        if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_SELECT)?) {
+        if let Some(selection) = list_output {
             self.actions.register(Action::SelectProfile(
-                self.state.config.profiles[list_output.selected_index].id.clone()
+                self.state.config.profiles[selection.selected_index].id.clone()
             ));
         }
 

@@ -1,12 +1,15 @@
 use crossterm::event::KeyCode;
 use serde_derive::{Deserialize, Serialize};
 use ui::input::KeyMatcher;
+use crate::models::BlockAction;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 #[serde(default)]
 pub struct Keybinds {
     pub common: CommonKeybindings,
     pub output: OutputBindings,
+    pub service: ServiceBindings,
+    pub block_actions: Vec<ServiceAction>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -79,6 +82,41 @@ impl Default for OutputBindings {
             toggle_wrap: KeyMatcher::char('w').to_binding(),
         }
     }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(default)]
+pub struct ServiceBindings {
+    pub toggle_output_selected: Option<Keybinding>,
+    pub toggle_output_all: Option<Keybinding>,
+    pub toggle_automation_selected: Option<Keybinding>,
+    pub toggle_automation_all: Option<Keybinding>,
+}
+impl Default for ServiceBindings {
+    fn default() -> Self {
+        Self {
+            toggle_output_selected: KeyMatcher::char('o').to_binding(),
+            toggle_output_all: KeyMatcher::char('o').shift().to_binding(),
+            toggle_automation_selected: KeyMatcher::char('a').to_binding(),
+            toggle_automation_all: KeyMatcher::char('a').shift().to_binding(),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ServiceAction {
+    pub action: BlockAction,
+    pub block: String,
+    pub target: ServiceActionTarget,
+    pub binding: Keybinding,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum ServiceActionTarget {
+    #[serde(rename = "selected")]
+    Selected,
+    #[serde(rename = "all")]
+    All,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

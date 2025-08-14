@@ -2,7 +2,9 @@ use std::cell::RefCell;
 use crate::system_state::SystemState;
 
 pub enum Action {
-    SelectProfile(String)
+    SelectProfile(String),
+    ToggleOutput(String),
+    ToggleOutputAll,
 }
 
 pub struct ActionStore(RefCell<Vec<Action>>);
@@ -22,6 +24,12 @@ impl ActionStore {
     fn process_action(action: Action, state: &mut SystemState) {
         match action { 
             Action::SelectProfile(profile_id) => state.select_profile(&profile_id),
+            Action::ToggleOutput(service_id) => state.update_service(&service_id, |service| {
+                service.output_enabled = !service.output_enabled;
+            }),
+            Action::ToggleOutputAll => state.update_all_services(|service| {
+                service.output_enabled = !service.output_enabled;
+            }),
         }
     }
 }

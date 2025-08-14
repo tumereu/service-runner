@@ -6,10 +6,7 @@ use ratatui::layout::Size;
 use ratatui::style::Color;
 use std::cmp::max;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use ui::component::{
-    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, Component,
-    Dir, Flow, FlowableArgs, MeasurableComponent, Spinner, StatefulComponent,
-};
+use ui::component::{ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, Component, Dir, Flow, FlowableArgs, MeasurableComponent, Spinner, StatefulComponent, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE};
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIResult};
 
@@ -57,6 +54,15 @@ impl OutputPane<'_> {
         } else {
             None
         };
+        if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT_LARGE)?) {
+            state.pos_horiz = state.pos_horiz.saturating_sub(context.size().width as u64 / 2);
+        } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT)?) {
+            state.pos_horiz = state.pos_horiz.saturating_sub(1);
+        } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_RIGHT_LARGE)?) {
+            state.pos_horiz = state.pos_horiz.saturating_add(context.size().width as u64 / 2);
+        } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_RIGHT)?) {
+            state.pos_horiz = state.pos_horiz.saturating_add(1);
+        }
 
         if let Some(amount) = nav_up {
             let active_outputs = get_active_outputs(&system.output_store, &system);
@@ -106,7 +112,7 @@ impl OutputPane<'_> {
 
 #[derive(Default)]
 pub struct OutputPaneState {
-    pub pos_horiz: Option<u64>,
+    pub pos_horiz: u64,
     pub pos_vert: Option<u128>,
 }
 
@@ -133,7 +139,7 @@ impl<'a> StatefulComponent for OutputPane<'a> {
         let mut flow = Flow::new().dir(Dir::UpDown).element(
             OutputDisplay {
                 wrap: wrap_output,
-                pos_horiz: state.pos_horiz,
+                pos_horiz: Some(state.pos_horiz),
                 lines: system_state
                     .output_store
                     .query_lines_to(

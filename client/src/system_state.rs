@@ -187,6 +187,18 @@ impl SystemState {
         }
     }
 
+    pub fn update_all_services<F>(&mut self, update: F)
+    where
+        F: Fn(&mut Service),
+    {
+        if let Some(profile) = self.current_profile.as_mut() {
+            profile
+                .services
+                .iter_mut()
+                .for_each(update);
+        }
+    }
+
     pub fn update_task<F>(&mut self, id: &TaskId, update: F)
     where
         F: FnOnce(&mut Task),

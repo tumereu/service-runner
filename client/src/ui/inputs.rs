@@ -29,6 +29,9 @@ impl RegisterKeybinds for ComponentRenderer {
         binds.common.select.bind_key(ATTR_KEY_CANCEL, self);
         
         binds.output.toggle_wrap.bind_key(ATTR_KEY_TOGGLE_WRAP, self);
+
+        binds.service.toggle_output_selected.bind_key(ATTR_KEY_TOGGLE_SELECTED_OUTPUT, self);
+        binds.service.toggle_output_all.bind_key(ATTR_KEY_TOGGLE_ALL_OUTPUT, self);
     }
 }
 
@@ -48,3 +51,6 @@ pub const ATTR_KEY_FOCUS_NEXT: &'static str = "keybinds.common.focus_next";
 pub const ATTR_KEY_FOCUS_PREV: &'static str = "keybinds.common.focus_prev";
 
 pub const ATTR_KEY_TOGGLE_WRAP: &'static str = "keybinds.text_area.toggle_wrap";
+
+pub const ATTR_KEY_TOGGLE_SELECTED_OUTPUT: &'static str = "keybinds.services.toggle_selected_output";
+pub const ATTR_KEY_TOGGLE_ALL_OUTPUT: &'static str = "keybinds.services.toggle_all_output";

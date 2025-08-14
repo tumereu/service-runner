@@ -1,6 +1,7 @@
 mod cell;
 mod flow;
 mod list;
+mod simple_list;
 mod text;
 mod fixed_measurement;
 mod space;
@@ -10,6 +11,7 @@ pub use cell::*;
 pub use fixed_measurement::*;
 pub use flow::*;
 pub use list::*;
+pub use simple_list::*;
 pub use text::*;
 pub use space::*;
 pub use spinner::*;

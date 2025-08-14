@@ -4,7 +4,7 @@ use itertools::Itertools;
 use ratatui::layout::Size;
 use std::collections::HashMap;
 use ratatui::prelude::Color;
-use ui::component::{Component, Dir, Flow, FlowableArgs, List, MeasurableComponent, Space, Spinner, Text, WithMeasurement};
+use ui::component::{Component, Dir, Flow, FlowableArgs, SimpleList, MeasurableComponent, Space, Spinner, Text, WithMeasurement, List, StatefulComponent};
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
 use crate::ui::theming::{ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE, ATTR_COLOR_WORK_PROCESSING, ATTR_COLOR_WORK_WAITING_TO_PROCESS};
 
@@ -47,10 +47,20 @@ impl ServiceList<'_> {
     }
 }
 
-impl<'a> Component for ServiceList<'a> {
+#[derive(Default)]
+pub struct ServiceListState {
+    pub selection: usize,
+}
+
+impl<'a> StatefulComponent for ServiceList<'a> {
+    type State = ServiceListState;
     type Output = ();
 
-    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
+    fn state_id(&self) -> &str {
+        "view-profile-service-list"
+    }
+
+    fn render(self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
         let services = &self.services()?;
         let slots = self.resolve_slots()?;
         let longest_name = services
@@ -67,7 +77,7 @@ impl<'a> Component for ServiceList<'a> {
         let error_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ERROR)?.clone();
 
         context.render_component(RenderArgs::new(List::new(
-            &"view-profile-service-list",
+            &"view-profile-service-list-list",
             services,
             |service, _| {
                 let block_statuses: HashMap<String, BlockUIStatus> = service
@@ -150,7 +160,7 @@ impl<'a> Component for ServiceList<'a> {
 
                 Ok(flow)
             },
-        ).highlight_visible(self.show_selection)))?;
+        ).selection(if self.show_selection { Some(state.selection) } else { None })))?;
 
         Ok(())
     }
