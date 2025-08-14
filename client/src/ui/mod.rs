@@ -2,7 +2,6 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use crate::ui::screens::select_profile::SelectProfileScreen;
 use crate::SystemState;
-pub use state::{CurrentScreen, UIState, ViewProfileFloatingPane, ViewProfilePane, ViewProfileState};
 use ui::component::Component;
 use ui::{ComponentRenderer, FrameContext, RenderArgs, UIResult};
 use ui::input::KeyMatcherQueryable;
@@ -10,7 +9,6 @@ use crate::ui::actions::ActionStore;
 use crate::ui::inputs::ATTR_KEY_QUIT;
 use crate::ui::screens::view_profile::ViewProfileScreen;
 
-mod state;
 mod screens;
 
 pub mod theming;

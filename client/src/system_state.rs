@@ -4,14 +4,12 @@ use crate::models::{
 };
 use crate::runner::file_watcher::FileWatcherState;
 use crate::runner::service_worker::ConcurrentOperationHandle;
-use crate::ui::UIState;
 use std::collections::HashMap;
 use std::thread::JoinHandle;
 
 pub struct SystemState {
     pub current_profile: Option<Profile>,
     pub output_store: OutputStore,
-    pub ui: UIState,
     pub config: Config,
     pub should_exit: bool,
     pub active_threads: Vec<(String, JoinHandle<()>)>,
@@ -44,7 +42,6 @@ impl SystemState {
         SystemState {
             should_exit: false,
             current_profile: None,
-            ui: UIState::new(),
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
             file_watchers: None,

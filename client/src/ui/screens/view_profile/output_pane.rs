@@ -1,11 +1,16 @@
 use crate::models::{OutputKind, Profile, get_active_outputs};
 use crate::system_state::SystemState;
 use crate::ui::screens::view_profile::output_display::{LinePart, OutputDisplay, OutputLine};
-use ratatui::style::Color;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use log::debug;
 use ratatui::layout::Size;
-use ui::component::{Component, Dir, Flow, FlowableArgs, MeasurableComponent, Spinner, StatefulComponent};
+use ratatui::style::Color;
+use std::cmp::max;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use ui::component::{
+    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, Component,
+    Dir, Flow, FlowableArgs, MeasurableComponent, Spinner, StatefulComponent,
+};
+use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIResult};
 
 pub struct OutputPane<'a> {
@@ -20,17 +25,82 @@ impl OutputPane<'_> {
         hasher.finish() as usize
     }
 
-    fn force_len(text: &str, len: usize) -> String {
-        let actual_len = text.chars().count();
-
-        if actual_len == len {
-            text.to_string()
-        } else if actual_len > len {
-            text.chars().take(len).collect()
+    fn process_inputs(
+        &self,
+        context: &mut FrameContext,
+        system: &SystemState,
+        state: &mut OutputPaneState,
+    ) -> UIResult<()> {
+        let nav_down = if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_DOWN)?)
+        {
+            Some(1)
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_DOWN_LARGE)?)
+        {
+            Some(context.size().height as usize / 2)
         } else {
-            let padding = " ".repeat(len - actual_len);
-            format!("{}{}", text, padding)
+            None
+        };
+        let nav_up = if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_UP)?)
+        {
+            Some(1)
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_UP_LARGE)?)
+        {
+            Some(context.size().height as usize / 2)
+        } else {
+            None
+        };
+
+        if let Some(amount) = nav_up {
+            let active_outputs = get_active_outputs(&system.output_store, &system);
+            // Prevent users from scrolling past the first line of output
+            // TODO this actually prevents viewing the first lines if wrapping is on, as it doesn't account for that.
+            let min_index = system
+                .output_store
+                .query_lines_from(
+                    context.size().height as usize,
+                    None,
+                    &active_outputs,
+                )
+                .last()
+                .unwrap()
+                .1
+                .index;
+
+            state.pos_vert = system
+                .output_store
+                .query_lines_to(
+                    amount + if state.pos_vert.is_none() { 0 } else { 1 },
+                    state.pos_vert,
+                    &active_outputs,
+                )
+                .first()
+                .map(|(_, line)| max(line.index, min_index));
+        } else if let Some(amount) = nav_down {
+            state.pos_vert = state.pos_vert.and_then(|pos| {
+                let lines = system.output_store.query_lines_from(
+                    amount + 1,
+                    Some(pos),
+                    &get_active_outputs(&system.output_store, &system),
+                );
+                if lines.len() == amount + 1 {
+                    lines.last().map(|(_, line)| line.index)
+                } else {
+                    None
+                }
+            });
         }
+
+        // TODO check available space and set to auto-scroll if there's less lines than height (accountign for wrapping)
+
+        Ok(())
     }
 }
 
@@ -56,6 +126,9 @@ impl<'a> StatefulComponent for OutputPane<'a> {
         let theme = &system_state.config.settings.theme;
         let profile = system_state.current_profile.as_ref().unwrap();
         let size = context.size();
+
+        self.process_inputs(context, &system_state, state)?;
+
 
         let mut flow = Flow::new().dir(Dir::UpDown).element(
             OutputDisplay {
@@ -109,10 +182,7 @@ impl<'a> StatefulComponent for OutputPane<'a> {
                                     .into(),
                                 },
                                 LinePart {
-                                    text: format!(
-                                        "{name} | ",
-                                        name = key.source_name
-                                    ),
+                                    text: format!("{name} | ", name = key.source_name),
                                     color: Some(
                                         theme.source_colors[Self::hash_name(&key.source_name)
                                             % theme.source_colors.len()],

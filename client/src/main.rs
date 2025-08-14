@@ -16,16 +16,15 @@ use crate::models::Action::ActivateProfile;
 use crate::models::Profile;
 use crate::runner::automation::start_automation_processor;
 use crate::runner::file_watcher::start_file_watcher;
-use crate::runner::process_action::process_action;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
+use crate::ui::actions::{Action, ActionStore};
 use crate::ui::inputs::RegisterKeybinds;
 use crate::ui::theming::RegisterTheme;
 use crate::ui::ViewRoot;
 
 mod system_state;
-mod input;
 mod ui;
 mod models;
 mod runner;
@@ -121,15 +120,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Check for autolaunched profile
     {
         let mut system = system_state.write().unwrap();
+        let actions = ActionStore::new();
 
         if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
             let selection = system.config.profiles.iter()
                 .find(|profile| &profile.id == autolaunch_profile)
                 .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile));
 
-            let action = ActivateProfile(Profile::new(selection.clone(), &system.config.services));
-            process_action(&mut system, action);
+            actions.register(Action::SelectProfile(selection.id.clone()));
         }
+        
+        actions.process(&mut system);
     }
 
     let backend = CrosstermBackend::new(stdout);
