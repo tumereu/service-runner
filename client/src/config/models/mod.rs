@@ -5,6 +5,7 @@ pub use profile_definition::*;
 pub use requirement::*;
 pub use service_definition::*;
 pub use theme::*;
+pub use keybinds::*;
 
 mod executable_entry;
 mod requirement;
@@ -13,4 +14,5 @@ mod service_definition;
 mod profile_definition;
 mod config;
 mod theme;
+mod keybinds;
 

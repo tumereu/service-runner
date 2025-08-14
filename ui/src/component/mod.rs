@@ -51,6 +51,16 @@ pub const ATTR_KEY_NAV_DOWN: &'static str = "keybinds.common.nav_down";
 pub const ATTR_KEY_NAV_UP: &'static str = "keybinds.common.nav_up";
 pub const ATTR_KEY_NAV_LEFT: &'static str = "keybinds.common.nav_left";
 pub const ATTR_KEY_NAV_RIGHT: &'static str = "keybinds.common.nav_right";
+
+pub const ATTR_KEY_NAV_DOWN_LARGE: &'static str = "keybinds.common.nav_down_large";
+pub const ATTR_KEY_NAV_UP_LARGE: &'static str = "keybinds.common.nav_up_large";
+pub const ATTR_KEY_NAV_LEFT_LARGE: &'static str = "keybinds.common.nav_left_large";
+pub const ATTR_KEY_NAV_RIGHT_LARGE: &'static str = "keybinds.common.nav_right_large";
+
+pub const ATTR_KEY_NAV_TO_START: &'static str = "keybinds.common.nav_to_start";
+pub const ATTR_KEY_NAV_TO_END: &'static str = "keybinds.common.nav_to_end";
+
+pub const ATTR_KEY_CANCEL: &'static str = "keybinds.common.cancel";
 pub const ATTR_KEY_SELECT: &'static str = "keybinds.common.select";
 
 pub const ATTR_COLOR_HIGHLIGHT: &'static str = "colors.common.highlight";

@@ -2067,6 +2067,7 @@ dependencies = [
  "log",
  "once_cell",
  "ratatui",
+ "serde",
 ]
 
 [[package]]

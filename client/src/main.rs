@@ -20,6 +20,7 @@ use crate::runner::process_action::process_action;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
+use crate::ui::inputs::RegisterKeybinds;
 use crate::ui::theming::RegisterTheme;
 use crate::ui::ViewRoot;
 
@@ -136,18 +137,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut renderer = ComponentRenderer::new();
     renderer.assign_default_attributes();
     renderer.register_theme(&system_state.read().unwrap().config.settings.theme);
+    renderer.register_keybinds(&system_state.read().unwrap().config.settings.keybinds);
 
     let mut ui_result: UIResult<()> = Ok(());
 
     loop {
         let input_events = collect_input_events();
-        // TODO move to proper input handler
-        if input_events.iter().any(|ev| {
-            KeyMatcher::char('q').ctrl().matches_event(ev)
-        }) {
-            break;
-        }
-        
         renderer.send_input_signals(input_events);
 
         match renderer.render_root(

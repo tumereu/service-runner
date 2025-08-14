@@ -9,6 +9,7 @@ use ratatui::prelude::Color;
 use ui::component::{Align, Cell, Component, StatefulComponent, WithMeasurement};
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
 use ui::input::{KeyMatcher, KeyMatcherQueryable};
+use crate::ui::inputs::ATTR_KEY_TOGGLE_WRAP;
 
 pub struct ViewProfileScreen<'a> {
     pub state: &'a SystemState,
@@ -40,7 +41,7 @@ impl<'a> StatefulComponent for ViewProfileScreen<'a> {
             .clone();
 
         // TODO move into settings file and attributes
-        if context.signals().is_key_pressed(vec![KeyMatcher::char('w')]) {
+        if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_WRAP)?) {
             state.wrap_output = !state.wrap_output;
         }
 

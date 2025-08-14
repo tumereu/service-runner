@@ -21,7 +21,7 @@ once_cell = "1.17.1"
 unicode-segmentation = "1.10.1"
 derive_more = {  version = "2.0.1", features = ["full"] }
 
-serde = "1.0.204"
+serde.workspace = true
 serde-aux = "4.5.0"
 serde_derive = "1.0.204"
 serde_path_to_error = "0.1.16"
