@@ -1,5 +1,5 @@
-use crate::config::TaskDefinitionId;
-use crate::models::{BlockAction, BlockStatus};
+use crate::config::{BlockId, ServiceId, TaskDefinitionId};
+use crate::models::{BlockAction, BlockStatus, Service};
 use crate::system_state::SystemState;
 use crossterm::style::Stylize;
 use log::error;
@@ -88,7 +88,7 @@ impl RhaiExecutor {
     fn populate_rhai_scope(
         state_arc: Arc<RwLock<SystemState>>,
         scope: &mut Scope,
-        service_id: Option<String>,
+        service_id: Option<ServiceId>,
     ) {
         let state = state_arc.read().unwrap();
 
@@ -111,16 +111,16 @@ impl RhaiExecutor {
                     "is_processing".into(),
                     state.has_block_operations(&service.definition.id, &block.id).into(),
                 );
-                block_map.insert("id".into(), block.id.clone().into());
+                block_map.insert("id".into(), block.id.inner().clone().into());
 
-                blocks.insert(block.id.clone().into(), block_map.into());
+                blocks.insert(block.id.inner().clone().into(), block_map.into());
             });
 
             let mut service_map = Map::new();
             service_map.insert("blocks".into(), blocks.into());
-            service_map.insert("id".into(), service.definition.id.clone().into());
+            service_map.insert("id".into(), service.definition.id.inner().clone().into());
 
-            scope.push(service.definition.id.clone(), service_map.clone());
+            scope.push(service.definition.id.inner().clone(), service_map.clone());
             match service_id.as_ref() {
                 Some(service_id) if service_id == &service.definition.id => {
                     scope.push("self", service_map);
@@ -166,8 +166,8 @@ impl RhaiExecutor {
             let state_arc = state_arc.clone();
             function_engine.register_fn(name, move |service: &str, block: &str| {
                 let mut state = state_arc.write().unwrap();
-                state.update_service(service, |service| {
-                    service.update_block_action(block, Some(action.clone()))
+                state.update_service(&ServiceId::new(service), |service| {
+                    service.update_block_action(&BlockId::new(block), Some(action.clone()))
                 });
             });
         });
@@ -177,7 +177,7 @@ impl RhaiExecutor {
             function_engine.register_fn("spawn_task", move |service: &str, definition_id: &str| {
                 let mut state = state_arc.write().unwrap();
                 state.current_profile.iter_mut().for_each(|profile| {
-                    profile.spawn_task(&TaskDefinitionId(definition_id.to_owned()), Some(service.to_owned()));
+                    profile.spawn_task(&TaskDefinitionId(definition_id.to_owned()), Some(ServiceId::new(service)));
                 });
             });
         }
@@ -196,6 +196,6 @@ impl RhaiExecutor {
 pub struct RhaiRequest {
     pub script: String,
     pub allow_functions: bool,
-    pub service_id: Option<String>,
+    pub service_id: Option<ServiceId>,
 }
 

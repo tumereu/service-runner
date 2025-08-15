@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::convert::Into;
 
 use serde::{Deserialize, Serialize};
-
+use crate::config::ServiceId;
 use crate::system_state::SystemState;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -167,7 +167,7 @@ impl OutputStore {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct OutputKey {
-    pub service_id: Option<String>,
+    pub service_id: Option<ServiceId>,
     pub source_name: String,
     pub kind: OutputKind,
 }

@@ -1,7 +1,8 @@
 use ui::component::{ATTR_KEY_CANCEL, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, ATTR_KEY_SELECT};
 use ui::ComponentRenderer;
 use ui::input::KeyMatcher;
-use crate::config::{Keybinding, Keybinds};
+use crate::config::{Keybinding, Keybinds, ResolvedBlockActionBinding, ServiceActionTarget};
+use crate::models::BlockAction;
 
 pub trait RegisterKeybinds {
     fn register_keybinds(&mut self, binds: &Keybinds);
@@ -32,6 +33,10 @@ impl RegisterKeybinds for ComponentRenderer {
 
         binds.service.toggle_output_selected.bind_key(ATTR_KEY_TOGGLE_SELECTED_OUTPUT, self);
         binds.service.toggle_output_all.bind_key(ATTR_KEY_TOGGLE_ALL_OUTPUT, self);
+
+        self.set_attr(ATTR_KEY_BLOCK_ACTIONS, binds.block_actions.iter()
+            .map(|action| action.resolve())
+            .collect::<Vec<ResolvedBlockActionBinding>>());
     }
 }
 
@@ -54,3 +59,5 @@ pub const ATTR_KEY_TOGGLE_WRAP: &'static str = "keybinds.text_area.toggle_wrap";
 
 pub const ATTR_KEY_TOGGLE_SELECTED_OUTPUT: &'static str = "keybinds.services.toggle_selected_output";
 pub const ATTR_KEY_TOGGLE_ALL_OUTPUT: &'static str = "keybinds.services.toggle_all_output";
+
+pub const ATTR_KEY_BLOCK_ACTIONS: &'static str = "keymappings.service_list.block_actions";

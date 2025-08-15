@@ -57,6 +57,7 @@ impl<'a> StatefulComponent for ViewProfileScreen<'a> {
         let service_list_component = service_list::ServiceList {
             state: self.state,
             show_selection: state.focused_pane == FocusedPane::ServiceList,
+            actions: self.actions,
         };
         let self_size = context.size();
         let list_width = context.measure_component(&service_list_component)?.width + 2;

@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::config::AutomationEntry;
+use crate::config::{AutomationEntry, ServiceId};
 use crate::system_state::SystemState;
 
 /// Starts a new thread that periodically checks the system's pending automations and returns a join handle for the
@@ -25,7 +25,7 @@ pub fn start_automation_processor(system_arc: Arc<RwLock<SystemState>>) -> threa
 /// [ServiceStatus::automation_enabled] and [ServiceStatus::automation_modes] for the specific entry.
 pub fn enqueue_automation(
     system: &mut SystemState,
-    service_name: &str,
+    service_name: &ServiceId,
     automation_entry: &AutomationEntry
 ) {
     let automation_name = &automation_entry.name;

@@ -1,4 +1,4 @@
-use crate::config::{Block, Config, TaskDefinition, TaskDefinitionId};
+use crate::config::{Block, BlockId, Config, ServiceId, TaskDefinition, TaskDefinitionId};
 use crate::models::{
     BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId,
 };
@@ -20,8 +20,8 @@ pub struct SystemState {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum ConcurrentOperationKey {
     Block {
-        service_id: String,
-        block_id: String,
+        service_id: ServiceId,
+        block_id: BlockId,
         operation_type: OperationType,
     },
     Task {
@@ -75,7 +75,7 @@ impl SystemState {
         self.concurrent_operations.get(key)
     }
 
-    pub fn is_processing(&self, service_id: &str) -> bool {
+    pub fn is_processing(&self, service_id: &ServiceId) -> bool {
         // TODO if a block is checking prereqs and has failed, do not count it as processing
         self.get_service(service_id)
             .iter()
@@ -105,13 +105,13 @@ impl SystemState {
             })
     }
 
-    pub fn has_block_operations(&self, service_id: &str, block_id: &str) -> bool {
+    pub fn has_block_operations(&self, service_id: &ServiceId, block_id: &BlockId) -> bool {
         [OperationType::Check, OperationType::Work]
             .iter()
             .any(|operation_type| {
                 self.get_concurrent_operation(&ConcurrentOperationKey::Block {
-                    service_id: service_id.to_owned(),
-                    block_id: block_id.to_string(),
+                    service_id: service_id.clone(),
+                    block_id: block_id.clone(),
                     operation_type: operation_type.clone(),
                 })
                 .is_some()
@@ -129,12 +129,12 @@ impl SystemState {
         };
     }
 
-    pub fn get_service(&self, service_id: &str) -> Option<&Service> {
+    pub fn get_service(&self, service_id: &ServiceId) -> Option<&Service> {
         self.current_profile.as_ref().and_then(|profile| {
             profile
                 .services
                 .iter()
-                .find(|service| service.definition.id == service_id)
+                .find(|service| &service.definition.id == service_id)
         })
     }
 
@@ -147,7 +147,7 @@ impl SystemState {
     pub fn get_task_definition(
         &self,
         id: &TaskDefinitionId,
-        service_id: Option<String>,
+        service_id: Option<ServiceId>,
     ) -> Option<&TaskDefinition> {
         let result = self.current_profile.as_ref().and_then(|profile| {
             profile
@@ -160,7 +160,7 @@ impl SystemState {
         result
     }
 
-    pub fn get_service_block(&self, service_id: &str, block_id: &str) -> Option<&Block> {
+    pub fn get_service_block(&self, service_id: &ServiceId, block_id: &BlockId) -> Option<&Block> {
         self.get_service(service_id)
             .and_then(|service| service.get_block(block_id))
     }
@@ -171,7 +171,7 @@ impl SystemState {
             .flat_map(|profile| profile.services.iter())
     }
 
-    pub fn update_service<F>(&mut self, service_id: &str, update: F)
+    pub fn update_service<F>(&mut self, service_id: &ServiceId, update: F)
     where
         F: FnOnce(&mut Service),
     {
@@ -179,7 +179,7 @@ impl SystemState {
             profile
                 .services
                 .iter_mut()
-                .find(|service| service.definition.id == service_id)
+                .find(|service| &service.definition.id == service_id)
         });
 
         if let Some(service) = service_option {

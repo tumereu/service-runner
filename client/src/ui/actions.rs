@@ -1,10 +1,13 @@
 use std::cell::RefCell;
+use crate::config::{BlockId, ServiceId};
+use crate::models::BlockAction;
 use crate::system_state::SystemState;
 
 pub enum Action {
     SelectProfile(String),
-    ToggleOutput(String),
+    ToggleOutput(ServiceId),
     ToggleOutputAll,
+    SetBlockAction(ServiceId, BlockId, BlockAction),
 }
 
 pub struct ActionStore(RefCell<Vec<Action>>);
@@ -30,6 +33,11 @@ impl ActionStore {
             Action::ToggleOutputAll => state.update_all_services(|service| {
                 service.output_enabled = !service.output_enabled;
             }),
+            Action::SetBlockAction(service_id, block_id, action) => {
+                state.update_service(&service_id, |service| {
+                    service.update_block_action(&block_id, Some(action));
+                })
+            }
         }
     }
 }

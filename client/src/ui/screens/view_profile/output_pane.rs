@@ -162,8 +162,7 @@ impl<'a> StatefulComponent for OutputPane<'a> {
                             })
                             .unwrap_or(profile.services.len());
                         let name = key
-                            .service_id
-                            .clone()
+                            .service_id.as_ref().map(|id| id.inner().to_owned())
                             .unwrap_or(profile.definition.id.clone());
 
                         OutputLine {

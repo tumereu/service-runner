@@ -3,33 +3,33 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::{Block, ServiceDefinition};
+use crate::config::{Block, BlockId, ServiceDefinition};
 
 #[derive(Debug, Clone)]
 pub struct Service {
     pub definition: ServiceDefinition,
-    block_statuses: HashMap<String, BlockStatus>,
-    block_actions: HashMap<String, BlockAction>,
+    block_statuses: HashMap<BlockId, BlockStatus>,
+    block_actions: HashMap<BlockId, BlockAction>,
     pub output_enabled: bool,
 }
 impl Service {
-    pub fn update_block_status(&mut self, block_id: &str, status: BlockStatus)
+    pub fn update_block_status(&mut self, block_id: &BlockId, status: BlockStatus)
     {
-        if self.definition.blocks.iter().all(|block| block.id != block_id) {
+        if self.definition.blocks.iter().all(|block| &block.id != block_id) {
             return;
         }
 
-        self.block_statuses.insert(block_id.to_owned(), status);
+        self.block_statuses.insert(block_id.clone(), status);
     }
 
-    pub fn get_block_status(&self, block_id: &str) -> BlockStatus
+    pub fn get_block_status(&self, block_id: &BlockId) -> BlockStatus
     {
         self.block_statuses.get(block_id).unwrap_or(&BlockStatus::Initial).clone()
     }
 
-    pub fn update_block_action(&mut self, block_id: &str, action: Option<BlockAction>)
+    pub fn update_block_action(&mut self, block_id: &BlockId, action: Option<BlockAction>)
     {
-        if self.definition.blocks.iter().all(|block| block.id != block_id) {
+        if self.definition.blocks.iter().all(|block| &block.id != block_id) {
             return;
         }
 
@@ -39,7 +39,7 @@ impl Service {
         };
     }
 
-    pub fn get_block_action(&self, block_id: &str) -> Option<BlockAction>
+    pub fn get_block_action(&self, block_id: &BlockId) -> Option<BlockAction>
     {
         self.block_actions.get(block_id).map(|action| action.clone())
     }
@@ -104,26 +104,33 @@ pub enum WorkStep {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockAction {
+    #[serde(rename = "disable")]
     Disable,
+    #[serde(rename = "enable")]
     Enable,
+    #[serde(rename = "toggle_enabled")]
     ToggleEnabled,
+    #[serde(rename = "run")]
     Run,
+    #[serde(rename = "rerun")]
     ReRun,
+    #[serde(rename = "stop")]
     Stop,
+    #[serde(rename = "cancel")]
     Cancel,
 }
 
 pub trait GetBlock {
-    fn get_block(&self, block_id: &str) -> Option<&Block>;
+    fn get_block(&self, block_id: &BlockId) -> Option<&Block>;
 }
 
 impl GetBlock for ServiceDefinition {
-    fn get_block(&self, block_id: &str) -> Option<&Block> {
-        self.blocks.iter().find(|s| s.id == block_id)
+    fn get_block(&self, block_id: &BlockId) -> Option<&Block> {
+        self.blocks.iter().find(|block| &block.id == block_id)
     }
 }
 impl GetBlock for Service {
-    fn get_block(&self, block_id: &str) -> Option<&Block> {
+    fn get_block(&self, block_id: &BlockId) -> Option<&Block> {
         self.definition.get_block(block_id)
     }
 }

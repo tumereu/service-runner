@@ -1,4 +1,4 @@
-use crate::config::{ProfileDefinition, ServiceDefinition, TaskDefinition, TaskDefinitionId};
+use crate::config::{ProfileDefinition, ServiceDefinition, ServiceId, TaskDefinition, TaskDefinitionId};
 use crate::models::task::{Task, TaskStatus};
 use crate::models::{Service, TaskId};
 use log::error;
@@ -12,7 +12,7 @@ pub struct Profile {
     pub definition: ProfileDefinition,
     pub services: Vec<Service>,
     pub tasks: VecDeque<Task>,
-    pub all_task_definitions: Vec<(TaskDefinition, Option<String>)>
+    pub all_task_definitions: Vec<(TaskDefinition, Option<ServiceId>)>
 }
 impl Profile {
     pub fn new(profile: ProfileDefinition, all_services: &Vec<ServiceDefinition>) -> Profile {
@@ -26,7 +26,7 @@ impl Profile {
             })
             .collect();
 
-        let all_task_definitions: Vec<(TaskDefinition, Option<String>)> = profile.tasks.iter().map(|task_def| (task_def.clone(), None))
+        let all_task_definitions: Vec<(TaskDefinition, Option<ServiceId>)> = profile.tasks.iter().map(|task_def| (task_def.clone(), None))
             .chain(
                 services.iter().flat_map(|service| {
                     service.definition.tasks.iter().map(|task_def| (task_def.clone(), Some(service.definition.id.clone())))
@@ -41,7 +41,7 @@ impl Profile {
         }
     }
     
-    pub fn spawn_task(&mut self, task_definition_id: &TaskDefinitionId, service_id: Option<String>) {
+    pub fn spawn_task(&mut self, task_definition_id: &TaskDefinitionId, service_id: Option<ServiceId>) {
         let task_def = match service_id.as_ref() { 
             None => self.definition.tasks.iter().find(|task| &task.id == task_definition_id),
             Some(service_id) => self.services

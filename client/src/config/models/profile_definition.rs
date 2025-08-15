@@ -1,4 +1,4 @@
-use crate::config::TaskDefinition;
+use crate::config::{ServiceId, TaskDefinition};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -14,5 +14,5 @@ pub struct ProfileDefinition {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ServiceRef {
-    pub id: String,
+    pub id: ServiceId,
 }

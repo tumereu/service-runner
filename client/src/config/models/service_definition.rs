@@ -10,7 +10,7 @@ use derive_more::Display;
 //      - ids should be at most 23 characters long to support SmartString
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServiceDefinition {
-    pub id: String,
+    pub id: ServiceId,
     pub workdir: String,
     pub blocks: Vec<Block>,
     #[serde(default = "Vec::new")]
@@ -19,9 +19,21 @@ pub struct ServiceDefinition {
     pub tasks: Vec<TaskDefinition>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Display, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ServiceId(String);
+impl ServiceId {
+    pub fn new(id: &str) -> Self {
+        Self(id.to_string())
+    }
+    
+    pub fn inner(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
-    pub id: String,
+    pub id: BlockId,
     pub status_line: StatusLine,
     #[serde(default)]
     pub health: HealthCheckConfig,
@@ -29,6 +41,18 @@ pub struct Block {
     pub prerequisites: Vec<Requirement>,
     #[serde(flatten)]
     pub work: WorkDefinition,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Display, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BlockId(String);
+impl BlockId {
+    pub fn new(id: &str) -> Self {
+        Self(id.to_string())
+    }
+    
+    pub fn inner(&self) -> &str {
+        &self.0
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

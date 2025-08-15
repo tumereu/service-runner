@@ -9,7 +9,7 @@ pub struct Keybinds {
     pub common: CommonKeybindings,
     pub output: OutputBindings,
     pub service: ServiceBindings,
-    pub block_actions: Vec<ServiceAction>,
+    pub block_actions: Vec<ServiceActionBinding>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -104,11 +104,43 @@ impl Default for ServiceBindings {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct ServiceAction {
+pub struct ServiceActionBinding {
     pub action: BlockAction,
-    pub block: String,
+    #[serde(flatten)]
+    pub blocks: ServiceActionBlocks,
     pub target: ServiceActionTarget,
-    pub binding: Keybinding,
+    pub key: Keybinding,
+}
+impl ServiceActionBinding {
+    pub fn resolve(&self) -> ResolvedBlockActionBinding {
+        ResolvedBlockActionBinding {
+            action: self.action.clone(),
+            blocks: match &self.blocks {
+                ServiceActionBlocks::Block { block } => vec![block.clone()],
+                ServiceActionBlocks::Blocks { blocks } => blocks.clone(),
+            },
+            target: self.target.clone(),
+            keys: match &self.key {
+                Keybinding::Single(matcher) => vec![matcher.clone()],
+                Keybinding::Multi(matchers) => matchers.clone(),
+            }
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum ServiceActionBlocks {
+    Block { block: String },
+    Blocks { blocks: Vec<String> },
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedBlockActionBinding {
+    pub action: BlockAction,
+    pub blocks: Vec<String>,
+    pub target: ServiceActionTarget,
+    pub keys: Vec<KeyMatcher>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

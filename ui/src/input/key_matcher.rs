@@ -40,7 +40,12 @@ impl KeyMatcher {
     }
 
     pub fn matches(&self, event: &crossterm::event::KeyEvent) -> bool {
-        self.key == event.code
+        let key_matches = match (event.code, self.key) {
+            (KeyCode::Char(ev_char), KeyCode::Char(req_char)) => ev_char.to_ascii_lowercase() == req_char,
+            (KeyCode::BackTab, KeyCode::Tab) if self.shift => true,
+            _ => event.code == self.key,
+        };
+        key_matches
             && self.shift
                 == event
                     .modifiers

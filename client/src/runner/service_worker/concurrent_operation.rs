@@ -8,7 +8,7 @@ use std::{io, thread};
 use log::{error, info};
 use nix::libc::SIGKILL;
 
-use crate::config::ExecutableEntry;
+use crate::config::{ExecutableEntry, ServiceId};
 use crate::models::{OutputKey, OutputKind};
 use crate::system_state::SystemState;
 
@@ -49,7 +49,7 @@ pub struct WorkWrapper {
 impl WorkWrapper {
     pub fn wrap<F>(
         state_arc: Arc<RwLock<SystemState>>,
-        service_id: Option<String>,
+        service_id: Option<ServiceId>,
         work_name: String,
         silent: bool,
         work: F
@@ -102,7 +102,7 @@ pub struct WorkResult {
 
 pub struct ProcessWrapper {
     pub handle: Arc<Mutex<Child>>,
-    pub service_id: Option<String>,
+    pub service_id: Option<ServiceId>,
     pub work_name: String,
     pub status: Arc<Mutex<ConcurrentOperationStatus>>,
     force_exit: Arc<Mutex<bool>>,
@@ -110,7 +110,7 @@ pub struct ProcessWrapper {
 impl ProcessWrapper {
     pub fn wrap(
         state_arc: Arc<RwLock<SystemState>>,
-        service_id: Option<String>,
+        service_id: Option<ServiceId>,
         work_name: String,
         process: Child,
     ) -> ProcessWrapper {

@@ -1,15 +1,27 @@
+use crate::config::{ResolvedBlockActionBinding, ServiceActionBinding, ServiceActionTarget};
 use crate::models::{BlockStatus, Service, WorkStep};
 use crate::system_state::SystemState;
+use crate::ui::inputs::ATTR_KEY_BLOCK_ACTIONS;
+use crate::ui::theming::{
+    ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE,
+    ATTR_COLOR_WORK_PROCESSING, ATTR_COLOR_WORK_WAITING_TO_PROCESS,
+};
 use itertools::Itertools;
 use ratatui::layout::Size;
-use std::collections::HashMap;
 use ratatui::prelude::Color;
-use ui::component::{Component, Dir, Flow, FlowableArgs, SimpleList, MeasurableComponent, Space, Spinner, Text, WithMeasurement, List, StatefulComponent};
+use std::collections::HashMap;
+use ui::component::{
+    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP,
+    ATTR_KEY_SELECT, Component, Dir, Flow, FlowableArgs, List, MeasurableComponent, SimpleList,
+    Space, Spinner, StatefulComponent, Text, WithMeasurement,
+};
+use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
-use crate::ui::theming::{ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE, ATTR_COLOR_WORK_PROCESSING, ATTR_COLOR_WORK_WAITING_TO_PROCESS};
+use crate::ui::actions::{Action, ActionStore};
 
 pub struct ServiceList<'a> {
     pub state: &'a SystemState,
+    pub actions: &'a ActionStore,
     pub show_selection: bool,
 }
 impl ServiceList<'_> {
@@ -65,28 +77,88 @@ impl<'a> StatefulComponent for ServiceList<'a> {
         let slots = self.resolve_slots()?;
         let longest_name = services
             .iter()
-            .map(|s| s.definition.id.len())
+            .map(|s| s.definition.id.inner().len())
             .max()
             .unwrap_or(0);
 
         let idle_color = context.req_attr::<Color>(ATTR_COLOR_WORK_IDLE)?.clone();
         let inactive_color = context.req_attr::<Color>(ATTR_COLOR_WORK_INACTIVE)?.clone();
         let active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ACTIVE)?.clone();
-        let processing_color = context.req_attr::<Color>(ATTR_COLOR_WORK_PROCESSING)?.clone();
-        let waiting_color = context.req_attr::<Color>(ATTR_COLOR_WORK_WAITING_TO_PROCESS)?.clone();
+        let processing_color = context
+            .req_attr::<Color>(ATTR_COLOR_WORK_PROCESSING)?
+            .clone();
+        let waiting_color = context
+            .req_attr::<Color>(ATTR_COLOR_WORK_WAITING_TO_PROCESS)?
+            .clone();
         let error_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ERROR)?.clone();
 
-        context.render_component(RenderArgs::new(List::new(
-            &"view-profile-service-list-list",
-            services,
-            |service, _| {
+        if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_DOWN)?)
+        {
+            state.selection = (state.selection + 1).min(services.len());
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_UP)?)
+        {
+            state.selection = state.selection.saturating_sub(1);
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_START)?)
+        {
+            state.selection = 0;
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_END)?)
+        {
+            state.selection = services.len().saturating_sub(1);
+        } else {
+            // Sanity change here
+            state.selection = state.selection.min(services.len());
+            let block_actions =
+                context.req_attr::<Vec<ResolvedBlockActionBinding>>(ATTR_KEY_BLOCK_ACTIONS)?;
+
+            context
+                .signals()
+                .matching::<crossterm::event::KeyEvent>()
+                .iter()
+                .flat_map(|key_event| {
+                    block_actions
+                        .iter()
+                        .filter(|action| action.keys.iter().any(|key| key.matches(key_event)))
+                })
+                .for_each(|action| {
+                    let services = match action.target {
+                        ServiceActionTarget::Selected => &services[state.selection..state.selection + 1],
+                        ServiceActionTarget::All => services,
+                    };
+                    for service in services {
+                        for block in &service.definition.blocks {
+                            if action.blocks.iter().any(|block_id| {
+                                block_id == "*" || block.id.inner() == block_id
+                            }) {
+                                self.actions.register(
+                                    Action::SetBlockAction(
+                                        service.definition.id.clone(),
+                                        block.id.clone(),
+                                        action.action.clone(),
+                                    )
+                                )
+                            }
+                        }
+                    }
+                });
+        }
+
+        context.render_component(RenderArgs::new(
+            List::new(&"view-profile-service-list-list", services, |service, _| {
                 let block_statuses: HashMap<String, BlockUIStatus> = service
                     .definition
                     .blocks
                     .iter()
                     .map(|block| {
                         (
-                            block.id.clone(),
+                            block.id.inner().to_owned(),
                             match service.get_block_status(&block.id) {
                                 BlockStatus::Initial => BlockUIStatus::Initial,
                                 BlockStatus::Working { step } => match step {
@@ -111,7 +183,7 @@ impl<'a> StatefulComponent for ServiceList<'a> {
                 let mut flow = Flow::new().dir(Dir::LeftRight);
 
                 flow = flow.element(
-                    Text::new(&service.definition.id).with_measurement(longest_name as u16, 1u16),
+                    Text::new(&service.definition.id.inner().to_owned()).with_measurement(longest_name as u16, 1u16),
                     FlowableArgs { fill: true },
                 );
                 for slot in slots.iter() {
@@ -122,15 +194,16 @@ impl<'a> StatefulComponent for ServiceList<'a> {
                         .find(|b| b.status_line.slot == slot.order);
                     if let Some(block) = block {
                         flow = flow.element(
-                            Text::new(&block.status_line.symbol)
-                                .fg(match block_statuses.get(&block.id).unwrap() {
+                            Text::new(&block.status_line.symbol).fg(
+                                match block_statuses.get(&block.id.inner().to_owned()).unwrap() {
                                     BlockUIStatus::Initial => idle_color,
                                     BlockUIStatus::Disabled => inactive_color,
                                     BlockUIStatus::FailedPrerequisites => waiting_color,
                                     BlockUIStatus::Working => processing_color,
                                     BlockUIStatus::Ok => active_color,
                                     BlockUIStatus::Failed => error_color,
-                                }),
+                                },
+                            ),
                             FlowableArgs { fill: false },
                         );
                     } else {
@@ -142,12 +215,11 @@ impl<'a> StatefulComponent for ServiceList<'a> {
                 }
 
                 flow = flow.element(
-                    Text::new("O")
-                        .fg(if service.output_enabled {
-                            active_color
-                        } else {
-                            inactive_color
-                        }),
+                    Text::new("O").fg(if service.output_enabled {
+                        active_color
+                    } else {
+                        inactive_color
+                    }),
                     FlowableArgs { fill: false },
                 );
                 // TODO account for automation state
@@ -159,8 +231,13 @@ impl<'a> StatefulComponent for ServiceList<'a> {
                 flow = flow.element(Spinner::new(is_processing), FlowableArgs { fill: false });
 
                 Ok(flow)
-            },
-        ).selection(if self.show_selection { Some(state.selection) } else { None })))?;
+            })
+            .selection(if self.show_selection {
+                Some(state.selection)
+            } else {
+                None
+            }),
+        ))?;
 
         Ok(())
     }
@@ -171,7 +248,7 @@ impl<'a> MeasurableComponent for ServiceList<'_> {
         let longest_name = self
             .services()?
             .iter()
-            .map(|s| s.definition.id.len())
+            .map(|s| s.definition.id.inner().len())
             .max()
             .unwrap_or(0);
         let slot_display_width = self.resolve_slots()?.iter().map(|s| s.size).sum::<usize>();

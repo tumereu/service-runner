@@ -1,4 +1,4 @@
-use crate::config::Block;
+use crate::config::{Block, BlockId, ServiceId};
 use crate::models::{BlockAction, BlockStatus, GetBlock, OutputKey, OutputKind, Service};
 use crate::runner::rhai::{RhaiExecutor, RhaiRequest};
 use crate::runner::service_worker::work_context::WorkContext;
@@ -17,15 +17,15 @@ use std::sync::{Arc, Mutex, RwLock};
 pub struct ServiceBlockContext {
     system_state: Arc<RwLock<SystemState>>,
     rhai_executor: Arc<RhaiExecutor>,
-    pub service_id: String,
-    pub block_id: String,
+    pub service_id: ServiceId,
+    pub block_id: BlockId,
 }
 impl ServiceBlockContext {
     pub fn new(
         system_state: Arc<RwLock<SystemState>>,
         rhai_executor: Arc<RhaiExecutor>,
-        service_id: String,
-        block_id: String,
+        service_id: ServiceId,
+        block_id: BlockId,
     ) -> Self {
         Self {
             system_state,
@@ -177,7 +177,7 @@ impl ServiceBlockContext {
             .add_output(
                 &OutputKey {
                     service_id: Some(self.service_id.clone()),
-                    source_name: self.block_id.clone(),
+                    source_name: self.block_id.inner().to_owned(),
                     kind: OutputKind::System
                 },
                 output
@@ -188,7 +188,7 @@ impl ServiceBlockContext {
         let wrapper = ProcessWrapper::wrap(
             self.system_state.clone(),
             Some(self.service_id.clone()),
-            self.block_id.clone(),
+            self.block_id.inner().to_owned(),
             handle,
         );
 
@@ -257,7 +257,7 @@ impl WorkContext for BlockWorkContext<'_> {
         let wrapper = WorkWrapper::wrap(
             self.system_state.clone(),
             Some(self.service_id.clone()),
-            self.block_id.clone(),
+            self.block_id.inner().to_owned(),
             self.silent,
             work,
         );
