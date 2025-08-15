@@ -19,7 +19,6 @@ use crate::runner::file_watcher::start_file_watcher;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
-use crate::ui::actions::{Action, ActionStore};
 use crate::ui::inputs::RegisterKeybinds;
 use crate::ui::theming::RegisterTheme;
 use crate::ui::ViewRoot;
@@ -119,18 +118,25 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Check for autolaunched profile
     {
-        let mut system = system_state.write().unwrap();
-        let actions = ActionStore::new();
+        info!("Checking for autolaunched profile");
+        let autolaunch_profile = if let Some(autolaunch_profile) = &system_state.read().unwrap().config.settings.autolaunch_profile {
+            let selection = {
+                system_state.read().unwrap().config.profiles.iter()
+                    .find(|profile| &profile.id == autolaunch_profile)
+                    .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile))
+                    .id.clone()
+            };
 
-        if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
-            let selection = system.config.profiles.iter()
-                .find(|profile| &profile.id == autolaunch_profile)
-                .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile));
+            Some(selection)
+        } else {
+            None
+        };
 
-            actions.register(Action::SelectProfile(selection.id.clone()));
+        if let Some(selection) = autolaunch_profile {
+            info!("Autolaunching profile: {}", selection);
+            let mut system = system_state.write().unwrap();
+            system.select_profile(&selection);
         }
-        
-        actions.process(&mut system);
     }
 
     let backend = CrosstermBackend::new(stdout);
@@ -149,10 +155,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         match renderer.render_root(
             &mut terminal,
             ViewRoot {
-                state: system_state.clone(),
-            }
+                system_state: system_state.clone(),
+            },
         ) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(error) => {
                 error!("Encountered an unexpected exception during render(): {error:?}");
                 ui_result = Err(error);
@@ -187,7 +193,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // If there were errors with the UI, panic at the very end after cleaning up the terminal
     match ui_result {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(error) => panic!("Unexpected error in UI rendering: {error}"),
     }
 

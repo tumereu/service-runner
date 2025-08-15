@@ -189,12 +189,13 @@ impl SystemState {
 
     pub fn update_all_services<F>(&mut self, update: F)
     where
-        F: Fn(&mut Service),
+        F: Fn((usize, &mut Service)),
     {
         if let Some(profile) = self.current_profile.as_mut() {
             profile
                 .services
                 .iter_mut()
+                .enumerate()
                 .for_each(update);
         }
     }

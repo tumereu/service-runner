@@ -6,15 +6,16 @@ use ratatui::layout::Size;
 use ratatui::style::Color;
 use std::cmp::max;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::{Arc, Mutex, RwLock};
 use ui::component::{ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, Component, Dir, Flow, FlowableArgs, MeasurableComponent, Spinner, StatefulComponent, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE};
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIResult};
 
-pub struct OutputPane<'a> {
+pub struct OutputPane {
     pub wrap_output: bool,
-    pub state: &'a SystemState,
+    pub system_state: Arc<RwLock<SystemState>>
 }
-impl OutputPane<'_> {
+impl OutputPane {
     fn hash_name(name: &str) -> usize {
         // Hash the name to obtain a color for it
         let mut hasher = DefaultHasher::new();
@@ -116,7 +117,7 @@ pub struct OutputPaneState {
     pub pos_vert: Option<u128>,
 }
 
-impl<'a> StatefulComponent for OutputPane<'a> {
+impl StatefulComponent for OutputPane {
     type Output = ();
     type State = OutputPaneState;
 
@@ -125,27 +126,24 @@ impl<'a> StatefulComponent for OutputPane<'a> {
     }
 
     fn render(self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
-        let OutputPane {
-            wrap_output,
-            state: system_state,
-        } = self;
+        let system_state = self.system_state.read().unwrap();
+        self.process_inputs(context, &system_state, state)?;
+
         let theme = &system_state.config.settings.theme;
         let profile = system_state.current_profile.as_ref().unwrap();
         let size = context.size();
 
-        self.process_inputs(context, &system_state, state)?;
-
 
         let mut flow = Flow::new().dir(Dir::UpDown).element(
             OutputDisplay {
-                wrap: wrap_output,
+                wrap: self.wrap_output,
                 pos_horiz: Some(state.pos_horiz),
                 lines: system_state
                     .output_store
                     .query_lines_to(
                         size.height as usize,
                         state.pos_vert,
-                        &get_active_outputs(&system_state.output_store, system_state),
+                        &get_active_outputs(&system_state.output_store, &system_state),
                     )
                     .into_iter()
                     .map(|(key, line)| {
