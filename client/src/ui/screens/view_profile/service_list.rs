@@ -1,7 +1,8 @@
 use crate::config::{ResolvedBlockActionBinding, ServiceActionBinding, ServiceActionTarget};
 use crate::models::{BlockStatus, Service, WorkStep};
 use crate::system_state::SystemState;
-use crate::ui::inputs::ATTR_KEY_BLOCK_ACTIONS;
+use crate::ui::actions::{Action, ActionStore};
+use crate::ui::inputs::{ATTR_KEY_BLOCK_ACTIONS, ATTR_KEY_TOGGLE_ALL_OUTPUT, ATTR_KEY_TOGGLE_SELECTED_OUTPUT};
 use crate::ui::theming::{
     ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE,
     ATTR_COLOR_WORK_PROCESSING, ATTR_COLOR_WORK_WAITING_TO_PROCESS,
@@ -17,7 +18,6 @@ use ui::component::{
 };
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
-use crate::ui::actions::{Action, ActionStore};
 
 pub struct ServiceList<'a> {
     pub state: &'a SystemState,
@@ -36,7 +36,7 @@ impl ServiceList<'_> {
             .services)
     }
 
-    pub fn resolve_slots(&self) -> UIResult<Vec<SlotInfo>> {
+    fn resolve_slots(&self) -> UIResult<Vec<SlotInfo>> {
         let mut size_by_slot: HashMap<usize, usize> = HashMap::new();
         for service in self.services()? {
             for block in &service.definition.blocks {
@@ -56,6 +56,87 @@ impl ServiceList<'_> {
             })
             .sorted_by_key(|s| s.order)
             .collect())
+    }
+
+    fn process_inputs(
+        &self,
+        services: &[Service],
+        context: &mut FrameContext,
+        state: &mut ServiceListState
+    ) -> UIResult<()> {
+        // List selection change/navigation
+        if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_DOWN)?)
+        {
+            state.selection = (state.selection + 1).min(services.len());
+        }
+        if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_UP)?)
+        {
+            state.selection = state.selection.saturating_sub(1);
+        }
+        if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_START)?)
+        {
+            state.selection = 0;
+        }
+        if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_END)?)
+        {
+            state.selection = services.len().saturating_sub(1);
+        }
+        // Ensure the selection is within bounds
+        state.selection = state.selection.min(services.len());
+
+        // Always available actions
+        if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_SELECTED_OUTPUT)?) {
+            self.actions.register(Action::ToggleOutput(services[state.selection].definition.id.clone()));
+        }
+        if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_ALL_OUTPUT)?) {
+            self.actions.register(Action::ToggleOutputAll);
+        }
+
+        // User defined actions
+        let block_actions = context.req_attr::<Vec<ResolvedBlockActionBinding>>(ATTR_KEY_BLOCK_ACTIONS)?;
+        context
+            .signals()
+            .matching::<crossterm::event::KeyEvent>()
+            .iter()
+            .flat_map(|key_event| {
+                block_actions
+                    .iter()
+                    .filter(|action| action.keys.iter().any(|key| key.matches(key_event)))
+            })
+            .for_each(|action| {
+                let services = match action.target {
+                    ServiceActionTarget::Selected => {
+                        &services[state.selection..state.selection + 1]
+                    }
+                    ServiceActionTarget::All => services,
+                };
+                for service in services {
+                    for block in &service.definition.blocks {
+                        if action
+                            .blocks
+                            .iter()
+                            .any(|block_id| block_id == "*" || block.id.inner() == block_id)
+                        {
+                            self.actions.register(Action::SetBlockAction(
+                                service.definition.id.clone(),
+                                block.id.clone(),
+                                action.action.clone(),
+                            ))
+                        }
+                    }
+                }
+            });
+
+
+        Ok(())
     }
 }
 
@@ -81,6 +162,8 @@ impl<'a> StatefulComponent for ServiceList<'a> {
             .max()
             .unwrap_or(0);
 
+        self.process_inputs(services, context, state)?;
+
         let idle_color = context.req_attr::<Color>(ATTR_COLOR_WORK_IDLE)?.clone();
         let inactive_color = context.req_attr::<Color>(ATTR_COLOR_WORK_INACTIVE)?.clone();
         let active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ACTIVE)?.clone();
@@ -91,64 +174,6 @@ impl<'a> StatefulComponent for ServiceList<'a> {
             .req_attr::<Color>(ATTR_COLOR_WORK_WAITING_TO_PROCESS)?
             .clone();
         let error_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ERROR)?.clone();
-
-        if context
-            .signals()
-            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_DOWN)?)
-        {
-            state.selection = (state.selection + 1).min(services.len());
-        } else if context
-            .signals()
-            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_UP)?)
-        {
-            state.selection = state.selection.saturating_sub(1);
-        } else if context
-            .signals()
-            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_START)?)
-        {
-            state.selection = 0;
-        } else if context
-            .signals()
-            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_END)?)
-        {
-            state.selection = services.len().saturating_sub(1);
-        } else {
-            // Sanity change here
-            state.selection = state.selection.min(services.len());
-            let block_actions =
-                context.req_attr::<Vec<ResolvedBlockActionBinding>>(ATTR_KEY_BLOCK_ACTIONS)?;
-
-            context
-                .signals()
-                .matching::<crossterm::event::KeyEvent>()
-                .iter()
-                .flat_map(|key_event| {
-                    block_actions
-                        .iter()
-                        .filter(|action| action.keys.iter().any(|key| key.matches(key_event)))
-                })
-                .for_each(|action| {
-                    let services = match action.target {
-                        ServiceActionTarget::Selected => &services[state.selection..state.selection + 1],
-                        ServiceActionTarget::All => services,
-                    };
-                    for service in services {
-                        for block in &service.definition.blocks {
-                            if action.blocks.iter().any(|block_id| {
-                                block_id == "*" || block.id.inner() == block_id
-                            }) {
-                                self.actions.register(
-                                    Action::SetBlockAction(
-                                        service.definition.id.clone(),
-                                        block.id.clone(),
-                                        action.action.clone(),
-                                    )
-                                )
-                            }
-                        }
-                    }
-                });
-        }
 
         context.render_component(RenderArgs::new(
             List::new(&"view-profile-service-list-list", services, |service, _| {
@@ -183,7 +208,8 @@ impl<'a> StatefulComponent for ServiceList<'a> {
                 let mut flow = Flow::new().dir(Dir::LeftRight);
 
                 flow = flow.element(
-                    Text::new(&service.definition.id.inner().to_owned()).with_measurement(longest_name as u16, 1u16),
+                    Text::new(&service.definition.id.inner().to_owned())
+                        .with_measurement(longest_name as u16, 1u16),
                     FlowableArgs { fill: true },
                 );
                 for slot in slots.iter() {
