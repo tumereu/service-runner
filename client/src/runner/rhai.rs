@@ -1,5 +1,6 @@
-use crate::config::{BlockId, ServiceId, TaskDefinitionId};
-use crate::models::{BlockAction, BlockStatus, Service};
+use std::collections::HashMap;
+use crate::config::{Block, BlockId, ServiceId, TaskDefinitionId};
+use crate::models::{BlockAction, BlockStatus, Service, WorkStep};
 use crate::system_state::SystemState;
 use crossterm::style::Stylize;
 use log::error;
@@ -8,8 +9,8 @@ use rhai::packages::{Package, StandardPackage};
 use rhai::plugin::RhaiResult;
 use rhai::{Dynamic, Engine, Map, Scope};
 use std::future::Future;
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{mpsc, Arc, Mutex, PoisonError, RwLock};
+use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::{Arc, Mutex, PoisonError, RwLock, mpsc};
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -33,9 +34,12 @@ impl RhaiExecutor {
         let (tx, rx) = channel::<(RhaiRequest, Sender<RhaiResult>)>();
 
         let worker_thread = thread::spawn(move || {
-            let plain_engine = Self::init_rhai_engine();
+            let mut plain_engine = Self::init_rhai_engine();
+            Self::register_proxies(state_arc.clone(), &mut plain_engine);
+
             let mut function_engine = Self::init_rhai_engine();
             Self::register_functions(state_arc.clone(), &mut function_engine);
+            Self::register_proxies(state_arc.clone(), &mut function_engine);
 
             while *keep_alive.lock().unwrap() {
                 let query = rx.try_recv();
@@ -48,7 +52,11 @@ impl RhaiExecutor {
                         };
 
                         let mut scope = Scope::new();
-                        Self::populate_rhai_scope(state_arc.clone(), &mut scope, request.service_id);
+                        Self::populate_rhai_scope(
+                            state_arc.clone(),
+                            &mut scope,
+                            request.service_id,
+                        );
 
                         let result = engine.eval_with_scope::<Dynamic>(&mut scope, &request.script);
                         match response_tx.send(result) {
@@ -58,7 +66,7 @@ impl RhaiExecutor {
                             }
                         }
                     }
-                    Err(_) => thread::sleep(std::time::Duration::from_millis(50))
+                    Err(_) => thread::sleep(std::time::Duration::from_millis(50)),
                 }
             }
         });
@@ -91,50 +99,26 @@ impl RhaiExecutor {
         service_id: Option<ServiceId>,
     ) {
         let state = state_arc.read().unwrap();
+        let mut services_map = Map::new();
 
         state.iter_services().for_each(|service| {
-            let mut blocks = Map::new();
-            service.definition.blocks.iter().for_each(|block| {
-                let mut block_map = Map::new();
-                block_map.insert(
-                    "status".into(),
-                    match service.get_block_status(&block.id) {
-                        BlockStatus::Disabled => "Disabled",
-                        BlockStatus::Initial => "Initial",
-                        BlockStatus::Working { .. } => "Working",
-                        BlockStatus::Ok => "Ok",
-                        BlockStatus::Error => "Error",
-                    }
-                        .into(),
-                );
-                block_map.insert(
-                    "is_processing".into(),
-                    state.has_block_operations(&service.definition.id, &block.id).into(),
-                );
-                block_map.insert("id".into(), block.id.inner().clone().into());
-
-                blocks.insert(block.id.inner().clone().into(), block_map.into());
-            });
-
-            let mut service_map = Map::new();
-            service_map.insert("blocks".into(), blocks.into());
-            service_map.insert("id".into(), service.definition.id.inner().clone().into());
-
-            scope.push(service.definition.id.inner().clone(), service_map.clone());
-            match service_id.as_ref() {
-                Some(service_id) if service_id == &service.definition.id => {
-                    scope.push("self", service_map);
-                }
-                _ => {}
-            }
-
-            // Register helper constants to make it easier to check statuses
-            scope.push_constant("INITIAL", "Initial");
-            scope.push_constant("DISABLED", "Disabled");
-            scope.push_constant("WORKING", "Working");
-            scope.push_constant("OK", "Ok");
-            scope.push_constant("ERROR", "Error");
+            let id = service.definition.id.inner().to_owned();
+            services_map.insert(id.clone().into(), Dynamic::from(ServiceProxy { id }));
         });
+
+        scope.push_constant("services", services_map);
+        if let Some(service_id) = service_id {
+            scope.push_constant("self", Dynamic::from(ServiceProxy { id: service_id.inner().to_owned() }));
+        }
+
+        // TODO register as enums
+        // Register helper constants to make it easier to check statuses
+        scope.push_constant("INITIAL", "Initial");
+        scope.push_constant("DISABLED", "Disabled");
+        scope.push_constant("WAITING", "Waiting");
+        scope.push_constant("WORKING", "Working");
+        scope.push_constant("OK", "Ok");
+        scope.push_constant("ERROR", "Error");
     }
 
     fn init_rhai_engine() -> Engine {
@@ -162,7 +146,9 @@ impl RhaiExecutor {
             ("rerun", BlockAction::ReRun),
             ("stop", BlockAction::Stop),
             ("cancel", BlockAction::Cancel),
-        ].into_iter().for_each(|(name, action)| {
+        ]
+        .into_iter()
+        .for_each(|(name, action)| {
             let state_arc = state_arc.clone();
             function_engine.register_fn(name, move |service: &str, block: &str| {
                 let mut state = state_arc.write().unwrap();
@@ -177,7 +163,10 @@ impl RhaiExecutor {
             function_engine.register_fn("spawn_task", move |service: &str, definition_id: &str| {
                 let mut state = state_arc.write().unwrap();
                 state.current_profile.iter_mut().for_each(|profile| {
-                    profile.spawn_task(&TaskDefinitionId(definition_id.to_owned()), Some(ServiceId::new(service)));
+                    profile.spawn_task(
+                        &TaskDefinitionId(definition_id.to_owned()),
+                        Some(ServiceId::new(service)),
+                    );
                 });
             });
         }
@@ -191,6 +180,68 @@ impl RhaiExecutor {
             });
         }
     }
+
+    fn register_proxies(state: Arc<RwLock<SystemState>>, engine: &mut Engine) {
+        engine.register_type_with_name::<ServiceProxy>("Service");
+        engine.register_type_with_name::<BlockProxy>("Block");
+
+        // Service proxy properties
+        engine.register_get("id", |self_proxy: &mut ServiceProxy| self_proxy.id.to_owned());
+        {
+            let state = state.clone();
+            engine.register_get("blocks", move |svc: &mut ServiceProxy| {
+                let state = state.read().unwrap();
+                let mut map = Map::new();
+
+                if let Some(service) = state.get_service(&ServiceId::new(&svc.id)) {
+                    for block in &service.definition.blocks {
+                        let proxy = BlockProxy {
+                            service_id: svc.id.clone(),
+                            block_id: block.id.inner().to_owned(),
+                        };
+                        map.insert(block.id.inner().into(), Dynamic::from(proxy));
+                    }
+                }
+
+                map
+            });
+        }
+
+        // Block proxy properties
+
+        engine.register_get("id", |blk: &mut BlockProxy| blk.block_id.to_owned());
+        {
+            let state = state.clone();
+            engine.register_get("status", move |blk: &mut BlockProxy| {
+                let state = state.read().unwrap();
+                if let Some(service) = state.get_service(&ServiceId::new(&blk.service_id)) {
+                    match service.get_block_status(&BlockId::new(&blk.block_id)) {
+                        BlockStatus::Disabled => "Disabled",
+                        BlockStatus::Initial => "Initial",
+                        BlockStatus::Working {
+                            step: WorkStep::ResourceGroupCheck { .. },
+                        } => "Waiting",
+                        BlockStatus::Working {
+                            step: WorkStep::PrerequisiteCheck { last_failure, .. },
+                        } if last_failure.is_some() => "Waiting",
+                        BlockStatus::Working { .. } => "Working",
+                        BlockStatus::Ok => "Ok",
+                        BlockStatus::Error => "Error",
+                    }
+                } else {
+                    "Unknown"
+                }
+            });
+        }
+
+        {
+            let state = state.clone();
+            engine.register_get("is_processing", move |blk: &mut BlockProxy| {
+                let state = state.read().unwrap();
+                state.has_block_operations(&ServiceId::new(&blk.service_id), &BlockId::new(&blk.block_id))
+            });
+        }
+    }
 }
 
 pub struct RhaiRequest {
@@ -199,3 +250,13 @@ pub struct RhaiRequest {
     pub service_id: Option<ServiceId>,
 }
 
+#[derive(Clone)]
+struct ServiceProxy {
+    id: String,
+}
+
+#[derive(Clone)]
+struct BlockProxy {
+    service_id: String,
+    block_id: String,
+}
