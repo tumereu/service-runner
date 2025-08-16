@@ -5,9 +5,6 @@ use serde_derive::{Deserialize, Serialize};
 use crate::config::{AutomationEntry, ExecutableEntry, Requirement};
 use derive_more::Display;
 
-// TODO validate :
-//      - block or task ids/names should be unique
-//      - ids should be at most 23 characters long to support SmartString
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServiceDefinition {
     pub id: ServiceId,
@@ -41,6 +38,7 @@ pub struct Block {
     pub prerequisites: Vec<Requirement>,
     #[serde(flatten)]
     pub work: WorkDefinition,
+    pub resource_group: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Display, Hash, PartialEq, Eq, PartialOrd, Ord)]

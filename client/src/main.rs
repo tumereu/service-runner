@@ -41,10 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config = read_config(&config_dir);
 
     if let Err(error) = &config {
-        let filename = &error.filename;
-        let message = &error.user_message;
-
-        println!("Error: failed to parse configuration file {filename}: {message}");
+        println!("Error in configurations: {error}");
         process::exit(1);
     }
 
