@@ -3,11 +3,15 @@ use std::time::{Duration, Instant};
 
 use crate::config::WorkDefinition;
 use crate::models::{BlockAction, BlockStatus, WorkStep};
-use crate::runner::service_worker::requirement_checker::{RequirementCheckResult, RequirementChecker};
+use crate::runner::service_worker::ConcurrentOperationStatus;
+use crate::runner::service_worker::requirement_checker::{
+    RequirementCheckResult, RequirementChecker,
+};
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::work_context::WorkContext;
-use crate::runner::service_worker::work_sequence_executor::{create_cmd, WorkExecutionResult, WorkSequenceExecutor};
-use crate::runner::service_worker::ConcurrentOperationStatus;
+use crate::runner::service_worker::work_sequence_executor::{
+    WorkExecutionResult, WorkSequenceExecutor, create_cmd,
+};
 use crate::system_state::OperationType;
 use crate::utils::format_err;
 
@@ -18,17 +22,18 @@ pub trait BlockProcessor {
 impl BlockProcessor for ServiceBlockContext {
     fn process_block(&self) {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
-        let has_running_operations = [OperationType::Work, OperationType::Check]
-            .into_iter()
-            .any(|operation_type| {
-                match self.get_concurrent_operation_status(operation_type) {
-                    Some(ConcurrentOperationStatus::Running { .. }) => true,
-                    _ => false,
-                }
-            });
+        let has_running_operations = [OperationType::Work, OperationType::Check].into_iter().any(
+            |operation_type| match self.get_concurrent_operation_status(operation_type) {
+                Some(ConcurrentOperationStatus::Running { .. }) => true,
+                _ => false,
+            },
+        );
 
         match (self.get_block_status(), self.get_action()) {
-            (BlockStatus::Disabled, Some(BlockAction::Enable) | Some(BlockAction::ToggleEnabled)) => {
+            (
+                BlockStatus::Disabled,
+                Some(BlockAction::Enable) | Some(BlockAction::ToggleEnabled),
+            ) => {
                 self.clear_current_action();
                 self.update_status(BlockStatus::Initial);
             }
@@ -58,14 +63,12 @@ impl BlockProcessor for ServiceBlockContext {
 
             (_, Some(BlockAction::ReRun)) if has_running_operations => {
                 self.stop_all_operations();
-            },
+            }
             (_, Some(BlockAction::ReRun)) => {
                 self.clear_all_operations();
                 self.clear_current_action();
                 self.update_status(BlockStatus::Working {
-                    step: WorkStep::Initial {
-                        skip_work_if_healthy: false,
-                    },
+                    step: WorkStep::initial(false),
                 });
             }
 
@@ -74,9 +77,7 @@ impl BlockProcessor for ServiceBlockContext {
                 self.clear_current_action();
 
                 self.update_status(BlockStatus::Working {
-                    step: WorkStep::Initial {
-                        skip_work_if_healthy: true,
-                    },
+                    step: WorkStep::initial(true),
                 });
             }
 
@@ -157,7 +158,9 @@ impl BlockProcessor for ServiceBlockContext {
         let (step) = match block_status {
             BlockStatus::Working { step } => step,
             _ => {
-                error!("ERROR: invoked work-processing function with invalid block status {block_status:?}");
+                error!(
+                    "ERROR: invoked work-processing function with invalid block status {block_status:?}"
+                );
                 return;
             }
         };
@@ -169,34 +172,65 @@ impl BlockProcessor for ServiceBlockContext {
             WorkDefinition::Process { .. } => true,
         });
 
-        let has_running_operations = [OperationType::Work, OperationType::Check]
-            .into_iter()
-            .any(|operation_type| {
-                match self.get_concurrent_operation_status(operation_type) {
-                    Some(ConcurrentOperationStatus::Running { .. }) => true,
-                    _ => false,
-                }
-            });
+        let has_running_operations = [OperationType::Work, OperationType::Check].into_iter().any(
+            |operation_type| match self.get_concurrent_operation_status(operation_type) {
+                Some(ConcurrentOperationStatus::Running { .. }) => true,
+                _ => false,
+            },
+        );
 
         match step {
             // Ensure that there's no lingering process. There should not be if other actions are handled correctly,
             // but some defensive programming here doesn't hurt.
-            WorkStep::Initial { .. } if has_running_operations => {
+            WorkStep::ResourceGroupCheck { .. } if has_running_operations => {
                 self.stop_all_operations();
             }
 
-            WorkStep::Initial {
+            WorkStep::ResourceGroupCheck {
                 skip_work_if_healthy,
             } => {
                 self.clear_all_operations();
-                self.update_status(BlockStatus::Working {
-                    step: WorkStep::PrerequisiteCheck {
-                        skip_work_if_healthy,
-                        start_time: Instant::now(),
-                        checks_completed: 0,
-                        last_failure: None,
-                    },
-                });
+                let rg_in_use = if let Some(self_group) = self.query_block(|block| block.resource_group.clone()) {
+                    self.query_state(|system_state| {
+                        system_state
+                            .current_profile
+                            .as_ref()
+                            .iter()
+                            .flat_map(|profile| profile.services.iter())
+                            .any(|service| {
+                                // The resource group is in use if the profile has block that shares the same resource
+                                // group, and is currently in working-state. But we do not count "resource group check"
+                                // as a working state here.
+                                service
+                                    .definition
+                                    .blocks
+                                    .iter()
+                                    .filter(|block| {
+                                        block.resource_group.as_deref() == Some(self_group.as_str())
+                                    })
+                                    .any(|block| match service.get_block_status(&block.id) {
+                                        BlockStatus::Working {
+                                            step: WorkStep::ResourceGroupCheck { .. },
+                                        } => false,
+                                        BlockStatus::Working { .. } => true,
+                                        _ => false,
+                                    })
+                            })
+                    })
+                } else {
+                    false
+                };
+
+                if !rg_in_use {
+                    self.update_status(BlockStatus::Working {
+                        step: WorkStep::PrerequisiteCheck {
+                            skip_work_if_healthy,
+                            start_time: Instant::now(),
+                            checks_completed: 0,
+                            last_failure: None,
+                        },
+                    });
+                }
             }
 
             WorkStep::PrerequisiteCheck {
@@ -215,7 +249,8 @@ impl BlockProcessor for ServiceBlockContext {
                     last_failure,
                     context: &context,
                     workdir: self.query_service(|service| service.definition.workdir.clone()),
-                }.check_requirements();
+                }
+                .check_requirements();
 
                 match result {
                     RequirementCheckResult::Working => {
@@ -257,7 +292,9 @@ impl BlockProcessor for ServiceBlockContext {
                         });
                     }
                     RequirementCheckResult::Timeout => {
-                        error!("Prerequisite check timed out, even though timeout should not be possible");
+                        error!(
+                            "Prerequisite check timed out, even though timeout should not be possible"
+                        );
                     }
                 }
             }
@@ -276,7 +313,8 @@ impl BlockProcessor for ServiceBlockContext {
                     last_failure: None,
                     context: &context,
                     workdir: self.query_service(|service| service.definition.workdir.clone()),
-                }.check_requirements();
+                }
+                .check_requirements();
 
                 match result {
                     RequirementCheckResult::Working => {
@@ -326,8 +364,10 @@ impl BlockProcessor for ServiceBlockContext {
                             entry_start_time: step_started,
                             last_recoverable_failure: None,
                             context: &context,
-                            workdir: self.query_service(|service| service.definition.workdir.clone()),
-                        }.exec_next();
+                            workdir: self
+                                .query_service(|service| service.definition.workdir.clone()),
+                        }
+                        .exec_next();
 
                         match result {
                             // No recoverable failures here, go into error for any kind of issue
@@ -408,7 +448,8 @@ impl BlockProcessor for ServiceBlockContext {
                 match result {
                     // If the block is a process and we do not have a live process running, then immediately stop all
                     // work and enter error state
-                    _ if is_process && !matches!(work_status, Some(ConcurrentOperationStatus::Running)) =>
+                    _ if is_process
+                        && !matches!(work_status, Some(ConcurrentOperationStatus::Running)) =>
                     {
                         self.clear_all_operations();
                         self.add_system_output(

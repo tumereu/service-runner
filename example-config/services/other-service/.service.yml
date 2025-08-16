@@ -2,6 +2,7 @@ id: "other-service"
 workdir: "./example-config/services/other-service"
 blocks:
   - id: build
+    resource_group: build
     type: cmd-seq
     commands:
       - executable: /usr/bin/python3
@@ -11,6 +12,7 @@ blocks:
       symbol: B
       slot: 20
   - id: assemble
+    resource_group: build
     type: cmd-seq
     commands:
       - executable: /usr/bin/python3

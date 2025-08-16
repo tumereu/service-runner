@@ -70,7 +70,7 @@ pub enum BlockStatus {
 
 #[derive(Debug, Clone)]
 pub enum WorkStep {
-    Initial {
+    ResourceGroupCheck {
         /// If `true`, then the actual work step will be skipped if the block is deemed healthy
         /// before execution. If `false`, then pre-work health checks will not be performed and work
         /// is always performed. Has no effect if the block is a non-detatched process -- such blocks must always be
@@ -100,6 +100,11 @@ pub enum WorkStep {
         checks_completed: usize,
         last_failure: Option<Instant>,
     },
+}
+impl WorkStep {
+    pub fn initial(skip_work_if_healthy: bool) -> Self {
+        Self::ResourceGroupCheck { skip_work_if_healthy }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

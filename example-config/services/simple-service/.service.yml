@@ -2,6 +2,7 @@ id: "simple-service"
 workdir: "./example-config/services/simple-service"
 blocks:
   - id: build
+    resource_group: build
     type: cmd-seq
     commands:
       - executable: /usr/bin/python3

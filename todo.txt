@@ -1,4 +1,3 @@
-- Resource groups for blocks, so the systen wont try to execute multiple builds concurrently
 - Run any task for a service dropdown
 - Run any task from all available modal dialog for profile
 - Output pane behaviour when deleting lines after reaching limit -- is scroll pos retained properly?

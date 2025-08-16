@@ -229,10 +229,11 @@ impl StatefulComponent for ServiceList {
                             match service.get_block_status(&block.id) {
                                 BlockStatus::Initial => BlockUIStatus::Initial,
                                 BlockStatus::Working { step } => match step {
+                                    WorkStep::ResourceGroupCheck { .. } => BlockUIStatus::WaitingToProcess,
                                     WorkStep::PrerequisiteCheck { last_failure, .. }
                                         if last_failure.is_some() =>
                                     {
-                                        BlockUIStatus::FailedPrerequisites
+                                        BlockUIStatus::WaitingToProcess
                                     }
                                     _ => BlockUIStatus::Working,
                                 },
@@ -266,7 +267,7 @@ impl StatefulComponent for ServiceList {
                                 match block_statuses.get(&block.id.inner().to_owned()).unwrap() {
                                     BlockUIStatus::Initial => idle_color,
                                     BlockUIStatus::Disabled => inactive_color,
-                                    BlockUIStatus::FailedPrerequisites => waiting_color,
+                                    BlockUIStatus::WaitingToProcess => waiting_color,
                                     BlockUIStatus::Working => processing_color,
                                     BlockUIStatus::Ok => active_color,
                                     BlockUIStatus::Failed => error_color,
@@ -345,7 +346,7 @@ pub enum BlockUIStatus {
     Initial,
     Disabled,
     Working,
-    FailedPrerequisites,
+    WaitingToProcess,
     Failed,
     Ok,
 }
