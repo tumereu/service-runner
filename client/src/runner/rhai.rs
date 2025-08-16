@@ -41,6 +41,9 @@ impl RhaiExecutor {
             Self::register_functions(state_arc.clone(), &mut function_engine);
             Self::register_proxies(state_arc.clone(), &mut function_engine);
 
+            let mut scope = Self::init_rhai_scope(state_arc.clone());
+            let mut scope_len = scope.len();
+
             while *keep_alive.lock().unwrap() {
                 let query = rx.try_recv();
                 match query {
@@ -51,12 +54,10 @@ impl RhaiExecutor {
                             &plain_engine
                         };
 
-                        let mut scope = Scope::new();
-                        Self::populate_rhai_scope(
-                            state_arc.clone(),
-                            &mut scope,
-                            request.service_id,
-                        );
+                        scope.rewind(scope_len);
+                        if let Some(service_id) = request.service_id {
+                            scope.push_constant("self", Dynamic::from(ServiceProxy { id: service_id.inner().to_owned() }));
+                        }
 
                         let result = engine.eval_with_scope::<Dynamic>(&mut scope, &request.script);
                         match response_tx.send(result) {
@@ -93,11 +94,10 @@ impl RhaiExecutor {
         }
     }
 
-    fn populate_rhai_scope(
+    fn init_rhai_scope<'a>(
         state_arc: Arc<RwLock<SystemState>>,
-        scope: &mut Scope,
-        service_id: Option<ServiceId>,
-    ) {
+    ) -> Scope<'a> {
+        let mut scope = Scope::<'a>::new();
         let state = state_arc.read().unwrap();
         let mut services_map = Map::new();
 
@@ -107,11 +107,7 @@ impl RhaiExecutor {
         });
 
         scope.push_constant("services", services_map);
-        if let Some(service_id) = service_id {
-            scope.push_constant("self", Dynamic::from(ServiceProxy { id: service_id.inner().to_owned() }));
-        }
 
-        // TODO register as enums
         // Register helper constants to make it easier to check statuses
         scope.push_constant("INITIAL", "Initial");
         scope.push_constant("DISABLED", "Disabled");
@@ -119,6 +115,8 @@ impl RhaiExecutor {
         scope.push_constant("WORKING", "Working");
         scope.push_constant("OK", "Ok");
         scope.push_constant("ERROR", "Error");
+
+        scope
     }
 
     fn init_rhai_engine() -> Engine {
@@ -208,7 +206,6 @@ impl RhaiExecutor {
         }
 
         // Block proxy properties
-
         engine.register_get("id", |blk: &mut BlockProxy| blk.block_id.to_owned());
         {
             let state = state.clone();
