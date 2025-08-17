@@ -1,4 +1,4 @@
-use crate::config::{ServiceId, TaskDefinitionId};
+use crate::config::{ServiceId, TaskDefinition, TaskDefinitionId};
 use derive_more::Display;
 use std::time::Instant;
 
@@ -8,7 +8,7 @@ pub struct TaskId(pub usize);
 #[derive(Debug, Clone)]
 pub struct Task {
     pub id: TaskId,
-    pub definition_id: TaskDefinitionId,
+    pub definition: TaskDefinition,
     pub service_id: Option<ServiceId>,
     pub status: TaskStatus,
     pub action: Option<TaskAction>,

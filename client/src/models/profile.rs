@@ -1,6 +1,6 @@
 use crate::config::{ProfileDefinition, ServiceDefinition, ServiceId, TaskDefinition, TaskDefinitionId};
 use crate::models::task::{Task, TaskStatus};
-use crate::models::{Service, TaskId};
+use crate::models::{Automation, AutomationStatus, Service, TaskId};
 use log::error;
 use std::collections::{BTreeMap, VecDeque};
 use std::convert::Into;
@@ -11,8 +11,9 @@ use std::time::Instant;
 pub struct Profile {
     pub definition: ProfileDefinition,
     pub services: Vec<Service>,
-    pub tasks: VecDeque<Task>,
-    pub all_task_definitions: Vec<(TaskDefinition, Option<ServiceId>)>
+    pub running_tasks: VecDeque<Task>,
+    pub all_task_definitions: Vec<(TaskDefinition, Option<ServiceId>)>,
+    pub automations: Vec<Automation>,
 }
 impl Profile {
     pub fn new(profile: ProfileDefinition, all_services: &Vec<ServiceDefinition>) -> Profile {
@@ -32,12 +33,24 @@ impl Profile {
                     service.definition.tasks.iter().map(|task_def| (task_def.clone(), Some(service.definition.id.clone())))
                 })
             ).collect();
+        
+        let profile_automations: Vec<Automation> = profile.automation.iter().map(|automation| {
+            Automation {
+                definition: automation.clone(),
+                status: if automation.enabled {
+                    AutomationStatus::Idle
+                } else {
+                    AutomationStatus::Disabled
+                }
+            }
+        }).collect();
 
         Profile {
             definition: profile,
             services,
-            tasks: VecDeque::new(),
+            running_tasks: VecDeque::new(),
             all_task_definitions,
+            automations: profile_automations,
         }
     }
     
@@ -52,13 +65,13 @@ impl Profile {
         };
         
         if let Some(task_def) = task_def {
-            let new_id = self.tasks.iter().last()
+            let new_id = self.running_tasks.iter().last()
                 .map(|task| task.id.0 + 1)
                 .unwrap_or(1);
             
-            self.tasks.push_back(Task {
+            self.running_tasks.push_back(Task {
                 id: TaskId(new_id),
-                definition_id: task_def.id.clone(),
+                definition: task_def.clone(),
                 status: Default::default(),
                 service_id: service_id.clone(),
                 action: None,

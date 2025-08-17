@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::config::{AutomationEntry, ExecutableEntry, Requirement};
+use crate::config::{AutomationDefinition, ExecutableEntry, Requirement};
 use derive_more::Display;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -11,7 +11,7 @@ pub struct ServiceDefinition {
     pub workdir: String,
     pub blocks: Vec<Block>,
     #[serde(default = "Vec::new")]
-    pub automation: Vec<AutomationEntry>,
+    pub automation: Vec<AutomationDefinition>,
     #[serde(default = "Vec::new")]
     pub tasks: Vec<TaskDefinition>,
 }

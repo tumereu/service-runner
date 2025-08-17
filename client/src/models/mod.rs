@@ -3,10 +3,12 @@ pub use output::*;
 pub use profile::*;
 pub use service::*;
 pub use task::*;
+pub use automation::*;
 
 mod output;
 mod profile;
 mod service;
 mod action;
 mod task;
+mod automation;
 

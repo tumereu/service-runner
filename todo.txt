@@ -23,6 +23,5 @@
 - Secret env vars
 - TAsk/block run status history pane
 - e2e tests
-- rhai context caching scope?
 - condition-based inclusion of blocks to support ex. "debug" mode run block
 - user manual

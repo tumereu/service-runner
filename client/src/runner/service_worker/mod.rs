@@ -81,9 +81,9 @@ impl ServiceWorker {
         let tasks_to_work = {
             let state = state_arc.read().unwrap();
 
-            state.current_profile.iter().flat_map(|profile| profile.tasks.iter())
+            state.current_profile.iter().flat_map(|profile| profile.running_tasks.iter())
                 .filter(|task| matches!(task.status, TaskStatus::Running { .. }))
-                .map(|task| (task.id, task.definition_id.clone()))
+                .map(|task| task.id)
                 .collect::<Vec<_>>()
         };
 
@@ -100,19 +100,18 @@ impl ServiceWorker {
                 ).process_block();
             });
 
-        tasks_to_work.into_iter().for_each(|(task_id, definition_id)| {
+        tasks_to_work.into_iter().for_each(|task_id| {
             TaskContext::new(
                 state_arc.clone(),
                 rhai_executor.clone(),
                 task_id,
-                definition_id
             ).process_task();
         });
 
         // Clean up, remove finished tasks
         state_arc.write().unwrap().current_profile
             .iter_mut().for_each(|profile| {
-            profile.tasks.retain(|task| {
+            profile.running_tasks.retain(|task| {
                 matches!(task.status, TaskStatus::Running { .. })
             });
         })

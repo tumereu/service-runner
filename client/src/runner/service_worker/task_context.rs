@@ -18,20 +18,17 @@ pub struct TaskContext {
     system_state: Arc<RwLock<SystemState>>,
     rhai_executor: Arc<RhaiExecutor>,
     pub task_id: TaskId,
-    pub definition_id: TaskDefinitionId,
 }
 impl TaskContext {
     pub fn new(
         system_state: Arc<RwLock<SystemState>>,
         rhai_executor: Arc<RhaiExecutor>,
         task_id: TaskId,
-        definition_id: TaskDefinitionId,
     ) -> Self {
         Self {
             system_state,
             rhai_executor,
             task_id,
-            definition_id,
         }
     }
 
@@ -105,7 +102,7 @@ impl TaskContext {
 
     pub fn get_task_definition_id(&self) -> TaskDefinitionId {
         self.query_system(|system| {
-            system.get_task(&self.task_id).unwrap().definition_id.clone()
+            system.get_task(&self.task_id).unwrap().definition.id.clone()
         })
     }
 

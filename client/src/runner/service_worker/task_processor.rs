@@ -17,7 +17,7 @@ impl TaskProcessor for TaskContext {
             TaskStatus::Failed { .. } | TaskStatus::Finished { .. } => {
                 error!("System called process_task() but task {task_id}/{def_id} is not running",
                 task_id = self.task_id,
-                def_id = self.definition_id
+                def_id = self.query_task(|task| task.definition.id.clone())
             );
                 return;
             },
@@ -25,11 +25,8 @@ impl TaskProcessor for TaskContext {
 
 
         let service_id = self.query_task(|task| task.service_id.clone());
-        let work_seq: Vec<WorkSequenceEntry> = self.query_system(|system| {
-            system.get_task_definition(&self.definition_id, service_id)
-                .iter().flat_map(|definition| {
-                    definition.steps.iter().map(|step| step.clone().into())
-                }).collect()
+        let work_seq: Vec<WorkSequenceEntry> = self.query_task(|task| {
+            task.definition.steps.iter().map(|step| step.clone().into()).collect()
         });
         let workdir = self.query_service(|service| service.definition.workdir.clone());
         let workdir = workdir

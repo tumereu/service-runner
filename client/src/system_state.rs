@@ -141,7 +141,7 @@ impl SystemState {
     pub fn get_task(&self, id: &TaskId) -> Option<&Task> {
         self.current_profile
             .as_ref()
-            .and_then(|profile| profile.tasks.iter().find(|task| task.id == *id))
+            .and_then(|profile| profile.running_tasks.iter().find(|task| task.id == *id))
     }
 
     pub fn get_task_definition(
@@ -207,7 +207,7 @@ impl SystemState {
         let task_option = self
             .current_profile
             .as_mut()
-            .and_then(|profile| profile.tasks.iter_mut().find(|task| task.id == *id));
+            .and_then(|profile| profile.running_tasks.iter_mut().find(|task| task.id == *id));
 
         if let Some(task) = task_option {
             update(task);

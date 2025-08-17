@@ -1,4 +1,4 @@
-use crate::config::{ServiceId, TaskDefinition};
+use crate::config::{AutomationDefinition, ServiceId, TaskDefinition};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -9,6 +9,8 @@ pub struct ProfileDefinition {
     pub services: Vec<ServiceRef>,
     #[serde(default)]
     pub tasks: Vec<TaskDefinition>,
+    #[serde(default = "Vec::new")]
+    pub automation: Vec<AutomationDefinition>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
