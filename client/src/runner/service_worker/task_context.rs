@@ -1,18 +1,18 @@
-use crate::config::{Block, TaskDefinitionId};
-use crate::models::{BlockAction, BlockStatus, GetBlock, OutputKey, OutputKind, Service, Task, TaskAction, TaskId, TaskStatus};
+use crate::config::TaskDefinitionId;
+use crate::models::{OutputKey, OutputKind, Service, Task, TaskAction, TaskId, TaskStatus};
 use crate::runner::rhai::{RhaiExecutor, RhaiRequest};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
     ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
     WorkWrapper,
 };
-use crate::system_state::{ConcurrentOperationKey, OperationType, SystemState};
+use crate::system_state::{ConcurrentOperationKey, SystemState};
 use log::{debug, error};
 use rhai::plugin::RhaiResult;
 use std::ops::Deref;
 use std::process::Child;
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 pub struct TaskContext {
     system_state: Arc<RwLock<SystemState>>,

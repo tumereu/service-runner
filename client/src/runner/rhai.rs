@@ -1,16 +1,13 @@
-use crate::config::{Block, BlockId, ServiceId, TaskDefinitionId};
-use crate::models::{BlockAction, BlockStatus, Service, WorkStep};
+use crate::config::{BlockId, ServiceId, TaskDefinitionId};
+use crate::models::{BlockAction, BlockStatus, WorkStep};
 use crate::system_state::SystemState;
-use crossterm::style::Stylize;
 use log::error;
 use rhai::module_resolvers::DummyModuleResolver;
 use rhai::packages::{Package, StandardPackage};
 use rhai::plugin::RhaiResult;
 use rhai::{Dynamic, Engine, Map, Scope};
-use std::collections::HashMap;
-use std::future::Future;
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{mpsc, Arc, Mutex, PoisonError, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -42,7 +39,7 @@ impl RhaiExecutor {
             Self::register_proxies(state_arc.clone(), &mut function_engine);
 
             let mut scope = Self::init_rhai_scope(state_arc.clone());
-            let mut scope_len = scope.len();
+            let scope_len = scope.len();
 
             while *keep_alive.lock().unwrap() {
                 let query = rx.try_recv();

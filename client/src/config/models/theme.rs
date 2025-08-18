@@ -1,6 +1,4 @@
 use ratatui::style::Color;
-use serde::de::{Error, SeqAccess, Visitor};
-use serde::Deserializer;
 use serde_derive::Deserialize;
 
 #[derive(Debug, Clone)]
@@ -145,8 +143,6 @@ impl RawTheme {
         Ok(Color::Rgb(r, g, b))
     }
 }
-
-trait TryIntoColors {}
 
 fn default_name_colors() -> Vec<Color> {
     vec![

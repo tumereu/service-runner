@@ -2,7 +2,7 @@ use crate::system_state::SystemState;
 use crate::ui::theming::ATTR_COLOR_FOCUSED_ELEMENT;
 use ratatui::style::Color;
 use std::sync::{Arc, RwLock};
-use ui::component::{Align, Cell, Component, SimpleList, StatefulComponent, Text};
+use ui::component::{Align, Cell, Component, SimpleList, Text};
 use ui::{FrameContext, RenderArgs, UIResult};
 
 pub struct SelectProfileScreen {

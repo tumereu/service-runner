@@ -9,7 +9,7 @@ use ratatui::layout::Size;
 use ratatui::prelude::Color;
 use std::sync::{Arc, RwLock};
 use ui::component::{
-    Align, Cell, Component, StatefulComponent, WithMeasurement, WithZeroMeasurement,
+    Align, Cell, StatefulComponent, WithZeroMeasurement,
 };
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, SignalHandling, UIError, UIResult};

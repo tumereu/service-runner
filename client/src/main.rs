@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 
@@ -9,10 +9,9 @@ use crossterm::{
 };
 use log::{debug, error, info, LevelFilter};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use ::ui::input::{collect_input_events, KeyMatcher};
-use ::ui::{ComponentRenderer, UIError, UIResult};
+use ::ui::input::collect_input_events;
+use ::ui::{ComponentRenderer, UIResult};
 
-use crate::models::Profile;
 use crate::runner::file_watcher::FileWatcher;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;

@@ -12,7 +12,7 @@ use rhai::plugin::RhaiResult;
 use std::ops::Deref;
 use std::process::Child;
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 pub struct ServiceBlockContext {
     system_state: Arc<RwLock<SystemState>>,

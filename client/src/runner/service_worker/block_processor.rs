@@ -155,7 +155,7 @@ impl BlockProcessor for ServiceBlockContext {
         let block_status = self.get_block_status();
         let work_status = self.get_concurrent_operation_status(OperationType::Work);
 
-        let (step) = match block_status {
+        let step = match block_status {
             BlockStatus::Working { step } => step,
             _ => {
                 error!(

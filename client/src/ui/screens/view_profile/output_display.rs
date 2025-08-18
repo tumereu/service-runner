@@ -2,7 +2,6 @@ use crate::ui::Component;
 use ratatui::prelude::Size;
 use ratatui::style::Color;
 use ratatui::widgets::Clear;
-use std::fmt::Debug;
 use std::iter;
 use ui::component::{Dir, Flow, FlowableArgs, MeasurableComponent, Text};
 use ui::{FrameContext, RenderArgs, UIResult};

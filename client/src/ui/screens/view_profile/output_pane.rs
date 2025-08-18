@@ -5,7 +5,7 @@ use ratatui::style::Color;
 use std::cmp::max;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::{Arc, RwLock};
-use ui::component::{Component, Dir, Flow, FlowableArgs, Spinner, StatefulComponent, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE};
+use ui::component::{Dir, Flow, FlowableArgs, Spinner, StatefulComponent, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE};
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIResult};
 

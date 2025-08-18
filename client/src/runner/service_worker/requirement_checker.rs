@@ -268,13 +268,3 @@ pub fn format_reqwest_error(err: &reqwest::Error) -> String {
     // Fall back to a generic error message
     format!("Unexpected error: {}", err)
 }
-
-
-pub enum SequenceEntry {
-    ExecutableEntry(ExecutableEntry),
-    RhaiScript(String),
-    WaitRequirement {
-        timeout: Duration,
-        requirement: Requirement,
-    },
-}

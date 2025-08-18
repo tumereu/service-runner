@@ -1,4 +1,4 @@
-use crate::component::{Component, List, MeasurableComponent, StatefulComponent, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, ATTR_KEY_SELECT};
+use crate::component::{List, MeasurableComponent, StatefulComponent, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, ATTR_KEY_SELECT};
 use crate::input::KeyMatcherQueryable;
 use crate::{FrameContext, RenderArgs, UIError, UIResult};
 use ratatui::layout::Size;

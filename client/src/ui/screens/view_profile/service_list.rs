@@ -16,7 +16,7 @@ use ratatui::prelude::Color;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use ui::component::{
-    Component, Dir, Flow, FlowableArgs
+    Dir, Flow, FlowableArgs
     , List, MeasurableComponent, Spinner, StatefulComponent, Text, WithMeasurement
     , ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP,
 };

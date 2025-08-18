@@ -1,15 +1,15 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, RwLock};
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use log::{error, info, trace};
+use log::{error, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
 use crate::config::{AutomationDefinitionId, AutomationTrigger, ServiceId};
-use crate::models::{Automation, AutomationStatus};
+use crate::models::AutomationStatus;
 use crate::system_state::SystemState;
 use crate::utils::resolve_path;
 

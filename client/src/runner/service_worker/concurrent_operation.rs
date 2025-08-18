@@ -1,14 +1,13 @@
 use std::io::{BufRead, BufReader};
 use std::ops::Neg;
-use std::process::{Child, Command, ExitStatus, Stdio};
+use std::process::{Child, ExitStatus};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
 use std::{io, thread};
 
 use log::{error, info};
-use nix::libc::SIGKILL;
 
-use crate::config::{ExecutableEntry, ServiceId};
+use crate::config::ServiceId;
 use crate::models::{OutputKey, OutputKind};
 use crate::system_state::SystemState;
 

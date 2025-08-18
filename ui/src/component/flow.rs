@@ -56,7 +56,7 @@ impl Flow {
         self
     }
 
-    pub fn element<F : Flowable + 'static>(mut self, flowable: F, args: FlowableArgs) -> Self {
+    pub fn element<F : Flowable + 'static>(self, flowable: F, args: FlowableArgs) -> Self {
         self.boxed_element(Box::new(flowable), args)
     }
 

@@ -1,7 +1,7 @@
 use crate::models::TaskStatus;
 use crate::runner::service_worker::task_context::TaskContext;
 use crate::runner::service_worker::work_sequence_executor::{WorkExecutionResult, WorkSequenceEntry, WorkSequenceExecutor};
-use log::{debug, error, info};
+use log::error;
 use std::time::Instant;
 
 pub trait TaskProcessor {
@@ -24,7 +24,6 @@ impl TaskProcessor for TaskContext {
         };
 
 
-        let service_id = self.query_task(|task| task.service_id.clone());
         let work_seq: Vec<WorkSequenceEntry> = self.query_task(|task| {
             task.definition.steps.iter().map(|step| step.clone().into()).collect()
         });

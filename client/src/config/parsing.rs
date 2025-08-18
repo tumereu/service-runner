@@ -1,9 +1,9 @@
 use itertools::Itertools;
 use log::{debug, info};
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::error::Error;
-use std::fmt::{format, Display, Formatter};
+use std::fmt::{Display, Formatter};
 use std::fs::{read_to_string, File};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -11,7 +11,7 @@ use walkdir::WalkDir;
 use Vec;
 
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
-use crate::config::{BlockId, RawSettings, ServiceId, Settings};
+use crate::config::{BlockId, RawSettings, Settings};
 
 #[derive(Debug)]
 pub struct ConfigurationError {
