@@ -38,10 +38,11 @@ impl Profile {
             Automation {
                 definition: automation.clone(),
                 status: if automation.enabled {
-                    AutomationStatus::Idle
+                    AutomationStatus::Active
                 } else {
                     AutomationStatus::Disabled
-                }
+                },
+                last_triggered: None,
             }
         }).collect();
 

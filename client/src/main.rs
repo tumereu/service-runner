@@ -14,8 +14,7 @@ use ::ui::{ComponentRenderer, UIError, UIResult};
 
 use crate::models::Action::ActivateProfile;
 use crate::models::Profile;
-use crate::runner::automation::start_automation_processor;
-use crate::runner::file_watcher::start_file_watcher;
+use crate::runner::file_watcher::FileWatcher;
 use crate::runner::rhai::RhaiExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
@@ -60,10 +59,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let rhai_executor = Arc::new(RhaiExecutor::new(system_state.clone()));
     let service_worker = Arc::new(ServiceWorker::new(system_state.clone(), rhai_executor.clone()));
+    let file_watcher = Arc::new(FileWatcher::new(system_state.clone()));
 
     let mut handles = vec![
-        ("file-watcher".into(), start_file_watcher(system_state.clone())),
-        ("automation-processor".into(), start_automation_processor(system_state.clone())),
+        ("file-watcher".into(), file_watcher.start()),
         ("rhai-executor".into(), rhai_executor.start()),
         ("service-worker".into(), service_worker.start()),
     ];
@@ -171,6 +170,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     system_state.write().unwrap().should_exit = true;
+    file_watcher.stop();
     service_worker.stop();
     rhai_executor.stop();
 

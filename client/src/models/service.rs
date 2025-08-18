@@ -4,6 +4,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 
 use crate::config::{Block, BlockId, ServiceDefinition};
+use crate::models::Automation;
 
 #[derive(Debug, Clone)]
 pub struct Service {
@@ -11,6 +12,7 @@ pub struct Service {
     block_statuses: HashMap<BlockId, BlockStatus>,
     block_actions: HashMap<BlockId, BlockAction>,
     pub output_enabled: bool,
+    pub automations: Vec<Automation>,
 }
 impl Service {
     pub fn update_block_status(&mut self, block_id: &BlockId, status: BlockStatus)
@@ -50,6 +52,9 @@ impl From<ServiceDefinition> for Service {
             block_statuses: HashMap::new(),
             block_actions: value.blocks.iter()
                 .map(|block| (block.id.clone(), BlockAction::Run))
+                .collect(),
+            automations: value.automation.iter()
+                .map(|auto_def| auto_def.clone().into())
                 .collect(),
             definition: value,
             output_enabled: true,

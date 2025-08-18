@@ -5,7 +5,7 @@ use crate::config::{ServiceId, TaskDefinitionId, TaskStep};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct AutomationDefinition {
-    pub name: String,
+    pub id: AutomationDefinitionId,
     #[serde(default, with = "humantime_serde")]
     pub debounce: Duration,
     pub action: AutomationAction,
@@ -13,6 +13,9 @@ pub struct AutomationDefinition {
     #[serde(default = "serde_aux::prelude::bool_true")]
     pub enabled: bool,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
+pub struct AutomationDefinitionId(pub String);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

@@ -1,8 +1,9 @@
-use crate::config::{Block, BlockId, Config, ServiceId, TaskDefinition, TaskDefinitionId};
-use crate::models::{
-    BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId,
+use crate::config::{
+    AutomationDefinitionId, Block, BlockId, Config, ServiceId, TaskDefinition, TaskDefinitionId,
 };
-use crate::runner::file_watcher::FileWatcherState;
+use crate::models::{
+    Automation, BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId,
+};
 use crate::runner::service_worker::ConcurrentOperationHandle;
 use std::collections::HashMap;
 use std::thread::JoinHandle;
@@ -13,7 +14,6 @@ pub struct SystemState {
     pub config: Config,
     pub should_exit: bool,
     pub active_threads: Vec<(String, JoinHandle<()>)>,
-    pub file_watchers: Option<FileWatcherState>,
     concurrent_operations: HashMap<ConcurrentOperationKey, ConcurrentOperationHandle>,
 }
 
@@ -44,7 +44,6 @@ impl SystemState {
             current_profile: None,
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
-            file_watchers: None,
             concurrent_operations: HashMap::new(),
             config,
         }
@@ -173,7 +172,7 @@ impl SystemState {
 
     pub fn update_service<F>(&mut self, service_id: &ServiceId, update: F)
     where
-        F: FnOnce(&mut Service),
+        for<'a> F: FnOnce(&'a mut Service),
     {
         let service_option = self.current_profile.as_mut().and_then(|profile| {
             profile
@@ -187,16 +186,90 @@ impl SystemState {
         }
     }
 
+    pub fn query_service<F, R>(&self, service_id: &ServiceId, query: F) -> Option<R>
+    where
+        for<'a> F: FnOnce(&'a Service) -> R,
+        R: 'static,
+    {
+        let service_option = self.current_profile.as_ref().and_then(|profile| {
+            profile
+                .services
+                .iter()
+                .find(|service| &service.definition.id == service_id)
+        });
+
+        if let Some(service) = service_option {
+            Some(query(service))
+        } else {
+            None
+        }
+    }
+
+    pub fn query_automation<R, F>(
+        &self,
+        def_id: &AutomationDefinitionId,
+        service_id: &Option<ServiceId>,
+        query: F,
+    ) -> Option<R>
+    where
+        for<'a> F: FnOnce(&'a Automation) -> R,
+        R: 'static,
+    {
+        let automation = if let Some(service_id) = service_id {
+            self.current_profile
+                .iter()
+                .flat_map(|profile| &profile.services)
+                .filter(|service| service.definition.id == *service_id)
+                .flat_map(|service| &service.automations)
+                .find(|automation| automation.definition.id == *def_id)
+        } else {
+            self.current_profile
+                .as_ref()
+                .iter()
+                .flat_map(|profile| &profile.automations)
+                .find(|automation| automation.definition.id == *def_id)
+        };
+
+        if let Some(automation) = automation {
+            Some(query(automation))
+        } else {
+            None
+        }
+    }
+
+    pub fn update_automation<F>(
+        &mut self,
+        def_id: &AutomationDefinitionId,
+        service_id: &Option<ServiceId>,
+        update: F,
+    ) where
+        for<'a> F: FnOnce(&'a mut Automation),
+    {
+        let automation = if let Some(service_id) = service_id {
+            self.current_profile
+                .iter_mut()
+                .flat_map(|profile| profile.services.iter_mut())
+                .filter(|service| service.definition.id == *service_id)
+                .flat_map(|service| service.automations.iter_mut())
+                .find(|automation| automation.definition.id == *def_id)
+        } else {
+            self.current_profile
+                .iter_mut()
+                .flat_map(|profile| profile.automations.iter_mut())
+                .find(|automation| automation.definition.id == *def_id)
+        };
+
+        if let Some(automation) = automation {
+            update(automation);
+        }
+    }
+
     pub fn update_all_services<F>(&mut self, update: F)
     where
         F: Fn((usize, &mut Service)),
     {
         if let Some(profile) = self.current_profile.as_mut() {
-            profile
-                .services
-                .iter_mut()
-                .enumerate()
-                .for_each(update);
+            profile.services.iter_mut().enumerate().for_each(update);
         }
     }
 
