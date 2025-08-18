@@ -1,10 +1,9 @@
-use crate::config::{
-    BlockId, ResolvedBlockActionBinding, ServiceActionTarget,
-};
-use crate::models::{BlockStatus, WorkStep};
+use crate::config::{BlockId, ResolvedBlockActionBinding, ServiceActionTarget};
+use crate::models::{AutomationStatus, BlockStatus, WorkStep};
 use crate::system_state::SystemState;
 use crate::ui::inputs::{
-    ATTR_KEY_BLOCK_ACTIONS, ATTR_KEY_TOGGLE_ALL_OUTPUT, ATTR_KEY_TOGGLE_SELECTED_OUTPUT,
+    ATTR_KEY_BLOCK_ACTIONS, ATTR_KEY_TOGGLE_ALL_AUTOMATIONS, ATTR_KEY_TOGGLE_ALL_OUTPUT,
+    ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS, ATTR_KEY_TOGGLE_SELECTED_OUTPUT,
 };
 use crate::ui::theming::{
     ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE,
@@ -16,9 +15,8 @@ use ratatui::prelude::Color;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use ui::component::{
-    Dir, Flow, FlowableArgs
-    , List, MeasurableComponent, Spinner, StatefulComponent, Text, WithMeasurement
-    , ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP,
+    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP, Dir, Flow,
+    FlowableArgs, List, MeasurableComponent, Spinner, StatefulComponent, Text, WithMeasurement,
 };
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
@@ -128,6 +126,37 @@ impl ServiceList {
                     service.output_enabled = !any_enabled;
                 });
             }
+            if context
+                .signals()
+                .is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS)?)
+            {
+                system_state.update_service(&selection_id, |service| {
+                    service.automation_enabled = !service.automation_enabled;
+                });
+            }
+            if context
+                .signals()
+                .is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_ALL_AUTOMATIONS)?)
+            {
+                let any_enabled = system_state
+                    .current_profile
+                    .as_ref()
+                    .unwrap()
+                    .services
+                    .iter()
+                    .any(|service| service.output_enabled)
+                    || system_state
+                        .current_profile
+                        .as_ref()
+                        .map(|p| p.automation_enabled)
+                        .unwrap_or(false);
+                system_state.update_all_services(|(_, service)| {
+                    service.output_enabled = !any_enabled;
+                });
+                system_state.current_profile.iter_mut().for_each(|profile| {
+                    profile.automation_enabled = !any_enabled;   
+                })
+            }
         }
 
         // User defined actions
@@ -208,6 +237,7 @@ impl StatefulComponent for ServiceList {
         let idle_color = context.req_attr::<Color>(ATTR_COLOR_WORK_IDLE)?.clone();
         let inactive_color = context.req_attr::<Color>(ATTR_COLOR_WORK_INACTIVE)?.clone();
         let active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ACTIVE)?.clone();
+        let partially_active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ACTIVE)?.clone();
         let processing_color = context
             .req_attr::<Color>(ATTR_COLOR_WORK_PROCESSING)?
             .clone();
@@ -228,7 +258,9 @@ impl StatefulComponent for ServiceList {
                             match service.get_block_status(&block.id) {
                                 BlockStatus::Initial => BlockUIStatus::Initial,
                                 BlockStatus::Working { step } => match step {
-                                    WorkStep::ResourceGroupCheck { .. } => BlockUIStatus::WaitingToProcess,
+                                    WorkStep::ResourceGroupCheck { .. } => {
+                                        BlockUIStatus::WaitingToProcess
+                                    }
                                     WorkStep::PrerequisiteCheck { last_failure, .. }
                                         if last_failure.is_some() =>
                                     {
@@ -290,9 +322,27 @@ impl StatefulComponent for ServiceList {
                     }),
                     FlowableArgs { fill: false },
                 );
-                // TODO account for automation state
+                let has_automation_errors = service.automations
+                    .iter()
+                    .any(|automation| matches!(automation.status, AutomationStatus::Error));
+                let has_active_automations = service.automations
+                    .iter()
+                    .any(|automation| matches!(automation.status, AutomationStatus::Active));
+                let has_disabled_automations = service.automations
+                    .iter()
+                    .any(|automation| matches!(automation.status, AutomationStatus::Disabled));
+                
                 flow = flow.element(
-                    Text::new("A").fg(active_color),
+                    Text::new("A")
+                        .fg(
+                            if !service.automation_enabled {
+                                inactive_color
+                            } else if has_automation_errors {
+                                error_color
+                            } else if has_active_automations && has_disabled_automations {
+                                active_color
+                            } else if has_disabled_automations {}
+                        ),
                     FlowableArgs { fill: false },
                 );
 

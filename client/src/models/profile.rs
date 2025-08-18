@@ -12,6 +12,7 @@ pub struct Profile {
     pub running_tasks: VecDeque<Task>,
     pub all_task_definitions: Vec<(TaskDefinition, Option<ServiceId>)>,
     pub automations: Vec<Automation>,
+    pub automation_enabled: bool,
 }
 impl Profile {
     pub fn new(profile: ProfileDefinition, all_services: &Vec<ServiceDefinition>) -> Profile {
@@ -50,6 +51,7 @@ impl Profile {
             running_tasks: VecDeque::new(),
             all_task_definitions,
             automations: profile_automations,
+            automation_enabled: true,
         }
     }
     

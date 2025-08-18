@@ -32,6 +32,8 @@ impl RegisterKeybinds for ComponentRenderer {
 
         binds.service.toggle_output_selected.bind_key(ATTR_KEY_TOGGLE_SELECTED_OUTPUT, self);
         binds.service.toggle_output_all.bind_key(ATTR_KEY_TOGGLE_ALL_OUTPUT, self);
+        binds.service.toggle_automation_selected.bind_key(ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS, self);
+        binds.service.toggle_automation_all.bind_key(ATTR_KEY_TOGGLE_ALL_AUTOMATIONS, self);
 
         self.set_attr(ATTR_KEY_BLOCK_ACTIONS, binds.block_actions.iter()
             .map(|action| action.resolve())
@@ -58,5 +60,8 @@ pub const ATTR_KEY_TOGGLE_WRAP: &'static str = "keybinds.text_area.toggle_wrap";
 
 pub const ATTR_KEY_TOGGLE_SELECTED_OUTPUT: &'static str = "keybinds.services.toggle_selected_output";
 pub const ATTR_KEY_TOGGLE_ALL_OUTPUT: &'static str = "keybinds.services.toggle_all_output";
+
+pub const ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS: &'static str = "keybinds.services.toggle_selected_automation";
+pub const ATTR_KEY_TOGGLE_ALL_AUTOMATIONS: &'static str = "keybinds.services.toggle_all_automation";
 
 pub const ATTR_KEY_BLOCK_ACTIONS: &'static str = "keymappings.service_list.block_actions";

@@ -6,6 +6,7 @@ pub struct Theme {
     pub service_colors: Vec<Color>,
     pub source_colors: Vec<Color>,
     pub active_color: Color,
+    pub partially_active_color: Color,
     pub waiting_to_process_color: Color,
     pub processing_color: Color,
     pub error_color: Color,
@@ -20,6 +21,7 @@ impl Default for Theme {
             service_colors: default_name_colors(),
             source_colors: default_name_colors(),
             active_color: Color::Rgb(0, 140, 0),
+            partially_active_color: Color::Rgb(0, 140, 140),
             waiting_to_process_color: Color::Rgb(230, 127, 0),
             processing_color: Color::Rgb(230, 180, 0),
             error_color: Color::Rgb(180, 0, 0),
@@ -39,6 +41,8 @@ pub struct RawTheme {
     pub source_colors: Vec<String>,
     #[serde(default)]
     pub active_color: Option<String>,
+    #[serde(default)]
+    pub partially_active_color: Option<String>,
     #[serde(default)]
     pub waiting_to_process_color: Option<String>,
     #[serde(default)]
@@ -64,6 +68,7 @@ impl TryInto<Theme> for RawTheme {
             service_colors,
             source_colors,
             active_color,
+            partially_active_color,
             waiting_to_process_color,
             processing_color,
             error_color,
@@ -80,6 +85,10 @@ impl TryInto<Theme> for RawTheme {
             theme.source_colors = Self::try_into_theme_colors(source_colors, "source_colors")?
         }
 
+        theme.active_color = active_color
+            .map(|color| Self::try_into_theme_color(color, "active_color"))
+            .unwrap_or(Ok(theme.active_color))?;
+        // TODO partially
         theme.active_color = active_color
             .map(|color| Self::try_into_theme_color(color, "active_color"))
             .unwrap_or(Ok(theme.active_color))?;

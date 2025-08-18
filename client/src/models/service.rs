@@ -11,8 +11,9 @@ pub struct Service {
     pub definition: ServiceDefinition,
     block_statuses: HashMap<BlockId, BlockStatus>,
     block_actions: HashMap<BlockId, BlockAction>,
-    pub output_enabled: bool,
     pub automations: Vec<Automation>,
+    pub output_enabled: bool,
+    pub automation_enabled: bool,
 }
 impl Service {
     pub fn update_block_status(&mut self, block_id: &BlockId, status: BlockStatus)
@@ -58,6 +59,7 @@ impl From<ServiceDefinition> for Service {
                 .collect(),
             definition: value,
             output_enabled: true,
+            automation_enabled: true,
         }
     }
 }
