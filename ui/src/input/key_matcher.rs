@@ -1,7 +1,7 @@
 use crate::Signals;
 use crossterm::event::{KeyCode, KeyEventKind};
-use std::borrow::Borrow;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Borrow;
 
 #[derive(Debug, Clone)]
 pub struct KeyMatcher {

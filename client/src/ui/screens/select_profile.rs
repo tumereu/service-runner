@@ -1,10 +1,9 @@
-use std::sync::{Arc, RwLock};
-use log::debug;
 use crate::system_state::SystemState;
+use crate::ui::theming::ATTR_COLOR_FOCUSED_ELEMENT;
 use ratatui::style::Color;
-use ui::component::{Align, Cell, Component, SimpleList, StatefulComponent, Text, ATTR_KEY_SELECT};
+use std::sync::{Arc, RwLock};
+use ui::component::{Align, Cell, Component, SimpleList, StatefulComponent, Text};
 use ui::{FrameContext, RenderArgs, UIResult};
-use crate::ui::theming::{ATTR_COLOR_FOCUSED_ELEMENT, ATTR_COLOR_UNFOCUSED_ELEMENT};
 
 pub struct SelectProfileScreen {
     pub system_state: Arc<RwLock<SystemState>>,

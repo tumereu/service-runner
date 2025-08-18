@@ -1,5 +1,5 @@
-use ui::ComponentRenderer;
 use crate::config::Theme;
+use ui::ComponentRenderer;
 
 pub trait RegisterTheme {
     fn register_theme(&mut self, theme: &Theme);

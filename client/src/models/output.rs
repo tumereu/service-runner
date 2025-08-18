@@ -1,9 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 use std::convert::Into;
 
-use serde::{Deserialize, Serialize};
 use crate::config::ServiceId;
 use crate::system_state::SystemState;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OutputStore {

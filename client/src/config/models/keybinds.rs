@@ -1,7 +1,7 @@
+use crate::models::BlockAction;
 use crossterm::event::KeyCode;
 use serde_derive::{Deserialize, Serialize};
 use ui::input::KeyMatcher;
-use crate::models::BlockAction;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 #[serde(default)]

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import http.server
-from http import HTTPStatus
+import random
 import socketserver
 import time
-import random
 from datetime import datetime
+from http import HTTPStatus
+
 
 def human_time(seconds: float) -> str:
     return f"{seconds:.2f}s"

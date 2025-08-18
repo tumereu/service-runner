@@ -1,9 +1,8 @@
 use crate::component::{Component, MeasurableComponent};
 use crate::signals::Signals;
 use crate::space::Position;
-use crate::state_store::StateTreeNode;
 use crate::{ComponentRenderer, UIError, UIResult};
-use ratatui::layout::{Offset, Rect, Size};
+use ratatui::layout::{Rect, Size};
 use ratatui::widgets::Widget;
 use ratatui::Frame;
 use std::any::Any;

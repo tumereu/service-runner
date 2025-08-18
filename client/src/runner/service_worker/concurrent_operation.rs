@@ -136,14 +136,11 @@ impl ProcessWrapper {
                     thread::spawn(move || {
                         // Wait as long as the system and process are both running, or until an early-exit condition
                         // is fulfilled.
-                        let mut killed = false;
                         loop {
                             if *force_exit.lock().unwrap() {
-                                killed = true;
                                 break;
                             }
                             if state_arc.read().unwrap().should_exit {
-                                killed = true;
                                 break;
                             }
                             if process_handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {

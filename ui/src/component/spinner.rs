@@ -1,11 +1,11 @@
-use std::time::Instant;
-use crate::component::{Component, MeasurableComponent, Space, Text};
+use crate::component::{Component, MeasurableComponent, Text};
 use crate::frame_ctx::FrameContext;
 use crate::UIResult;
-use ratatui::layout::{Rect, Size};
 use once_cell::sync::Lazy;
+use ratatui::layout::Size;
 use ratatui::prelude::{Color, Span, Style};
 use ratatui::widgets::Paragraph;
+use std::time::Instant;
 
 static REFERENCE_INSTANT: Lazy<Instant> = Lazy::new(Instant::now);
 const SPINNER_CHARS: &[&str] = &["⠋", "⠙", "⠸", "⠴", "⠦", "⠇"];

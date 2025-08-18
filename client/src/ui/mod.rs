@@ -1,9 +1,8 @@
-use std::sync::{Arc, Mutex, RwLock};
-use log::debug;
-use crate::SystemState;
 use crate::ui::inputs::ATTR_KEY_QUIT;
 use crate::ui::screens::select_profile::SelectProfileScreen;
 use crate::ui::screens::view_profile::ViewProfileScreen;
+use crate::SystemState;
+use std::sync::{Arc, RwLock};
 use ui::component::Component;
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIResult};

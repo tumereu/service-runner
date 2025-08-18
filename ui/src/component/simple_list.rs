@@ -1,10 +1,7 @@
-use crate::component::{ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, Component, Dir, Flow, FlowableArgs, MeasurableComponent, StatefulComponent, ATTR_KEY_SELECT, List};
+use crate::component::{Component, List, MeasurableComponent, StatefulComponent, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, ATTR_KEY_SELECT};
 use crate::input::KeyMatcherQueryable;
 use crate::{FrameContext, RenderArgs, UIError, UIResult};
 use ratatui::layout::Size;
-use ratatui::prelude::Style;
-use ratatui::style::Color;
-use ratatui::widgets::Block;
 
 pub struct SimpleList<'a, ElementOutput, Item, Element, CreateElement>
 where

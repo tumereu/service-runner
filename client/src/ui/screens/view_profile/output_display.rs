@@ -1,13 +1,12 @@
 use crate::ui::Component;
-use std::fmt::{Debug, Formatter};
-use std::iter;
-use log::debug;
 use ratatui::prelude::Size;
 use ratatui::style::Color;
 use ratatui::widgets::Clear;
-use unicode_segmentation::UnicodeSegmentation;
-use ui::{FrameContext, RenderArgs, UIResult};
+use std::fmt::Debug;
+use std::iter;
 use ui::component::{Dir, Flow, FlowableArgs, MeasurableComponent, Text};
+use ui::{FrameContext, RenderArgs, UIResult};
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Default)]
 pub struct OutputDisplay {

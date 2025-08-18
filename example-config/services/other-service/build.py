@@ -1,5 +1,6 @@
-import time
 import random
+import time
+
 
 def print_with_delay(text, min_delay=0.01, max_delay=0.2):
     print(text, flush=True)

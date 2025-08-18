@@ -1,7 +1,5 @@
 use crate::component::{Component, MeasurableComponent};
 use crate::frame_ctx::FrameContext;
-use crate::input::{KeyMatcher, KeyMatcherQueryable};
-use crate::space::RectAtOrigin;
 use crate::UIResult;
 use ratatui::layout::Size;
 use ratatui::style::{Color, Style};

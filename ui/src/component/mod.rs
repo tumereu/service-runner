@@ -12,9 +12,9 @@ pub use fixed_measurement::*;
 pub use flow::*;
 pub use list::*;
 pub use simple_list::*;
-pub use text::*;
 pub use space::*;
 pub use spinner::*;
+pub use text::*;
 
 use crate::frame_ctx::FrameContext;
 use crate::UIResult;

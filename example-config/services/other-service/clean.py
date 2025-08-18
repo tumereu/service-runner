@@ -1,7 +1,8 @@
-import time
-import random
 import os
+import random
 import shutil
+import time
+
 
 def simulate_clean():
     if os.path.isdir("build"):

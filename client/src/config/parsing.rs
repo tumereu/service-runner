@@ -1,14 +1,14 @@
-use std::collections::{HashMap, HashSet};
-use Vec;
 use itertools::Itertools;
 use log::{debug, info};
 use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::fmt::{Display, Formatter, format};
-use std::fs::{File, read_to_string};
+use std::fmt::{format, Display, Formatter};
+use std::fs::{read_to_string, File};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+use Vec;
 
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
 use crate::config::{BlockId, RawSettings, ServiceId, Settings};

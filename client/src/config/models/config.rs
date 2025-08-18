@@ -1,8 +1,8 @@
 use serde_derive::Deserialize;
 
+use crate::config::models::keybinds::Keybinds;
 use crate::config::models::theme::{RawTheme, Theme};
 use crate::config::{ProfileDefinition, ServiceDefinition};
-use crate::config::models::keybinds::Keybinds;
 
 #[derive(Debug, Clone)]
 pub struct Settings {

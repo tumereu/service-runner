@@ -12,7 +12,6 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use ::ui::input::{collect_input_events, KeyMatcher};
 use ::ui::{ComponentRenderer, UIError, UIResult};
 
-use crate::models::Action::ActivateProfile;
 use crate::models::Profile;
 use crate::runner::file_watcher::FileWatcher;
 use crate::runner::rhai::RhaiExecutor;

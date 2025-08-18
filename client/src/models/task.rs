@@ -1,4 +1,4 @@
-use crate::config::{ServiceId, TaskDefinition, TaskDefinitionId};
+use crate::config::{ServiceId, TaskDefinition};
 use derive_more::Display;
 use std::time::Instant;
 

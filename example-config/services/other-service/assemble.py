@@ -1,6 +1,6 @@
-import time
-import random
 import os
+import random
+import time
 
 
 def simulate_assemble():

@@ -1,4 +1,4 @@
-use crate::component::{ATTR_COLOR_HIGHLIGHT, Component, MeasurableComponent, StatefulComponent};
+use crate::component::{Component, MeasurableComponent, StatefulComponent, ATTR_COLOR_HIGHLIGHT};
 use crate::{FrameContext, RenderArgs, UIError, UIResult};
 use ratatui::layout::Size;
 use ratatui::prelude::Style;

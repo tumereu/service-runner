@@ -1,6 +1,6 @@
-use std::time::Duration;
-use serde_derive::{Deserialize, Serialize};
 use crate::config::{ServiceId, TaskDefinitionId, TaskStep};
+use serde_derive::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

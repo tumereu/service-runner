@@ -2,16 +2,16 @@ mod output_display;
 mod output_pane;
 mod service_list;
 
-use std::sync::{Arc, RwLock};
-use ratatui::layout::Size;
 use crate::system_state::SystemState;
 use crate::ui::inputs::{ATTR_KEY_FOCUS_NEXT, ATTR_KEY_FOCUS_PREV, ATTR_KEY_TOGGLE_WRAP};
 use crate::ui::theming::{ATTR_COLOR_FOCUSED_ELEMENT, ATTR_COLOR_UNFOCUSED_ELEMENT};
+use ratatui::layout::Size;
 use ratatui::prelude::Color;
+use std::sync::{Arc, RwLock};
 use ui::component::{
     Align, Cell, Component, StatefulComponent, WithMeasurement, WithZeroMeasurement,
 };
-use ui::input::{KeyMatcher, KeyMatcherQueryable};
+use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, SignalHandling, UIError, UIResult};
 
 pub struct ViewProfileScreen {

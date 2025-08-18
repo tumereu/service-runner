@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::config::{Block, BlockId, ServiceId, TaskDefinitionId};
 use crate::models::{BlockAction, BlockStatus, Service, WorkStep};
 use crate::system_state::SystemState;
@@ -8,9 +7,10 @@ use rhai::module_resolvers::DummyModuleResolver;
 use rhai::packages::{Package, StandardPackage};
 use rhai::plugin::RhaiResult;
 use rhai::{Dynamic, Engine, Map, Scope};
+use std::collections::HashMap;
 use std::future::Future;
-use std::sync::mpsc::{Receiver, Sender, channel};
-use std::sync::{Arc, Mutex, PoisonError, RwLock, mpsc};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{mpsc, Arc, Mutex, PoisonError, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 

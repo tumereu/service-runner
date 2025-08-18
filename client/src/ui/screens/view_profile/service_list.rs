@@ -1,7 +1,7 @@
 use crate::config::{
-    BlockId, ResolvedBlockActionBinding, ServiceActionBinding, ServiceActionTarget,
+    BlockId, ResolvedBlockActionBinding, ServiceActionTarget,
 };
-use crate::models::{BlockStatus, Service, WorkStep};
+use crate::models::{BlockStatus, WorkStep};
 use crate::system_state::SystemState;
 use crate::ui::inputs::{
     ATTR_KEY_BLOCK_ACTIONS, ATTR_KEY_TOGGLE_ALL_OUTPUT, ATTR_KEY_TOGGLE_SELECTED_OUTPUT,
@@ -11,15 +11,14 @@ use crate::ui::theming::{
     ATTR_COLOR_WORK_PROCESSING, ATTR_COLOR_WORK_WAITING_TO_PROCESS,
 };
 use itertools::Itertools;
-use log::debug;
 use ratatui::layout::Size;
 use ratatui::prelude::Color;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use ui::component::{
-    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP,
-    ATTR_KEY_SELECT, Component, Dir, Flow, FlowableArgs, List, MeasurableComponent, SimpleList,
-    Space, Spinner, StatefulComponent, Text, WithMeasurement,
+    Component, Dir, Flow, FlowableArgs
+    , List, MeasurableComponent, Spinner, StatefulComponent, Text, WithMeasurement
+    , ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP,
 };
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
