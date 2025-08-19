@@ -54,3 +54,19 @@ tasks:
       - action: |
           toggle(self.id, self.blocks.build.id);
           toggle(self.id, self.blocks.run.id);
+automation:
+  - id: "run-after-build"
+    action:
+      type: "inline-task"
+      steps:
+        - action: run(self.id, "run")
+    triggers:
+      - becomes_true: self.blocks.build.status == OK # TODO and was worked?
+  - id: "sources-change"
+    debounce: 3s
+    action:
+      type: "inline-task"
+      steps:
+        - action: rerun(self.id, "build")
+    triggers:
+      - file_modified: mock-src

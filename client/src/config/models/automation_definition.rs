@@ -18,19 +18,20 @@ pub struct AutomationDefinition {
 pub struct AutomationDefinitionId(pub String);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct TaskReference {
-    pub task: TaskDefinitionId,
-    #[serde(default)]
-    pub service: Option<ServiceId>
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(untagged, deny_unknown_fields)]
+#[serde(tag = "type", deny_unknown_fields)]
 pub enum AutomationAction {
-    Task(TaskReference),
-    Tasks(Vec<TaskReference>),
-    InlineTask(Vec<TaskStep>),
+    #[serde(rename = "run-task")]
+    RunOwnTask {
+        id: String,
+    },
+    #[serde(rename = "run-any-task")]
+    RunAnyTask {
+        id: TaskDefinitionId,
+        #[serde(default)]
+        service: Option<ServiceId>,
+    },
+    #[serde(rename = "inline-task")]
+    InlineTask { steps: Vec<TaskStep> },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -39,4 +40,3 @@ pub enum AutomationTrigger {
     RhaiQuery { becomes_true: String },
     FileModified { file_modified: String },
 }
-

@@ -5,10 +5,7 @@ use crate::ui::inputs::{
     ATTR_KEY_BLOCK_ACTIONS, ATTR_KEY_TOGGLE_ALL_AUTOMATIONS, ATTR_KEY_TOGGLE_ALL_OUTPUT,
     ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS, ATTR_KEY_TOGGLE_SELECTED_OUTPUT,
 };
-use crate::ui::theming::{
-    ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE,
-    ATTR_COLOR_WORK_PROCESSING, ATTR_COLOR_WORK_WAITING_TO_PROCESS,
-};
+use crate::ui::theming::{ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE, ATTR_COLOR_WORK_PARTIALLY_ACTIVE, ATTR_COLOR_WORK_PROCESSING, ATTR_COLOR_WORK_WAITING_TO_PROCESS};
 use itertools::Itertools;
 use ratatui::layout::Size;
 use ratatui::prelude::Color;
@@ -237,7 +234,7 @@ impl StatefulComponent for ServiceList {
         let idle_color = context.req_attr::<Color>(ATTR_COLOR_WORK_IDLE)?.clone();
         let inactive_color = context.req_attr::<Color>(ATTR_COLOR_WORK_INACTIVE)?.clone();
         let active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ACTIVE)?.clone();
-        let partially_active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ACTIVE)?.clone();
+        let partially_active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_PARTIALLY_ACTIVE)?.clone();
         let processing_color = context
             .req_attr::<Color>(ATTR_COLOR_WORK_PROCESSING)?
             .clone();
@@ -322,29 +319,45 @@ impl StatefulComponent for ServiceList {
                     }),
                     FlowableArgs { fill: false },
                 );
-                let has_automation_errors = service.automations
-                    .iter()
-                    .any(|automation| matches!(automation.status, AutomationStatus::Error));
-                let has_active_automations = service.automations
-                    .iter()
-                    .any(|automation| matches!(automation.status, AutomationStatus::Active));
-                let has_disabled_automations = service.automations
-                    .iter()
-                    .any(|automation| matches!(automation.status, AutomationStatus::Disabled));
-                
-                flow = flow.element(
-                    Text::new("A")
-                        .fg(
-                            if !service.automation_enabled {
-                                inactive_color
-                            } else if has_automation_errors {
-                                error_color
-                            } else if has_active_automations && has_disabled_automations {
-                                active_color
-                            } else if has_disabled_automations {}
-                        ),
-                    FlowableArgs { fill: false },
-                );
+                if service.automations.is_empty() {
+                    flow = flow.element(
+                        Text::new("-").fg(inactive_color),
+                        FlowableArgs { fill: false },
+                    );
+                } else {
+                    let has_automation_errors = service.automations
+                        .iter()
+                        .any(|automation| matches!(automation.status, AutomationStatus::Error));
+                    let has_active_automations = service.automations
+                        .iter()
+                        .any(|automation| matches!(automation.status, AutomationStatus::Active));
+                    let has_disabled_automations = service.automations
+                        .iter()
+                        .any(|automation| matches!(automation.status, AutomationStatus::Disabled));
+                    let has_triggered_automations = service.automations
+                        .iter()
+                        .any(|automation| automation.last_triggered.is_some());
+
+                    flow = flow.element(
+                        Text::new("A")
+                            .fg(
+                                if !service.automation_enabled {
+                                    inactive_color
+                                } else if has_triggered_automations {
+                                    processing_color
+                                } else if has_automation_errors {
+                                    error_color
+                                } else if has_active_automations && has_disabled_automations {
+                                    partially_active_color
+                                } else if has_active_automations {
+                                    active_color
+                                } else {
+                                    inactive_color
+                                }
+                            ),
+                        FlowableArgs { fill: false },
+                    );
+                }
 
                 flow = flow.element(Spinner::new(is_processing), FlowableArgs { fill: false });
 

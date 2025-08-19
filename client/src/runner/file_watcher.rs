@@ -1,3 +1,6 @@
+use itertools::Itertools;
+use log::{error, trace};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -5,11 +8,8 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use log::{error, trace};
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-
 use crate::config::{AutomationDefinitionId, AutomationTrigger, ServiceId};
-use crate::models::AutomationStatus;
+use crate::models::{AutomationStatus, OutputKey, OutputKind};
 use crate::system_state::SystemState;
 use crate::utils::resolve_path;
 
@@ -59,9 +59,12 @@ impl FileWatcher {
                                 .flat_map(|profile| &profile.services)
                                 .flat_map(|service| {
                                     service.automations.iter().map(|automation| {
-                                        (automation.definition.id.clone(), Some(service.definition.id.clone()))
+                                        (
+                                            automation.definition.id.clone(),
+                                            Some(service.definition.id.clone()),
+                                        )
                                     })
-                                })
+                                }),
                         )
                         .collect()
                 };
@@ -148,7 +151,7 @@ impl FileWatcher {
                                 Some(file_modified.clone())
                             }
                         })
-                        .map(|watch_path| resolve_path(&work_dir, &watch_path))
+                        .map(|watch_path| resolve_path(&watch_path, &work_dir))
                         .collect()
                 })
                 .unwrap_or_default();
@@ -177,6 +180,11 @@ impl FileWatcher {
         automation_id: &AutomationDefinitionId,
         service_id: Option<ServiceId>,
     ) {
+        let path_str = watch_paths
+            .iter()
+            .filter_map(|path| path.to_str())
+            .join(", ");
+
         let watcher = {
             let system_state = system_state.clone();
             let automation_id = automation_id.clone();
@@ -186,9 +194,7 @@ impl FileWatcher {
                 Ok(event) => {
                     trace!(
                         "Received filesystem event for automation {:?} (service: {:?}): {:?}",
-                        automation_id,
-                        service_id,
-                        event,
+                        automation_id, service_id, event,
                     );
                     let mut system = system_state.write().unwrap();
 
@@ -203,14 +209,28 @@ impl FileWatcher {
             })
         };
 
+        // TODO add output for success andfal
         let successful = if let Ok(mut watcher) = watcher {
             let mut successful = true;
-            for path in watch_paths {
+            for path in &watch_paths {
                 let watch_result = watcher.watch(&path, RecursiveMode::Recursive);
                 if watch_result.is_err() {
                     error!(
                         "Failure when trying to watch path {path:?} for automation {automation_id:?} (service: {service_id:?}): {watch_result:?}"
                     );
+                    system_state.write().unwrap().add_output(
+                        &OutputKey {
+                            service_id: service_id.clone(),
+                            source_name: "automation".to_owned(),
+                            kind: OutputKind::System,
+                        },
+                        format!(
+                            "Error: unexpected failure when trying to watch path {path}: {description}",
+                            path = path.to_str().unwrap_or_default(),
+                            description = watch_result.unwrap_err().to_string()
+                        ),
+                    );
+
                     successful = false;
                     break;
                 }
@@ -223,9 +243,36 @@ impl FileWatcher {
                 "Failed to create a file watcher for automation {:?} (service: {:?})",
                 automation_id, service_id
             );
+            system_state.write().unwrap().add_output(
+                &OutputKey {
+                    service_id: service_id.clone(),
+                    source_name: "automation".to_owned(),
+                    kind: OutputKind::System,
+                },
+                format!(
+                    "Error: failed to create a file watcher for automation {automation_id:?} (service: {service_id:?}): {error}",
+                    error = watcher.unwrap_err().to_string(),
+                ),
+            );
+
             watchers.insert(key, None);
             false
         };
+
+        if successful {
+            let path_str = watch_paths
+                .iter()
+                .filter_map(|path| path.to_str())
+                .join(", ");
+            system_state.write().unwrap().add_output(
+                &OutputKey {
+                    service_id: service_id.clone(),
+                    source_name: "automation".to_owned(),
+                    kind: OutputKind::System,
+                },
+                format!("Successfully began watching paths: {path_str}"),
+            );
+        }
 
         let mut system = system_state.write().unwrap();
         system.update_automation(&automation_id, &service_id, |automation| {

@@ -8,6 +8,7 @@ pub trait RegisterTheme {
 impl RegisterTheme for ComponentRenderer {
     fn register_theme(&mut self, theme: &Theme) {
         self.set_attr(ATTR_COLOR_WORK_ACTIVE, theme.active_color);
+        self.set_attr(ATTR_COLOR_WORK_PARTIALLY_ACTIVE, theme.partially_active_color);
         self.set_attr(ATTR_COLOR_WORK_WAITING_TO_PROCESS, theme.waiting_to_process_color);
         self.set_attr(ATTR_COLOR_WORK_PROCESSING, theme.processing_color);
         self.set_attr(ATTR_COLOR_WORK_ERROR, theme.error_color);

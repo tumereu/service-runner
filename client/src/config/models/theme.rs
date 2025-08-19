@@ -88,10 +88,9 @@ impl TryInto<Theme> for RawTheme {
         theme.active_color = active_color
             .map(|color| Self::try_into_theme_color(color, "active_color"))
             .unwrap_or(Ok(theme.active_color))?;
-        // TODO partially
-        theme.active_color = active_color
-            .map(|color| Self::try_into_theme_color(color, "active_color"))
-            .unwrap_or(Ok(theme.active_color))?;
+        theme.partially_active_color = partially_active_color
+            .map(|color| Self::try_into_theme_color(color, "partially_active_color"))
+            .unwrap_or(Ok(theme.partially_active_color))?;
         theme.waiting_to_process_color = waiting_to_process_color
             .map(|color| Self::try_into_theme_color(color, "waiting_to_process_color"))
             .unwrap_or(Ok(theme.waiting_to_process_color))?;
