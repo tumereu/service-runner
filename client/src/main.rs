@@ -13,7 +13,7 @@ use ::ui::input::collect_input_events;
 use ::ui::{ComponentRenderer, UIResult};
 
 use crate::runner::file_watcher::FileWatcher;
-use crate::runner::rhai::RhaiExecutor;
+use runner::scripting::executor::ScriptExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
 use crate::ui::inputs::RegisterKeybinds;
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen)?;
 
-    let rhai_executor = Arc::new(RhaiExecutor::new(system_state.clone()));
+    let rhai_executor = Arc::new(ScriptExecutor::new(system_state.clone()));
     let service_worker = Arc::new(ServiceWorker::new(system_state.clone(), rhai_executor.clone()));
     let file_watcher = Arc::new(FileWatcher::new(system_state.clone()));
 

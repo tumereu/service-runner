@@ -221,13 +221,13 @@ impl SystemState {
                 .flat_map(|profile| &profile.services)
                 .filter(|service| service.definition.id == *service_id)
                 .flat_map(|service| &service.automations)
-                .find(|automation| automation.definition.id == *def_id)
+                .find(|automation| automation.definition_id == *def_id)
         } else {
             self.current_profile
                 .as_ref()
                 .iter()
                 .flat_map(|profile| &profile.automations)
-                .find(|automation| automation.definition.id == *def_id)
+                .find(|automation| automation.definition_id == *def_id)
         };
 
         if let Some(automation) = automation {
@@ -251,12 +251,12 @@ impl SystemState {
                 .flat_map(|profile| profile.services.iter_mut())
                 .filter(|service| service.definition.id == *service_id)
                 .flat_map(|service| service.automations.iter_mut())
-                .find(|automation| automation.definition.id == *def_id)
+                .find(|automation| automation.definition_id == *def_id)
         } else {
             self.current_profile
                 .iter_mut()
                 .flat_map(|profile| profile.automations.iter_mut())
-                .find(|automation| automation.definition.id == *def_id)
+                .find(|automation| automation.definition_id == *def_id)
         };
 
         if let Some(automation) = automation {

@@ -34,15 +34,7 @@ impl Profile {
             ).collect();
         
         let profile_automations: Vec<Automation> = profile.automation.iter().map(|automation| {
-            Automation {
-                definition: automation.clone(),
-                status: if automation.enabled {
-                    AutomationStatus::Active
-                } else {
-                    AutomationStatus::Disabled
-                },
-                last_triggered: None,
-            }
+            (automation.clone(), None).into()
         }).collect();
 
         Profile {

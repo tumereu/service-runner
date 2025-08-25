@@ -1,5 +1,5 @@
 use crate::models::TaskStatus;
-use crate::runner::rhai::RhaiExecutor;
+use crate::runner::scripting::executor::ScriptExecutor;
 use crate::runner::service_worker::block_processor::BlockProcessor;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::task_context::TaskContext;
@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
-
+use crate::runner::query_trigger_handler::QueryTriggerHandler;
 use crate::runner::service_worker::task_processor::TaskProcessor;
 use crate::runner::service_worker::ConcurrentOperationStatus;
 
@@ -24,14 +24,14 @@ mod task_processor;
 
 pub struct ServiceWorker {
     state: Arc<RwLock<SystemState>>,
-    rhai_executor: Arc<RhaiExecutor>,
+    rhai_executor: Arc<ScriptExecutor>,
     keep_running: Arc<Mutex<bool>>,
 }
 impl ServiceWorker {
-    pub fn new(state: Arc<RwLock<SystemState>>, rhai_executor: Arc<RhaiExecutor>) -> Self {
+    pub fn new(state: Arc<RwLock<SystemState>>, rhai_executor: Arc<ScriptExecutor>) -> Self {
         Self {
-            state,
-            rhai_executor,
+            state: state.clone(),
+            rhai_executor: rhai_executor.clone(),
             keep_running: Arc::new(Mutex::new(true)),
         }
     }
@@ -42,12 +42,16 @@ impl ServiceWorker {
         let executor = self.rhai_executor.clone();
         
         thread::spawn(move || {
+            let mut query_trigger_handler = QueryTriggerHandler::new(state.clone());
+            
             while *keep_running.lock().unwrap() {
                 Self::work_services(
                     state.clone(),
                     executor.clone(),
                 );
-                thread::sleep(Duration::from_millis(10))
+                query_trigger_handler.process_automation_triggers();
+                
+                thread::sleep(Duration::from_millis(30))
             }
         })
     }
@@ -58,7 +62,7 @@ impl ServiceWorker {
 
     fn work_services(
         state_arc: Arc<RwLock<SystemState>>,
-        rhai_executor: Arc<RhaiExecutor>,
+        rhai_executor: Arc<ScriptExecutor>,
     ) {
         // A collection of (service_id, block_id) pairs describing all services and their blocks
         // that might need to be worked on.
@@ -113,7 +117,7 @@ impl ServiceWorker {
             profile.running_tasks.retain(|task| {
                 matches!(task.status, TaskStatus::Running { .. })
             });
-        })
+        });
     }
 }
 

@@ -55,7 +55,7 @@ impl From<ServiceDefinition> for Service {
                 .map(|block| (block.id.clone(), BlockAction::Run))
                 .collect(),
             automations: value.automation.iter()
-                .map(|auto_def| auto_def.clone().into())
+                .map(|auto_def| (auto_def.clone(), Some(value.id.clone())).into())
                 .collect(),
             definition: value,
             output_enabled: true,

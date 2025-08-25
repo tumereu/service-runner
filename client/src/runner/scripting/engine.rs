@@ -1,94 +1,48 @@
 use crate::config::{BlockId, ServiceId, TaskDefinitionId};
 use crate::models::{BlockAction, BlockStatus, WorkStep};
 use crate::system_state::SystemState;
-use log::error;
 use rhai::module_resolvers::DummyModuleResolver;
 use rhai::packages::{Package, StandardPackage};
 use rhai::plugin::RhaiResult;
 use rhai::{Dynamic, Engine, Map, Scope};
-use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
-use std::thread;
-use std::thread::JoinHandle;
 
-pub struct RhaiExecutor {
-    keep_alive: Arc<Mutex<bool>>,
-    state: Arc<RwLock<SystemState>>,
-    tx: Arc<Mutex<Option<Sender<(RhaiRequest, Sender<RhaiResult>)>>>>,
+pub struct ScriptEngine {
+    engine: Engine,
+    scope: Scope<'static>,
+    scope_len: usize,
 }
-impl RhaiExecutor {
-    pub fn new(state: Arc<RwLock<SystemState>>) -> Self {
+impl ScriptEngine {
+    pub fn new(
+        state: Arc<RwLock<SystemState>>,
+        with_fn: bool,
+    ) -> Self {
+        let mut engine = Self::init_rhai_engine();
+        let scope = Self::init_rhai_scope(state.clone());
+        
+        Self::register_proxies(state.clone(), &mut engine);
+        if with_fn {
+            Self::register_functions(state.clone(), &mut engine);
+        }
+        
         Self {
-            keep_alive: Arc::new(Mutex::new(true)),
-            state,
-            tx: Arc::new(Mutex::new(None)),
+            engine,
+            scope_len: scope.len(),
+            scope,
         }
     }
-
-    pub fn start(&self) -> JoinHandle<()> {
-        let keep_alive = self.keep_alive.clone();
-        let state_arc = self.state.clone();
-        let (tx, rx) = channel::<(RhaiRequest, Sender<RhaiResult>)>();
-
-        let worker_thread = thread::spawn(move || {
-            let mut plain_engine = Self::init_rhai_engine();
-            Self::register_proxies(state_arc.clone(), &mut plain_engine);
-
-            let mut function_engine = Self::init_rhai_engine();
-            Self::register_functions(state_arc.clone(), &mut function_engine);
-            Self::register_proxies(state_arc.clone(), &mut function_engine);
-
-            let mut scope = Self::init_rhai_scope(state_arc.clone());
-            let scope_len = scope.len();
-
-            while *keep_alive.lock().unwrap() {
-                let query = rx.try_recv();
-                match query {
-                    Ok((request, response_tx)) => {
-                        let engine = if request.allow_functions {
-                            &function_engine
-                        } else {
-                            &plain_engine
-                        };
-
-                        scope.rewind(scope_len);
-                        if let Some(service_id) = request.service_id {
-                            scope.push_constant("self", Dynamic::from(ServiceProxy { id: service_id.inner().to_owned() }));
-                        }
-
-                        let result = engine.eval_with_scope::<Dynamic>(&mut scope, &request.script);
-                        match response_tx.send(result) {
-                            Ok(_) => {}
-                            Err(_) => {
-                                error!("Failed to send response from Rhai worker thread.");
-                            }
-                        }
-                    }
-                    Err(_) => thread::sleep(std::time::Duration::from_millis(50)),
-                }
-            }
-        });
-
-        *self.tx.lock().unwrap() = Some(tx);
-
-        worker_thread
+    
+    pub fn set_self_service(&mut self, service_id: &Option<ServiceId>) {
+        self.scope.rewind(self.scope_len - 1);
+        match service_id { 
+            Some(service_id) => self.scope.push_constant("self", Dynamic::from(ServiceProxy { id: service_id.inner().to_owned() })),
+            None => self.scope.push_constant("self", Dynamic::from(())),
+        };
     }
-
-    pub fn stop(&self) {
-        *self.keep_alive.lock().unwrap() = false;
-    }
-
-    pub fn enqueue(&self, request: RhaiRequest) -> Receiver<RhaiResult> {
-        let tx = self.tx.lock().unwrap();
-        if let Some(tx) = tx.as_ref() {
-            let (response_tx, response_rx) = channel::<RhaiResult>();
-
-            tx.send((request, response_tx)).unwrap();
-            response_rx
-        } else {
-            // TODO custom error type instead?
-            panic!("Failed to execute Rhai request. Rhai worker thread is not running.");
-        }
+    
+    pub fn eval(&mut self, script: &str) -> RhaiResult {
+        self.scope.rewind(self.scope_len);
+        self.engine.eval_with_scope::<Dynamic>(&mut self.scope, script)
     }
 
     fn init_rhai_scope<'a>(
@@ -102,7 +56,6 @@ impl RhaiExecutor {
             let id = service.definition.id.inner().to_owned();
             services_map.insert(id.clone().into(), Dynamic::from(ServiceProxy { id }));
         });
-
         scope.push_constant("services", services_map);
 
         // Register helper constants to make it easier to check statuses
@@ -112,6 +65,9 @@ impl RhaiExecutor {
         scope.push_constant("WORKING", "Working");
         scope.push_constant("OK", "Ok");
         scope.push_constant("ERROR", "Error");
+
+        // Push the self-constant last, so that rewinding to scope.len() - 1 will remove it.
+        scope.push_constant("self", Dynamic::from(()));
 
         scope
     }

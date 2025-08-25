@@ -1,6 +1,6 @@
 use crate::config::{Block, BlockId, ServiceId};
 use crate::models::{BlockAction, BlockStatus, GetBlock, OutputKey, OutputKind, Service};
-use crate::runner::rhai::{RhaiExecutor, RhaiRequest};
+use crate::runner::scripting::executor::{ScriptExecutor, RhaiRequest};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
     ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
@@ -16,14 +16,14 @@ use std::sync::{Arc, RwLock};
 
 pub struct ServiceBlockContext {
     system_state: Arc<RwLock<SystemState>>,
-    rhai_executor: Arc<RhaiExecutor>,
+    rhai_executor: Arc<ScriptExecutor>,
     pub service_id: ServiceId,
     pub block_id: BlockId,
 }
 impl ServiceBlockContext {
     pub fn new(
         system_state: Arc<RwLock<SystemState>>,
-        rhai_executor: Arc<RhaiExecutor>,
+        rhai_executor: Arc<ScriptExecutor>,
         service_id: ServiceId,
         block_id: BlockId,
     ) -> Self {

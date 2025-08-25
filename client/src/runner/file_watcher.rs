@@ -51,7 +51,7 @@ impl FileWatcher {
                         .current_profile
                         .iter()
                         .flat_map(|profile| &profile.automations)
-                        .map(|automation| (automation.definition.id.clone(), None))
+                        .map(|automation| (automation.definition_id.clone(), None))
                         .chain(
                             state
                                 .current_profile
@@ -60,7 +60,7 @@ impl FileWatcher {
                                 .flat_map(|service| {
                                     service.automations.iter().map(|automation| {
                                         (
-                                            automation.definition.id.clone(),
+                                            automation.definition_id.clone(),
                                             Some(service.definition.id.clone()),
                                         )
                                     })
@@ -142,7 +142,6 @@ impl FileWatcher {
                 .unwrap()
                 .query_automation(&automation_id, &service_id, |automation| {
                     automation
-                        .definition
                         .triggers
                         .iter()
                         .filter_map(|trigger| match trigger {

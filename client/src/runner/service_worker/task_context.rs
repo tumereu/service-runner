@@ -1,6 +1,6 @@
 use crate::config::TaskDefinitionId;
 use crate::models::{OutputKey, OutputKind, Service, Task, TaskAction, TaskId, TaskStatus};
-use crate::runner::rhai::{RhaiExecutor, RhaiRequest};
+use crate::runner::scripting::executor::{ScriptExecutor, RhaiRequest};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
     ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
@@ -16,13 +16,13 @@ use std::sync::{Arc, RwLock};
 
 pub struct TaskContext {
     system_state: Arc<RwLock<SystemState>>,
-    rhai_executor: Arc<RhaiExecutor>,
+    rhai_executor: Arc<ScriptExecutor>,
     pub task_id: TaskId,
 }
 impl TaskContext {
     pub fn new(
         system_state: Arc<RwLock<SystemState>>,
-        rhai_executor: Arc<RhaiExecutor>,
+        rhai_executor: Arc<ScriptExecutor>,
         task_id: TaskId,
     ) -> Self {
         Self {
