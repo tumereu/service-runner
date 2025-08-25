@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use log::debug;
 use crate::runner::query_trigger_handler::QueryTriggerHandler;
 use crate::runner::service_worker::task_processor::TaskProcessor;
 use crate::runner::service_worker::ConcurrentOperationStatus;
@@ -35,27 +36,27 @@ impl ServiceWorker {
             keep_running: Arc::new(Mutex::new(true)),
         }
     }
-    
+
     pub fn start(&self) -> JoinHandle<()> {
         let keep_running = self.keep_running.clone();
         let state = self.state.clone();
         let executor = self.rhai_executor.clone();
-        
+
         thread::spawn(move || {
             let mut query_trigger_handler = QueryTriggerHandler::new(state.clone());
-            
+
             while *keep_running.lock().unwrap() {
                 Self::work_services(
                     state.clone(),
                     executor.clone(),
                 );
                 query_trigger_handler.process_automation_triggers();
-                
+
                 thread::sleep(Duration::from_millis(30))
             }
         })
     }
-    
+
     pub fn stop(&self) {
         *self.keep_running.lock().unwrap() = false;
     }

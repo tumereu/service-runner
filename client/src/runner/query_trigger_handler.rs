@@ -1,11 +1,12 @@
 use crate::config::{AutomationDefinitionId, AutomationTrigger, ServiceId};
 use crate::runner::scripting::engine::ScriptEngine;
 use crate::system_state::SystemState;
+use itertools::Itertools;
+use log::debug;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use itertools::Itertools;
 
 pub struct QueryTriggerHandler {
     state: Arc<RwLock<SystemState>>,
@@ -22,10 +23,14 @@ impl QueryTriggerHandler {
     }
 
     pub fn process_automation_triggers(&mut self) {
-        let mut results = self.previous_results.take();
-        let mut triggered_automations: HashSet<(AutomationDefinitionId, Option<ServiceId>)> = HashSet::new();
+        struct ProcessableQuery {
+            automation_id: AutomationDefinitionId,
+            service_id: Option<ServiceId>,
+            index: usize,
+            query: String,
+        }
 
-        {
+        let queries_to_process: Vec<ProcessableQuery> = {
             // Process all queries in read-only mode
             let state = self.state.read().unwrap();
             // Find all automations in the current profile (either directly under the profile or under services)
@@ -52,41 +57,62 @@ impl QueryTriggerHandler {
                 // Link each trigger to its index. Since the automations and their triggers witnin a profile are static,
                 // this will always link the same trigger to the same index.
                 .enumerate()
-                // Process the resulting list
-                .for_each(|(index, (automation, trigger))| {
+                // Collect each query into a struct so we can release the state-lock
+                .map(|(index, (automation, trigger))| {
                     let query = match trigger {
                         AutomationTrigger::RhaiQuery { becomes_true } => becomes_true,
-                        AutomationTrigger::FileModified { .. } => panic!("FileModified trigger should have been filtered out earlier")
-                    };
-
-                    self.script_engine.set_self_service(&automation.service_id);
-                    let script_result = self.script_engine.eval(query);
-                    let cur_value = match script_result {
-                        Ok(value) if value.as_bool().unwrap_or_default() => true,
-                        _ => false
-                    };
-
-                    match results.get(index) {
-                        // This is the first time the query is being executed
-                        None => results.push(cur_value),
-                        Some(prev_value) => {
-                            // This is a moment when the query changes from false to true
-                            if !prev_value && cur_value {
-                                triggered_automations.insert(
-                                    (automation.definition_id.clone(), automation.service_id.clone())
-                                );
-                            }
-
-                            results[index] = cur_value;
+                        AutomationTrigger::FileModified { .. } => {
+                            panic!("FileModified trigger should have been filtered out earlier")
                         }
+                    };
+
+                    ProcessableQuery {
+                        automation_id: automation.definition_id.clone(),
+                        service_id: automation.service_id.clone(),
+                        index,
+                        query: query.clone(),
                     }
-                });
+                })
+                .collect()
+        };
+
+        let mut results = self.previous_results.take();
+        let mut to_trigger: HashSet<(AutomationDefinitionId, Option<ServiceId>)> = HashSet::new();
+
+        // Then process the resulting list
+        for processable_query in queries_to_process {
+            let ProcessableQuery {
+                automation_id,
+                service_id,
+                index,
+                query,
+            } = processable_query;
+
+            self.script_engine.set_self_service(&service_id);
+            let script_result = self.script_engine.eval(&query);
+            let cur_value = match script_result {
+                Ok(value) if value.as_bool().unwrap_or_default() => true,
+                _ => false,
+            };
+
+            match results.get(index) {
+                // This is the first time the query is being executed
+                None => results.push(cur_value),
+                Some(prev_value) => {
+                    // This is a moment when the query changes from false to true
+                    if !prev_value && cur_value {
+                        to_trigger.insert((automation_id, service_id));
+                    }
+
+                    results[index] = cur_value;
+                }
+            }
         }
-        
+
         // Only lock the state for writing if we have automations to trigger
-        if !triggered_automations.is_empty() {
+        if !to_trigger.is_empty() {
             let mut state = self.state.write().unwrap();
-            for (automation_id, service_id) in triggered_automations {
+            for (automation_id, service_id) in to_trigger {
                 state.update_automation(&automation_id, &service_id, |automation| {
                     automation.last_triggered = Some(Instant::now());
                 });

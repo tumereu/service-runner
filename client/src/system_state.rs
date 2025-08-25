@@ -74,36 +74,6 @@ impl SystemState {
         self.concurrent_operations.get(key)
     }
 
-    pub fn is_processing(&self, service_id: &ServiceId) -> bool {
-        // TODO if a block is checking prereqs and has failed, do not count it as processing
-        self.get_service(service_id)
-            .iter()
-            .flat_map(|service| {
-                service
-                    .definition
-                    .blocks
-                    .iter()
-                    .map(|block| block.id.clone())
-                    .filter(|block_id| {
-                        !matches!(service.get_block_status(&block_id), BlockStatus::Ok)
-                    })
-            })
-            .flat_map(|block_id| {
-                [
-                    (block_id.clone(), OperationType::Check),
-                    (block_id.clone(), OperationType::Work),
-                ]
-            })
-            .any(|(block_id, operation_type)| {
-                self.get_concurrent_operation(&ConcurrentOperationKey::Block {
-                    service_id: service_id.to_owned(),
-                    block_id,
-                    operation_type,
-                })
-                .is_some()
-            })
-    }
-
     pub fn has_block_operations(&self, service_id: &ServiceId, block_id: &BlockId) -> bool {
         [OperationType::Check, OperationType::Work]
             .iter()

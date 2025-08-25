@@ -70,7 +70,11 @@ pub enum BlockStatus {
     Working {
         step: WorkStep,
     },
-    Ok,
+    Ok { 
+        // If `false`, then the block bypassed its work-steps due to a pre-work health check succeeding. This is only
+        // possible for some types of blocks. `true` otherwise.
+        was_worked: bool 
+    },
     Error,
     Disabled,
 }

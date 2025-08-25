@@ -81,7 +81,7 @@ impl BlockProcessor for ServiceBlockContext {
                 });
             }
 
-            (BlockStatus::Working { .. } | BlockStatus::Ok, Some(BlockAction::Run)) => {
+            (BlockStatus::Working { .. } | BlockStatus::Ok { .. }, Some(BlockAction::Run)) => {
                 info!(
                     "Block {debug_id} is already in a running/finished status, clearing run-action"
                 );
@@ -96,7 +96,7 @@ impl BlockProcessor for ServiceBlockContext {
                 self.update_status(match status {
                     BlockStatus::Initial => BlockStatus::Initial,
                     BlockStatus::Working { .. } => BlockStatus::Initial,
-                    BlockStatus::Ok => BlockStatus::Initial,
+                    BlockStatus::Ok { .. } => BlockStatus::Initial,
                     BlockStatus::Error => BlockStatus::Error,
                     BlockStatus::Disabled => BlockStatus::Disabled,
                 })
@@ -111,7 +111,7 @@ impl BlockProcessor for ServiceBlockContext {
             }
 
             (
-                BlockStatus::Initial | BlockStatus::Ok | BlockStatus::Error,
+                BlockStatus::Initial | BlockStatus::Ok { .. } | BlockStatus::Error,
                 Some(BlockAction::Cancel),
             ) => {
                 // Cancel should only stop the process if its in working-state. Stop is the action to use when wanting
@@ -119,7 +119,7 @@ impl BlockProcessor for ServiceBlockContext {
                 self.clear_current_action();
             }
 
-            (BlockStatus::Ok, None) => {
+            (BlockStatus::Ok { .. }, None) => {
                 let require_live_process = self.query_block(|block| match block.work {
                     WorkDefinition::CommandSeq { .. } => false,
                     WorkDefinition::Process { .. } => true,
@@ -322,7 +322,7 @@ impl BlockProcessor for ServiceBlockContext {
                     }
                     RequirementCheckResult::AllOk => {
                         // The block is healthy, we can move to OK status
-                        self.update_status(BlockStatus::Ok);
+                        self.update_status(BlockStatus::Ok { was_worked: false });
                     }
                     RequirementCheckResult::CurrentCheckOk => {
                         // One check completed, move to check the next one
@@ -459,7 +459,7 @@ impl BlockProcessor for ServiceBlockContext {
                     }
                     // If there are no more (or at all) requirements to check, then we can finally consider the
                     // block healthy
-                    RequirementCheckResult::AllOk => self.update_status(BlockStatus::Ok),
+                    RequirementCheckResult::AllOk => self.update_status(BlockStatus::Ok { was_worked: true }),
                     RequirementCheckResult::Timeout => self.update_status(BlockStatus::Error),
                     RequirementCheckResult::CurrentCheckOk => {
                         self.update_status(BlockStatus::Working {

@@ -5,7 +5,8 @@ use rhai::module_resolvers::DummyModuleResolver;
 use rhai::packages::{Package, StandardPackage};
 use rhai::plugin::RhaiResult;
 use rhai::{Dynamic, Engine, Map, Scope};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
+use log::debug;
 
 pub struct ScriptEngine {
     engine: Engine,
@@ -19,27 +20,27 @@ impl ScriptEngine {
     ) -> Self {
         let mut engine = Self::init_rhai_engine();
         let scope = Self::init_rhai_scope(state.clone());
-        
+
         Self::register_proxies(state.clone(), &mut engine);
         if with_fn {
             Self::register_functions(state.clone(), &mut engine);
         }
-        
+
         Self {
             engine,
             scope_len: scope.len(),
             scope,
         }
     }
-    
+
     pub fn set_self_service(&mut self, service_id: &Option<ServiceId>) {
         self.scope.rewind(self.scope_len - 1);
-        match service_id { 
+        match service_id {
             Some(service_id) => self.scope.push_constant("self", Dynamic::from(ServiceProxy { id: service_id.inner().to_owned() })),
             None => self.scope.push_constant("self", Dynamic::from(())),
         };
     }
-    
+
     pub fn eval(&mut self, script: &str) -> RhaiResult {
         self.scope.rewind(self.scope_len);
         self.engine.eval_with_scope::<Dynamic>(&mut self.scope, script)
@@ -175,11 +176,25 @@ impl ScriptEngine {
                             step: WorkStep::PrerequisiteCheck { last_failure, .. },
                         } if last_failure.is_some() => "Waiting",
                         BlockStatus::Working { .. } => "Working",
-                        BlockStatus::Ok => "Ok",
+                        BlockStatus::Ok { .. } => "Ok",
                         BlockStatus::Error => "Error",
                     }
                 } else {
                     "Unknown"
+                }
+            });
+        }
+        {
+            let state = state.clone();
+            engine.register_get("work_skipped", move |blk: &mut BlockProxy| {
+                let state = state.read().unwrap();
+                if let Some(service) = state.get_service(&ServiceId::new(&blk.service_id)) {
+                    match service.get_block_status(&BlockId::new(&blk.block_id)) {
+                        BlockStatus::Ok { was_worked } => !was_worked,
+                        _ => false,
+                    }
+                } else {
+                    false
                 }
             });
         }

@@ -59,9 +59,9 @@ automation:
     action:
       type: "inline-task"
       steps:
-        - action: run(self.id, "run")
+        - action: rerun(self.id, "run")
     triggers:
-      - becomes_true: self.blocks.build.status == OK # TODO and was worked?
+      - becomes_true: self.blocks.build.status == OK && !self.blocks.build.work_skipped
   - id: "sources-change"
     debounce: 3s
     action:

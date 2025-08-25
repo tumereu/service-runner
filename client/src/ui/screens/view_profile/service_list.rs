@@ -265,7 +265,7 @@ impl StatefulComponent for ServiceList {
                                     }
                                     _ => BlockUIStatus::Working,
                                 },
-                                BlockStatus::Ok => BlockUIStatus::Ok,
+                                BlockStatus::Ok { .. } => BlockUIStatus::Ok,
                                 BlockStatus::Error => BlockUIStatus::Failed,
                                 BlockStatus::Disabled => BlockUIStatus::Disabled,
                             },
