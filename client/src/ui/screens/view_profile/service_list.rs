@@ -18,14 +18,13 @@ use ui::component::{
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
 
-pub struct ServiceList {
-    pub system_state: Arc<RwLock<SystemState>>,
+pub struct ServiceList<'a> {
+    pub system_state: &'a mut SystemState,
     pub show_selection: bool,
 }
-impl ServiceList {
+impl<'a> ServiceList<'a> {
     fn resolve_slots(&self) -> UIResult<Vec<SlotInfo>> {
-        let system_state = self.system_state.read().unwrap();
-        let services = &system_state
+        let services = &self.system_state
             .current_profile
             .as_ref()
             .ok_or(UIError::IllegalState {
@@ -55,14 +54,12 @@ impl ServiceList {
     }
 
     fn process_inputs(
-        &self,
-        system_state: Arc<RwLock<SystemState>>,
+        &mut self,
         context: &mut FrameContext,
         state: &mut ServiceListState,
     ) -> UIResult<()> {
-        let mut system_state = system_state.write().unwrap();
         {
-            let services = &system_state
+            let services = &self.system_state
                 .current_profile
                 .as_ref()
                 .ok_or(UIError::IllegalState {
@@ -104,7 +101,7 @@ impl ServiceList {
                 .signals()
                 .is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_SELECTED_OUTPUT)?)
             {
-                system_state.update_service(&selection_id, |service| {
+                self.system_state.update_service(&selection_id, |service| {
                     service.output_enabled = !service.output_enabled;
                 });
             }
@@ -112,14 +109,14 @@ impl ServiceList {
                 .signals()
                 .is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_ALL_OUTPUT)?)
             {
-                let any_enabled = system_state
+                let any_enabled = self.system_state
                     .current_profile
                     .as_ref()
                     .unwrap()
                     .services
                     .iter()
                     .any(|service| service.output_enabled);
-                system_state.update_all_services(|(_, service)| {
+                self.system_state.update_all_services(|(_, service)| {
                     service.output_enabled = !any_enabled;
                 });
             }
@@ -127,7 +124,7 @@ impl ServiceList {
                 .signals()
                 .is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS)?)
             {
-                system_state.update_service(&selection_id, |service| {
+                self.system_state.update_service(&selection_id, |service| {
                     service.automation_enabled = !service.automation_enabled;
                 });
             }
@@ -135,22 +132,22 @@ impl ServiceList {
                 .signals()
                 .is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_ALL_AUTOMATIONS)?)
             {
-                let any_enabled = system_state
+                let any_enabled = self.system_state
                     .current_profile
                     .as_ref()
                     .unwrap()
                     .services
                     .iter()
                     .any(|service| service.output_enabled)
-                    || system_state
+                    || self.system_state
                         .current_profile
                         .as_ref()
                         .map(|p| p.automation_enabled)
                         .unwrap_or(false);
-                system_state.update_all_services(|(_, service)| {
+                self.system_state.update_all_services(|(_, service)| {
                     service.output_enabled = !any_enabled;
                 });
-                system_state.current_profile.iter_mut().for_each(|profile| {
+                self.system_state.current_profile.iter_mut().for_each(|profile| {
                     profile.automation_enabled = !any_enabled;   
                 })
             }
@@ -169,7 +166,7 @@ impl ServiceList {
                     .filter(|action| action.keys.iter().any(|key| key.matches(key_event)))
             })
             .for_each(|action| {
-                system_state.update_all_services(|(index, service)| {
+                self.system_state.update_all_services(|(index, service)| {
                     let applies = match action.target {
                         ServiceActionTarget::Selected => index == state.selection,
                         ServiceActionTarget::All => true,
@@ -205,7 +202,7 @@ pub struct ServiceListState {
     pub selection: usize,
 }
 
-impl StatefulComponent for ServiceList {
+impl<'a> StatefulComponent for ServiceList<'a> {
     type State = ServiceListState;
     type Output = ();
 
@@ -213,11 +210,10 @@ impl StatefulComponent for ServiceList {
         "view-profile-service-list"
     }
 
-    fn render(self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
-        self.process_inputs(self.system_state.clone(), context, state)?;
+    fn render(mut self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
+        self.process_inputs(context, state)?;
 
-        let system_state = self.system_state.read().unwrap();
-        let services = &system_state
+        let services = &self.system_state
             .current_profile
             .as_ref()
             .ok_or(UIError::IllegalState {
@@ -374,10 +370,9 @@ impl StatefulComponent for ServiceList {
     }
 }
 
-impl MeasurableComponent for ServiceList {
+impl<'a> MeasurableComponent for ServiceList<'a> {
     fn measure(&self, _context: &FrameContext) -> UIResult<Size> {
-        let system_state = self.system_state.read().unwrap();
-        let services = &system_state
+        let services = &self.system_state
             .current_profile
             .as_ref()
             .ok_or(UIError::IllegalState {

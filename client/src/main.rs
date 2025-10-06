@@ -149,7 +149,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         match renderer.render_root(
             &mut terminal,
             ViewRoot {
-                system_state: system_state.clone(),
+                system_state: &mut system_state.write().unwrap(),
             },
         ) {
             Ok(_) => {}

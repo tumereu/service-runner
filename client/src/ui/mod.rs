@@ -12,22 +12,22 @@ mod screens;
 pub mod inputs;
 pub mod theming;
 
-pub struct ViewRoot {
-    pub system_state: Arc<RwLock<SystemState>>,
+pub struct ViewRoot<'a> {
+    pub system_state: &'a mut SystemState
 }
-impl Component for ViewRoot {
+impl<'a> Component for ViewRoot<'a> {
     type Output = ();
 
     fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
-        let has_profile = self.system_state.read().unwrap().current_profile.is_some();
+        let has_profile = self.system_state.current_profile.is_some();
 
         if has_profile {
             context.render_component(RenderArgs::new(ViewProfileScreen {
-                system_state: self.system_state.clone(),
+                system_state: self.system_state,
             }))?;
         } else {
             context.render_component(RenderArgs::new(SelectProfileScreen {
-                system_state: self.system_state.clone(),
+                system_state: self.system_state,
             }))?;
         }
 
@@ -35,8 +35,7 @@ impl Component for ViewRoot {
             .signals()
             .is_key_pressed(context.req_attr(ATTR_KEY_QUIT)?)
         {
-            let mut state = self.system_state.write().unwrap();
-            state.should_exit = true;
+            self.system_state.should_exit = true;
         }
 
         Ok(())

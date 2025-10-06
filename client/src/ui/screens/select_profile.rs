@@ -5,11 +5,11 @@ use std::sync::{Arc, RwLock};
 use ui::component::{Align, Cell, Component, SimpleList, Text};
 use ui::{FrameContext, RenderArgs, UIResult};
 
-pub struct SelectProfileScreen {
-    pub system_state: Arc<RwLock<SystemState>>,
+pub struct SelectProfileScreen<'a> {
+    pub system_state: &'a mut SystemState,
 }
 
-impl Component for SelectProfileScreen {
+impl<'a> Component for SelectProfileScreen<'a> {
     type Output = ();
 
     fn render(
@@ -22,8 +22,7 @@ impl Component for SelectProfileScreen {
         let focused_color = context.req_attr::<Color>(ATTR_COLOR_FOCUSED_ELEMENT)?.clone();
 
         let profile_ids: Vec<String> = {
-            let system_state = self.system_state.read().unwrap();
-            system_state.config.profiles
+            self.system_state.config.profiles
                 .iter().map(|profile| profile.id.clone()).collect()
         };
         let list_output = context.render_component(
@@ -48,9 +47,8 @@ impl Component for SelectProfileScreen {
         )?;
 
         if let Some(selection) = list_output {
-            let mut system_state = self.system_state.write().unwrap();
-            let profile_id = system_state.config.profiles[selection.selected_index].id.clone();
-            system_state.select_profile(&profile_id);
+            let profile_id = self.system_state.config.profiles[selection.selected_index].id.clone();
+            self.system_state.select_profile(&profile_id);
         }
 
         Ok(())

@@ -9,11 +9,11 @@ use ui::component::{Dir, Flow, FlowableArgs, Spinner, StatefulComponent, ATTR_KE
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIResult};
 
-pub struct OutputPane {
+pub struct OutputPane<'a> {
     pub wrap_output: bool,
-    pub system_state: Arc<RwLock<SystemState>>
+    pub system_state: &'a SystemState,
 }
-impl OutputPane {
+impl<'a> OutputPane<'a> {
     fn hash_name(name: &str) -> usize {
         // Hash the name to obtain a color for it
         let mut hasher = DefaultHasher::new();
@@ -24,7 +24,6 @@ impl OutputPane {
     fn process_inputs(
         &self,
         context: &mut FrameContext,
-        system: &SystemState,
         state: &mut OutputPaneState,
     ) -> UIResult<()> {
         let nav_down = if context
@@ -64,10 +63,10 @@ impl OutputPane {
         }
 
         if let Some(amount) = nav_up {
-            let active_outputs = get_active_outputs(&system.output_store, &system);
+            let active_outputs = get_active_outputs(&self.system_state);
             // Prevent users from scrolling past the first line of output
             // TODO this actually prevents viewing the first lines if wrapping is on, as it doesn't account for that.
-            let min_index = system
+            let min_index = self.system_state
                 .output_store
                 .query_lines_from(
                     context.size().height as usize,
@@ -79,7 +78,7 @@ impl OutputPane {
                 .1
                 .index;
 
-            state.pos_vert = system
+            state.pos_vert = self.system_state
                 .output_store
                 .query_lines_to(
                     amount + if state.pos_vert.is_none() { 0 } else { 1 },
@@ -90,10 +89,10 @@ impl OutputPane {
                 .map(|(_, line)| max(line.index, min_index));
         } else if let Some(amount) = nav_down {
             state.pos_vert = state.pos_vert.and_then(|pos| {
-                let lines = system.output_store.query_lines_from(
+                let lines = self.system_state.output_store.query_lines_from(
                     amount + 1,
                     Some(pos),
-                    &get_active_outputs(&system.output_store, &system),
+                    &get_active_outputs(&self.system_state),
                 );
                 if lines.len() == amount + 1 {
                     lines.last().map(|(_, line)| line.index)
@@ -115,7 +114,7 @@ pub struct OutputPaneState {
     pub pos_vert: Option<u128>,
 }
 
-impl StatefulComponent for OutputPane {
+impl<'a> StatefulComponent for OutputPane<'a> {
     type Output = ();
     type State = OutputPaneState;
 
@@ -124,24 +123,22 @@ impl StatefulComponent for OutputPane {
     }
 
     fn render(self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
-        let system_state = self.system_state.read().unwrap();
-        self.process_inputs(context, &system_state, state)?;
+        self.process_inputs(context, state)?;
 
-        let theme = &system_state.config.settings.theme;
-        let profile = system_state.current_profile.as_ref().unwrap();
+        let theme = &self.system_state.config.settings.theme;
+        let profile = self.system_state.current_profile.as_ref().unwrap();
         let size = context.size();
-
 
         let mut flow = Flow::new().dir(Dir::UpDown).element(
             OutputDisplay {
                 wrap: self.wrap_output,
                 pos_horiz: Some(state.pos_horiz),
-                lines: system_state
+                lines: self.system_state
                     .output_store
                     .query_lines_to(
                         size.height as usize,
                         state.pos_vert,
-                        &get_active_outputs(&system_state.output_store, &system_state),
+                        &get_active_outputs(&self.system_state),
                     )
                     .into_iter()
                     .map(|(key, line)| {

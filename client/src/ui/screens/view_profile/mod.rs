@@ -14,10 +14,10 @@ use ui::component::{
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, SignalHandling, UIError, UIResult};
 
-pub struct ViewProfileScreen {
-    pub system_state: Arc<RwLock<SystemState>>,
+pub struct ViewProfileScreen<'a> {
+    pub system_state: &'a mut SystemState,
 }
-impl StatefulComponent for ViewProfileScreen {
+impl<'a> StatefulComponent for ViewProfileScreen<'a> {
     type State = ViewProfileScreenState;
     type Output = ();
 
@@ -63,22 +63,21 @@ impl StatefulComponent for ViewProfileScreen {
         let self_size = context.size();
 
         let (service_list_component, list_size) = {
-            let system_state = self.system_state.read().unwrap();
-            let list_component = service_list::ServiceList {
-                system_state: self.system_state.clone(),
-                show_selection: state.focused_pane == FocusedPane::ServiceList,
-            };
-            let list_width = context.measure_component(&list_component)?.width + 2;
-            let list_height = self_size.height / 2 + 2;
-
-            let profile_name = &system_state
+            let profile_name = &self.system_state
                 .current_profile
                 .as_ref()
                 .ok_or(UIError::IllegalState {
                     msg: "No profile selected".to_string(),
                 })?
                 .definition
-                .id;
+                .id.clone();
+            
+            let list_component = service_list::ServiceList {
+                system_state: self.system_state,
+                show_selection: state.focused_pane == FocusedPane::ServiceList,
+            };
+            let list_width = context.measure_component(&list_component)?.width + 2;
+            let list_height = self_size.height / 2 + 2;
 
             let render_args = RenderArgs::new(
                 Cell::new(list_component.with_zero_measurement())
@@ -110,7 +109,7 @@ impl StatefulComponent for ViewProfileScreen {
                 Cell::new(
                     output_pane::OutputPane {
                         wrap_output: state.wrap_output,
-                        system_state: self.system_state.clone(),
+                        system_state: self.system_state,
                     }.with_zero_measurement(),
                 )
                     .border(

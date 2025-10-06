@@ -187,7 +187,9 @@ pub struct OutputLine {
 }
 
 // TODO move elsewhere?
-pub fn get_active_outputs<'a>(store: &'a OutputStore, state: &'a SystemState) -> Vec<&'a OutputKey> {
+pub fn get_active_outputs<'a>(state: &'a SystemState) -> Vec<&'a OutputKey> {
+    let store = &state.output_store;
+
     store.outputs.keys()
         .filter(|key| {
             // FIXME use service state?
