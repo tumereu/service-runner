@@ -1,6 +1,7 @@
 - Fix/reimplement output toggling
 - Task keybinds
 - Multiple settings files, with load order to allow rebinding keys and changing theme
+- Typed attribute-keys for renderer
 - Run any task for a service dropdown
 - Run any task from all available modal dialog for profile
 - Output pane behaviour when deleting lines after reaching limit -- is scroll pos retained properly?
