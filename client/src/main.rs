@@ -113,13 +113,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Check for autolaunched profile
     {
         info!("Checking for autolaunched profile");
-        let autolaunch_profile = if let Some(autolaunch_profile) = &system_state.read().unwrap().config.settings.autolaunch_profile {
-            let selection = {
-                system_state.read().unwrap().config.profiles.iter()
-                    .find(|profile| &profile.id == autolaunch_profile)
-                    .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile))
-                    .id.clone()
-            };
+        let mut system = system_state.write().unwrap();
+
+        let autolaunch_profile = if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
+            let selection = system.config.profiles.iter()
+                .find(|profile| &profile.id == autolaunch_profile)
+                .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile))
+                .id.clone();
 
             Some(selection)
         } else {
@@ -128,10 +128,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         if let Some(selection) = autolaunch_profile {
             info!("Autolaunching profile: {}", selection);
-            let mut system = system_state.write().unwrap();
             system.select_profile(&selection);
         }
     }
+
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
