@@ -1,11 +1,13 @@
-- Run any task for a service dropdown
+- Fix/reimplement output toggling
 - Task keybinds
+- Multiple settings files, with load order to allow rebinding keys and changing theme
+- Run any task for a service dropdown
 - Run any task from all available modal dialog for profile
 - Output pane behaviour when deleting lines after reaching limit -- is scroll pos retained properly?
 - More fine-grained control over the autocompile triggering: should be possible to set the mode for each trigger
   separately, so that a service can be in "triggered" mode for file-changes, but "automatic" for dependency recompiles
 - Switch profile during runtime
-- Toggleable output types for output window
+- Fine grained output control: toggleable output types for output window
 - Fullscreen output
 - Search in output
 - Support services that are run and then detach, i.e. have a separate stop command?

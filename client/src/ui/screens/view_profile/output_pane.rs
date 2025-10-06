@@ -52,7 +52,10 @@ impl<'a> OutputPane<'a> {
         } else {
             None
         };
-        if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT_LARGE)?) {
+        
+        if state.pos_horiz > 0 && self.wrap_output {
+            state.pos_horiz = 0;
+        } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT_LARGE)?) {
             state.pos_horiz = state.pos_horiz.saturating_sub(context.size().width as u64 / 2);
         } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT)?) {
             state.pos_horiz = state.pos_horiz.saturating_sub(1);
