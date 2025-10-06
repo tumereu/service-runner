@@ -100,12 +100,6 @@ impl TaskContext {
         self.query_task(|task| task.status.clone())
     }
 
-    pub fn get_task_definition_id(&self) -> TaskDefinitionId {
-        self.query_system(|system| {
-            system.get_task(&self.task_id).unwrap().definition.id.clone()
-        })
-    }
-
     pub fn stop_concurrent_operation(&self) {
         self.system_state
             .write()
@@ -194,7 +188,7 @@ impl WorkContext for TaskWorkContext<'_> {
         let wrapper = WorkWrapper::wrap(
             self.system_state.clone(),
             self.query_task(|task| task.service_id.clone()),
-            self.get_task_definition_id().0,
+            self.query_task(|task| task.name.clone()),
             self.silent,
             work,
         );
@@ -210,7 +204,7 @@ impl WorkContext for TaskWorkContext<'_> {
         let wrapper = ProcessWrapper::wrap(
             self.system_state.clone(),
             self.query_task(|task| task.service_id.clone()),
-            self.get_task_definition_id().0,
+            self.query_task(|task| task.name.clone()),
             handle,
         );
 
@@ -234,7 +228,7 @@ impl WorkContext for TaskWorkContext<'_> {
     
     fn add_system_output(&self, output: String) {
         let service_id = self.query_task(|task| task.service_id.clone());
-        let source_name = self.get_task_definition_id().0;
+        let source_name = self.query_task(|task| task.name.clone());
 
         self.system_state
             .write()

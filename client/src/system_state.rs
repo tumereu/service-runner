@@ -156,6 +156,15 @@ impl SystemState {
         }
     }
 
+    pub fn update_profile<F>(&mut self, update: F)
+    where
+            for<'a> F: FnOnce(&'a mut Profile),
+    {
+        if let Some(profile) = self.current_profile.as_mut() {
+            update(profile);
+        }
+    }
+
     pub fn query_service<F, R>(&self, service_id: &ServiceId, query: F) -> Option<R>
     where
         for<'a> F: FnOnce(&'a Service) -> R,

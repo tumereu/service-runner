@@ -1,6 +1,7 @@
 use crate::config::{ServiceId, TaskDefinitionId, TaskStep};
 use serde_derive::{Deserialize, Serialize};
 use std::time::Duration;
+use derive_more::Display;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
@@ -14,7 +15,7 @@ pub struct AutomationDefinition {
     pub enabled: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Display, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
 pub struct AutomationDefinitionId(pub String);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,7 +23,7 @@ pub struct AutomationDefinitionId(pub String);
 pub enum AutomationAction {
     #[serde(rename = "run-task")]
     RunOwnTask {
-        id: String,
+        id: TaskDefinitionId,
     },
     #[serde(rename = "run-any-task")]
     RunAnyTask {

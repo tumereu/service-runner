@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::{Block, BlockId, ServiceDefinition};
+use crate::config::{AutomationDefinitionId, Block, BlockId, ServiceDefinition};
 use crate::models::Automation;
 
 #[derive(Debug, Clone)]
@@ -40,6 +40,16 @@ impl Service {
             Some(action) => self.block_actions.insert(block_id.to_owned(), action),
             None => self.block_actions.remove(block_id),
         };
+    }
+
+    pub fn update_automation<F>(&mut self, id: &AutomationDefinitionId, update: F)
+    where
+            for<'a> F: FnOnce(&'a mut Automation),
+    {
+        if let Some(automation) = self.automations.iter_mut()
+                .find(|automation| &automation.definition_id == id) {
+            update(automation);
+        }
     }
 
     pub fn get_block_action(&self, block_id: &BlockId) -> Option<BlockAction>

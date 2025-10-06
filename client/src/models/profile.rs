@@ -1,9 +1,10 @@
-use crate::config::{ProfileDefinition, ServiceDefinition, ServiceId, TaskDefinition, TaskDefinitionId};
+use crate::config::{AutomationDefinitionId, ProfileDefinition, ServiceDefinition, ServiceId, TaskDefinition, TaskDefinitionId, TaskStep};
 use crate::models::task::Task;
 use crate::models::{Automation, AutomationStatus, Service, TaskId};
 use log::error;
 use std::collections::VecDeque;
 use std::convert::Into;
+use std::ops::Deref;
 
 #[derive(Debug, Clone)]
 pub struct Profile {
@@ -64,7 +65,9 @@ impl Profile {
             
             self.running_tasks.push_back(Task {
                 id: TaskId(new_id),
-                definition: task_def.clone(),
+                definition_id: Some(task_def.id.clone()),
+                name: task_def.id.0.clone(),
+                steps: task_def.steps.clone(),
                 status: Default::default(),
                 service_id: service_id.clone(),
                 action: None,
@@ -73,6 +76,32 @@ impl Profile {
             error!("No task {task_definition_id} found in service {service_id}");
         } else {
             error!("No standalone task {task_definition_id} found in profile");
+        }
+    }
+
+    pub fn spawn_inline_task(&mut self, service_id: Option<ServiceId>, steps: Vec<TaskStep>, name: String) {
+        let new_id = self.running_tasks.iter().last()
+            .map(|task| task.id.0 + 1)
+            .unwrap_or(1);
+
+        self.running_tasks.push_back(Task {
+            id: TaskId(new_id),
+            definition_id: None,
+            name,
+            steps,
+            status: Default::default(),
+            service_id: service_id.clone(),
+            action: None,
+        });
+    }
+
+    pub fn update_automation<F>(&mut self, id: &AutomationDefinitionId, update: F)
+    where
+            for<'a> F: FnOnce(&'a mut Automation),
+    {
+        if let Some(automation) = self.automations.iter_mut()
+            .find(|automation| &automation.definition_id == id) {
+            update(automation);
         }
     }
 }

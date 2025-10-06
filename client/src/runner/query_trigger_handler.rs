@@ -2,7 +2,7 @@ use crate::config::{AutomationDefinitionId, AutomationTrigger, ServiceId};
 use crate::runner::scripting::engine::ScriptEngine;
 use crate::system_state::SystemState;
 use itertools::Itertools;
-use log::debug;
+use log::{debug, info};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
@@ -76,7 +76,7 @@ impl QueryTriggerHandler {
                 .collect()
         };
 
-        let mut results = self.previous_results.take();
+        let results = self.previous_results.get_mut();
         let mut to_trigger: HashSet<(AutomationDefinitionId, Option<ServiceId>)> = HashSet::new();
 
         // Then process the resulting list
@@ -113,6 +113,7 @@ impl QueryTriggerHandler {
         if !to_trigger.is_empty() {
             let mut state = self.state.write().unwrap();
             for (automation_id, service_id) in to_trigger {
+                info!("Updating last_triggered for {automation_id:?}/{service_id:?}");
                 state.update_automation(&automation_id, &service_id, |automation| {
                     automation.last_triggered = Some(Instant::now());
                 });
