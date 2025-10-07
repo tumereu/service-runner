@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use log::{error, trace};
+use log::{debug, error, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -191,7 +191,7 @@ impl FileWatcher {
 
             notify::recommended_watcher(move |res| match res {
                 Ok(event) => {
-                    trace!(
+                    debug!(
                         "Received filesystem event for automation {:?} (service: {:?}): {:?}",
                         automation_id, service_id, event,
                     );
