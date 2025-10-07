@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use log::{debug, error, trace};
+use log::{error, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -179,33 +179,39 @@ impl FileWatcher {
         automation_id: &AutomationDefinitionId,
         service_id: Option<ServiceId>,
     ) {
-        let path_str = watch_paths
-            .iter()
-            .filter_map(|path| path.to_str())
-            .join(", ");
-
         let watcher = {
             let system_state = system_state.clone();
             let automation_id = automation_id.clone();
             let service_id = service_id.clone();
 
-            notify::recommended_watcher(move |res| match res {
-                Ok(event) => {
-                    debug!(
-                        "Received filesystem event for automation {:?} (service: {:?}): {:?}",
-                        automation_id, service_id, event,
-                    );
-                    let mut system = system_state.write().unwrap();
+            let watcher = notify::recommended_watcher(
+                move |res: notify::Result<notify::Event>| match res {
+                    Ok(event) => match event.kind {
+                        notify::EventKind::Modify(_)
+                        | notify::EventKind::Remove(_)
+                        | notify::EventKind::Create(_) => {
+                            trace!(
+                                "Received filesystem event for automation {:?} (service: {:?}): {:?}",
+                                automation_id, service_id, event,
+                            );
+                            let mut system = system_state.write().unwrap();
 
-                    system.update_automation(&automation_id, &service_id, |automation| {
-                        automation.last_triggered = Some(Instant::now());
-                    });
-                }
-                Err(err) => error!(
-                    "Error in file watcher event for automation {:?} (service: {:?}): {:?}",
-                    automation_id, service_id, err,
-                ),
-            })
+                            system.update_automation(&automation_id, &service_id, |automation| {
+                                automation.last_triggered = Some(Instant::now());
+                            });
+                        }
+                        notify::EventKind::Access(_) | notify::EventKind::Other | notify::EventKind::Any => {
+                            // Ignored on purpose, as we cannot know that a file has been modified
+                        }
+                    },
+                    Err(err) => error!(
+                        "Error in file watcher event for automation {:?} (service: {:?}): {:?}",
+                        automation_id, service_id, err,
+                    ),
+                },
+            );
+
+            watcher
         };
 
         // TODO add output for success andfal
