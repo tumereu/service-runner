@@ -3,8 +3,8 @@ use crate::runner::service_worker::requirement_checker::{RequirementCheckResult,
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
 use crate::utils::format_err;
-use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+use crate::runner::service_worker::create_cmd::create_cmd;
 
 pub enum WorkExecutionResult {
     EntryOk,
@@ -37,16 +37,23 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
     fn handle_executable_entry(&self, entry: &ExecutableEntry) -> WorkExecutionResult {
         match self.context.get_concurrent_operation_status() {
             None => {
-                let mut command = create_cmd(entry, Some(self.workdir.clone()));
-                self.context.add_system_output(format!("Exec: {entry}"));
+                match create_cmd(entry, Some(self.workdir.clone())) {
+                    Ok(mut command) => {
+                        self.context.add_system_output(format!("Exec: {entry}"));
 
-                match command.spawn() {
-                    Ok(process_handle) => {
-                        self.context.register_external_process(process_handle);
-                        WorkExecutionResult::Working
-                    }
+                        match command.spawn() {
+                            Ok(process_handle) => {
+                                self.context.register_external_process(process_handle);
+                                WorkExecutionResult::Working
+                            }
+                            Err(error) => {
+                                self.context.add_system_output(format_err!("Failed to spawn child process", error));
+                                WorkExecutionResult::Failed
+                            }
+                        }
+                    },
                     Err(error) => {
-                        self.context.add_system_output(format_err!("Failed to spawn child process", error));
+                        self.context.add_system_output(format_err!("Error in command creation", error));
                         WorkExecutionResult::Failed
                     }
                 }
@@ -146,33 +153,3 @@ impl Into<WorkSequenceEntry> for TaskStep {
 }
 
 const WAIT_REQUIREMENT_FAILURE_WAIT: Duration = Duration::from_millis(3000);
-
-pub fn create_cmd<S>(entry: &ExecutableEntry, dir: Option<S>) -> Command
-where
-    S: AsRef<str>,
-{
-    let mut cmd = Command::new(entry.executable.clone());
-    cmd.args(entry.args.clone());
-    if let Some(dir) = dir {
-        cmd.current_dir(dir.as_ref());
-    }
-    entry.env.iter().for_each(|(key, value)| {
-        // Substitute environment variables if placeholders are used in the env entry
-        // TODO clean error handling, bubble error up and process in a nice way above
-        let parsed = subst::substitute(value, &subst::Env)
-            .expect(&format!("No variable found to substitute in env variable {}", value));
-
-        cmd.env(key.clone(), parsed);
-    });
-    cmd.stdin(Stdio::null());
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
-
-    // Set process group
-    if cfg!(target_os = "linux") {
-        use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
-    }
-
-    cmd
-}

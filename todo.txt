@@ -1,4 +1,7 @@
 - Fix/reimplement output toggling
+- Output end/start g G binds not working
+- Shift arrows for large scroll too
+- star-paths for file watcher?
 - Task keybinds
 - Multiple settings files, with load order to allow rebinding keys and changing theme
 - Typed attribute-keys for renderer

@@ -23,6 +23,7 @@ mod work_context;
 mod work_sequence_executor;
 mod task_context;
 mod task_processor;
+mod create_cmd;
 
 pub struct ServiceWorker {
     state: Arc<RwLock<SystemState>>,

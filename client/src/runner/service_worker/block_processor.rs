@@ -3,15 +3,16 @@ use std::time::{Duration, Instant};
 
 use crate::config::WorkDefinition;
 use crate::models::{BlockAction, BlockStatus, WorkStep};
+use crate::runner::service_worker::ConcurrentOperationStatus;
+use crate::runner::service_worker::create_cmd::create_cmd;
 use crate::runner::service_worker::requirement_checker::{
     RequirementCheckResult, RequirementChecker,
 };
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::work_sequence_executor::{
-    create_cmd, WorkExecutionResult, WorkSequenceExecutor,
+    WorkExecutionResult, WorkSequenceExecutor,
 };
-use crate::runner::service_worker::ConcurrentOperationStatus;
 use crate::system_state::OperationType;
 use crate::utils::format_err;
 
@@ -190,7 +191,9 @@ impl BlockProcessor for ServiceBlockContext {
                 skip_work_if_healthy,
             } => {
                 self.clear_all_operations();
-                let rg_in_use = if let Some(self_group) = self.query_block(|block| block.resource_group.clone()) {
+                let rg_in_use = if let Some(self_group) =
+                    self.query_block(|block| block.resource_group.clone())
+                {
                     self.query_state(|system_state| {
                         system_state
                             .current_profile
@@ -400,27 +403,37 @@ impl BlockProcessor for ServiceBlockContext {
                     WorkDefinition::Process {
                         command: executable,
                     } => {
-                        let mut command = create_cmd(&executable, Some(work_dir));
-                        self.add_system_output(format!("Exec: {executable}"));
+                        match create_cmd(&executable, Some(work_dir)) {
+                            Ok(mut command) => {
+                                self.add_system_output(format!("Exec: {executable}"));
 
-                        match command.spawn() {
-                            Ok(process_handle) => {
-                                // Process launched successfully, move to post-work health check
-                                self.register_external_process(process_handle, OperationType::Work);
-                                self.update_status(BlockStatus::Working {
-                                    step: WorkStep::PostWorkHealthCheck {
-                                        start_time: Instant::now(),
-                                        checks_completed: 0,
-                                        last_failure: None,
-                                    },
-                                })
+                                match command.spawn() {
+                                    Ok(process_handle) => {
+                                        // Process launched successfully, move to post-work health check
+                                        self.register_external_process(
+                                            process_handle,
+                                            OperationType::Work,
+                                        );
+                                        self.update_status(BlockStatus::Working {
+                                            step: WorkStep::PostWorkHealthCheck {
+                                                start_time: Instant::now(),
+                                                checks_completed: 0,
+                                                last_failure: None,
+                                            },
+                                        })
+                                    }
+                                    Err(error) => {
+                                        self.update_status(BlockStatus::Error);
+                                        self.add_system_output(format_err!(
+                                            "Failed to spawn child process",
+                                            error
+                                        ));
+                                    }
+                                }
                             }
                             Err(error) => {
                                 self.update_status(BlockStatus::Error);
-                                self.add_system_output(format_err!(
-                                    "Failed to spawn child process",
-                                    error
-                                ));
+                                self.add_system_output(format_err!("Error in command creation",error));
                             }
                         }
                     }
@@ -459,7 +472,9 @@ impl BlockProcessor for ServiceBlockContext {
                     }
                     // If there are no more (or at all) requirements to check, then we can finally consider the
                     // block healthy
-                    RequirementCheckResult::AllOk => self.update_status(BlockStatus::Ok { was_worked: true }),
+                    RequirementCheckResult::AllOk => {
+                        self.update_status(BlockStatus::Ok { was_worked: true })
+                    }
                     RequirementCheckResult::Timeout => self.update_status(BlockStatus::Error),
                     RequirementCheckResult::CurrentCheckOk => {
                         self.update_status(BlockStatus::Working {
