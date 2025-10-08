@@ -124,7 +124,7 @@ pub enum WorkStep {
 }
 impl WorkStep {
     pub fn initial(skip_work_if_healthy: bool) -> Self {
-        Self::ResourceGroupCheck { skip_work_if_healthy }
+        Self::PrerequisiteCheck { skip_work_if_healthy, start_time: Instant::now(), checks_completed: 0, last_failure: None, }
     }
 }
 

@@ -213,7 +213,7 @@ impl BlockProcessor for ServiceBlockContext {
                                     })
                                     .any(|block| match service.get_block_status(&block.id) {
                                         BlockStatus::Working {
-                                            step: WorkStep::ResourceGroupCheck { .. },
+                                            step: WorkStep::ResourceGroupCheck { .. } | WorkStep::PrerequisiteCheck { .. },
                                         } => false,
                                         BlockStatus::Working { .. } => true,
                                         _ => false,
@@ -226,11 +226,16 @@ impl BlockProcessor for ServiceBlockContext {
 
                 if !rg_in_use {
                     self.update_status(BlockStatus::Working {
-                        step: WorkStep::PrerequisiteCheck {
-                            skip_work_if_healthy,
-                            start_time: Instant::now(),
-                            checks_completed: 0,
-                            last_failure: None,
+                        step: if skip_work_if_healthy && !is_process {
+                            WorkStep::PreWorkHealthCheck {
+                                start_time: Instant::now(),
+                                checks_completed: 0,
+                            }
+                        } else {
+                            WorkStep::PerformWork {
+                                current_step_started: Instant::now(),
+                                steps_completed: 0,
+                            }
                         },
                     });
                 }
@@ -261,17 +266,9 @@ impl BlockProcessor for ServiceBlockContext {
                     }
                     RequirementCheckResult::AllOk => {
                         self.update_status(BlockStatus::Working {
-                            step: if skip_work_if_healthy && !is_process {
-                                WorkStep::PreWorkHealthCheck {
-                                    start_time: Instant::now(),
-                                    checks_completed: 0,
-                                }
-                            } else {
-                                WorkStep::PerformWork {
-                                    current_step_started: Instant::now(),
-                                    steps_completed: 0,
-                                }
-                            },
+                            step: WorkStep::ResourceGroupCheck {
+                                skip_work_if_healthy,
+                            }
                         });
                     }
                     RequirementCheckResult::CurrentCheckOk => {
