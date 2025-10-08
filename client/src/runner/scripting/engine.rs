@@ -206,6 +206,24 @@ impl ScriptEngine {
                 state.has_block_operations(&ServiceId::new(&blk.service_id), &BlockId::new(&blk.block_id))
             });
         }
+
+        {
+            let state = state.clone();
+            engine.register_get("is_idle", move |blk: &mut BlockProxy| {
+                let state = state.read().unwrap();
+                state.query_service(&ServiceId::new(&blk.service_id), |service| {
+                    let block_id = BlockId::new(&blk.block_id);
+                    if service.get_block_action(&block_id).is_some() {
+                        false
+                    } else {
+                        match service.get_block_status(&block_id) {
+                            BlockStatus::Working { .. } => false,
+                            _ => true
+                        }
+                    }
+                })
+            });
+        }
     }
 }
 
