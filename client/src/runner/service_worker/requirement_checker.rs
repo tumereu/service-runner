@@ -160,7 +160,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                 let result_rx = self.context.enqueue_rhai(query.clone(), true);
 
                 self.context.perform_concurrent_work(move || {
-                    let out = match result_rx.recv() {
+                    match result_rx.recv() {
                         Ok(Ok(value)) if value.is::<bool>() => WorkResult {
                             successful: value.as_bool().unwrap(),
                             output: vec![format!("Query '{query}' => {value}")],
@@ -177,11 +177,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                             successful: false,
                             output: vec![format!("Error in receiving response from Rhai executor: {error:?}")],
                         }
-                    };
-
-                    info!("Got output: {out:?}", out = out.output);
-
-                    out
+                    }
                 });
             }
             Requirement::File { paths } => {

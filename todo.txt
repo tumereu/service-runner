@@ -3,6 +3,8 @@
 - Shift arrows for large scroll too
 - star-paths for file watcher?
 - Task keybinds
+- Output errors in prereq checks even if otherwise silent
+- Combine resource group and prereq checks?
 - Multiple settings files, with load order to allow rebinding keys and changing theme
 - Typed attribute-keys for renderer
 - Run any task for a service dropdown
