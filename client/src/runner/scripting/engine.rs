@@ -211,7 +211,7 @@ impl ScriptEngine {
             let state = state.clone();
             engine.register_get("is_idle", move |blk: &mut BlockProxy| {
                 let state = state.read().unwrap();
-                let idle = state.query_service(&ServiceId::new(&blk.service_id), |service| {
+                state.query_service(&ServiceId::new(&blk.service_id), |service| {
                     let block_id = BlockId::new(&blk.block_id);
                     if service.get_block_action(&block_id).is_some() {
                         false
@@ -221,11 +221,7 @@ impl ScriptEngine {
                             _ => true
                         }
                     }
-                }).unwrap_or(false);
-
-                debug!("Is idle: {idle:?}");
-
-                idle
+                }).unwrap_or(false)
             });
         }
     }
