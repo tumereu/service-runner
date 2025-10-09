@@ -1,6 +1,3 @@
-- Fix/reimplement output toggling
-- Output end/start g G binds not working
-- Shift arrows for large scroll too
 - star-paths for file watcher?
 - Task keybinds
 - Output errors in prereq checks even if otherwise silent

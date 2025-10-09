@@ -52,15 +52,19 @@ impl Default for CommonKeybindings {
             nav_up: [KeyMatcher::char('k'), KeyMatcher::new(KeyCode::Up)].to_binding(),
             nav_up_large: [
                 KeyMatcher::char('k').ctrl(),
+                KeyMatcher::char('k').shift(),
                 KeyMatcher::new(KeyCode::Up).ctrl(),
-                KeyMatcher::new(KeyCode::PageUp).ctrl(),
+                KeyMatcher::new(KeyCode::Up).shift(),
+                KeyMatcher::new(KeyCode::PageUp),
             ]
             .to_binding(),
             nav_down: [KeyMatcher::char('j'), KeyMatcher::new(KeyCode::Down)].to_binding(),
             nav_down_large: [
                 KeyMatcher::char('j').ctrl(),
+                KeyMatcher::char('j').shift(),
                 KeyMatcher::new(KeyCode::Down).ctrl(),
-                KeyMatcher::new(KeyCode::PageDown).ctrl(),
+                KeyMatcher::new(KeyCode::Down).shift(),
+                KeyMatcher::new(KeyCode::PageDown),
             ]
             .to_binding(),
             nav_to_start: KeyMatcher::char('g').to_binding(),

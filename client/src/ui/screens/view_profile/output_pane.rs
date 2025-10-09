@@ -1,11 +1,11 @@
-use crate::models::{get_active_outputs, OutputKind};
+use crate::models::{OutputKind, get_active_outputs};
 use crate::system_state::SystemState;
 use crate::ui::screens::view_profile::output_display::{LinePart, OutputDisplay, OutputLine};
 use ratatui::style::Color;
 use std::cmp::max;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::{Arc, RwLock};
-use ui::component::{Dir, Flow, FlowableArgs, Spinner, StatefulComponent, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE};
+use ui::component::{ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, Dir, Flow, FlowableArgs, Spinner, StatefulComponent, ATTR_KEY_NAV_TO_END};
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIResult};
 
@@ -52,36 +52,70 @@ impl<'a> OutputPane<'a> {
         } else {
             None
         };
-        
+
         if state.pos_horiz > 0 && self.wrap_output {
             state.pos_horiz = 0;
-        } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT_LARGE)?) {
-            state.pos_horiz = state.pos_horiz.saturating_sub(context.size().width as u64 / 2);
-        } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT)?) {
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT_LARGE)?)
+        {
+            state.pos_horiz = state
+                .pos_horiz
+                .saturating_sub(context.size().width as u64 / 2);
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_LEFT)?)
+        {
             state.pos_horiz = state.pos_horiz.saturating_sub(1);
-        } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_RIGHT_LARGE)?) {
-            state.pos_horiz = state.pos_horiz.saturating_add(context.size().width as u64 / 2);
-        } else if context.signals().is_key_pressed(context.req_attr(ATTR_KEY_NAV_RIGHT)?) {
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_RIGHT_LARGE)?)
+        {
+            state.pos_horiz = state
+                .pos_horiz
+                .saturating_add(context.size().width as u64 / 2);
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_RIGHT)?)
+        {
             state.pos_horiz = state.pos_horiz.saturating_add(1);
         }
 
-        if let Some(amount) = nav_up {
+        if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_START)?)
+        {
+            let active_outputs = get_active_outputs(&self.system_state);
+            state.pos_vert = Some(
+                self
+                    .system_state
+                    .output_store
+                    .query_lines_from(context.size().height as usize, None, &active_outputs)
+                    .last()
+                    .unwrap()
+                    .1
+                    .index
+            );
+        } else if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_END)?)
+        {
+            state.pos_vert = None;
+        } else if let Some(amount) = nav_up {
             let active_outputs = get_active_outputs(&self.system_state);
             // Prevent users from scrolling past the first line of output
             // TODO this actually prevents viewing the first lines if wrapping is on, as it doesn't account for that.
-            let min_index = self.system_state
+            let min_index = self
+                .system_state
                 .output_store
-                .query_lines_from(
-                    context.size().height as usize,
-                    None,
-                    &active_outputs,
-                )
+                .query_lines_from(context.size().height as usize, None, &active_outputs)
                 .last()
                 .unwrap()
                 .1
                 .index;
 
-            state.pos_vert = self.system_state
+            state.pos_vert = self
+                .system_state
                 .output_store
                 .query_lines_to(
                     amount + if state.pos_vert.is_none() { 0 } else { 1 },
@@ -136,7 +170,8 @@ impl<'a> StatefulComponent for OutputPane<'a> {
             OutputDisplay {
                 wrap: self.wrap_output,
                 pos_horiz: Some(state.pos_horiz),
-                lines: self.system_state
+                lines: self
+                    .system_state
                     .output_store
                     .query_lines_to(
                         size.height as usize,
@@ -158,7 +193,9 @@ impl<'a> StatefulComponent for OutputPane<'a> {
                             })
                             .unwrap_or(profile.services.len());
                         let name = key
-                            .service_id.as_ref().map(|id| id.inner().to_owned())
+                            .service_id
+                            .as_ref()
+                            .map(|id| id.inner().to_owned())
                             .unwrap_or(profile.definition.id.clone());
 
                         OutputLine {

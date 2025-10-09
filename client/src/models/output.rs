@@ -192,7 +192,13 @@ pub fn get_active_outputs<'a>(state: &'a SystemState) -> Vec<&'a OutputKey> {
 
     store.outputs.keys()
         .filter(|key| {
-            // FIXME use service state?
-            true
+            if let Some(service_id) = key.service_id.as_ref() {
+                state.query_service(&service_id, |service| {
+                    service.output_enabled
+                }).unwrap_or(false)
+            } else {
+                // TODO how to disable non-service outputs?
+                true
+            }
         }).collect()
 }
