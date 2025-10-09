@@ -41,12 +41,16 @@ impl Default for CommonKeybindings {
             nav_left_large: [
                 KeyMatcher::char('h').ctrl(),
                 KeyMatcher::new(KeyCode::Left).ctrl(),
+                KeyMatcher::char('h').shift(),
+                KeyMatcher::new(KeyCode::Left).shift(),
             ]
             .to_binding(),
             nav_right: [KeyMatcher::char('l'), KeyMatcher::new(KeyCode::Right)].to_binding(),
             nav_right_large: [
                 KeyMatcher::char('l').ctrl(),
                 KeyMatcher::new(KeyCode::Right).ctrl(),
+                KeyMatcher::char('l').shift(),
+                KeyMatcher::new(KeyCode::Right).shift(),
             ]
             .to_binding(),
             nav_up: [KeyMatcher::char('k'), KeyMatcher::new(KeyCode::Up)].to_binding(),
