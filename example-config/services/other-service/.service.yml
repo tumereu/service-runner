@@ -19,7 +19,7 @@ blocks:
         args:
           - assemble.py
     prerequisites:
-      - type: state
+      - type: script
         query: self.blocks.build.status == OK
     status_line:
       symbol: M
@@ -36,7 +36,7 @@ blocks:
       args:
         - run.py
     prerequisites:
-      - type: state
+      - type: script
         query: self.blocks.build.status == OK && self.blocks.assemble.status == OK
     status_line:
       symbol: R

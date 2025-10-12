@@ -26,7 +26,7 @@ blocks:
       args:
         - run.py
     prerequisites:
-      - type: state
+      - type: script
         query: self.blocks.build.status == OK
     status_line:
       symbol: R

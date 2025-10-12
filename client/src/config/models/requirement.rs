@@ -24,7 +24,7 @@ pub enum Requirement {
         paths: Vec<String>
     },
 
-    #[serde(rename = "state")]
+    #[serde(rename = "script")]
     StateQuery {
         query: String,
     }
