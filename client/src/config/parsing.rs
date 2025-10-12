@@ -11,7 +11,7 @@ use walkdir::WalkDir;
 use Vec;
 
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
-use crate::config::{BlockId, RawSettings, Settings};
+use crate::config::{BlockId, PartialSettings, Settings};
 
 #[derive(Debug)]
 pub struct ConfigurationError {
@@ -33,19 +33,7 @@ impl Error for ConfigurationError {}
 pub fn read_config(dir: &str) -> Result<Config, ConfigurationError> {
     info!("Reading configuration froms directory {dir}");
 
-    let settings_file = find_first_config_file(Path::new(dir).join("settings"))?;
-    let raw_settings: RawSettings = read_file(&settings_file)?;
-    let settings: Settings = raw_settings
-        .try_into()
-        .map_err(|error_msg| ConfigurationError {
-            filename: Some(
-                settings_file
-                    .to_str()
-                    .map(|path| path.to_string())
-                    .unwrap_or_default(),
-            ),
-            msg: error_msg,
-        })?;
+    let mut raw_settings: Vec<PartialSettings> = Vec::new();
     let mut services: Vec<ServiceDefinition> = Vec::new();
     let mut profiles: Vec<ProfileDefinition> = Vec::new();
 
@@ -84,10 +72,21 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigurationError> {
                 })?,
             );
         } else if stem.ends_with(".profile") {
-            info!("Reading profielervice configuration file {path:?}");
+            info!("Reading profile configuration file {path:?}");
             profiles.push(read_file(path)?);
+        } else if stem.ends_with(".settings") {
+            info!("Reading settings configuration file {path:?}");
+            raw_settings.push(read_file(path)?);
         }
     }
+    if raw_settings.is_empty() {
+        Err(ConfigurationError {
+            filename: None,
+            msg: "No settings files (ending in .settings.yml, .settings.toml etc) found!".to_string(),
+        })?;
+    }
+
+    let settings: Settings = raw_settings.into();
 
     let duplicate_service_ids: Vec<String> = services
         .iter()

@@ -216,14 +216,14 @@ impl<'a> StatefulComponent for OutputPane<'a> {
                                 LinePart {
                                     text: format!("{name}/"),
                                     color: theme.service_colors
-                                        [color_idx % theme.service_colors.len()]
+                                        [color_idx % theme.service_colors.len()].0
                                     .into(),
                                 },
                                 LinePart {
                                     text: format!("{name} | ", name = key.source_name),
                                     color: Some(
                                         theme.source_colors[Self::hash_name(&key.source_name)
-                                            % theme.source_colors.len()],
+                                            % theme.source_colors.len()].0,
                                     ),
                                 },
                             ],

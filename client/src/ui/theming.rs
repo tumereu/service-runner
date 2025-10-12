@@ -7,16 +7,16 @@ pub trait RegisterTheme {
 
 impl RegisterTheme for ComponentRenderer {
     fn register_theme(&mut self, theme: &Theme) {
-        self.set_attr(ATTR_COLOR_WORK_ACTIVE, theme.active_color);
-        self.set_attr(ATTR_COLOR_WORK_PARTIALLY_ACTIVE, theme.partially_active_color);
-        self.set_attr(ATTR_COLOR_WORK_WAITING_TO_PROCESS, theme.waiting_to_process_color);
-        self.set_attr(ATTR_COLOR_WORK_PROCESSING, theme.processing_color);
-        self.set_attr(ATTR_COLOR_WORK_ERROR, theme.error_color);
-        self.set_attr(ATTR_COLOR_WORK_INACTIVE, theme.inactive_color);
-        self.set_attr(ATTR_COLOR_WORK_IDLE, theme.idle_color);
+        self.set_attr(ATTR_COLOR_WORK_ACTIVE, theme.active_color.0);
+        self.set_attr(ATTR_COLOR_WORK_PARTIALLY_ACTIVE, theme.partially_active_color.0);
+        self.set_attr(ATTR_COLOR_WORK_WAITING_TO_PROCESS, theme.waiting_to_process_color.0);
+        self.set_attr(ATTR_COLOR_WORK_PROCESSING, theme.processing_color.0);
+        self.set_attr(ATTR_COLOR_WORK_ERROR, theme.error_color.0);
+        self.set_attr(ATTR_COLOR_WORK_INACTIVE, theme.inactive_color.0);
+        self.set_attr(ATTR_COLOR_WORK_IDLE, theme.idle_color.0);
         
-        self.set_attr(ATTR_COLOR_FOCUSED_ELEMENT, theme.focused_element);
-        self.set_attr(ATTR_COLOR_UNFOCUSED_ELEMENT, theme.unfocused_element);
+        self.set_attr(ATTR_COLOR_FOCUSED_ELEMENT, theme.focused_element.0);
+        self.set_attr(ATTR_COLOR_UNFOCUSED_ELEMENT, theme.unfocused_element.0);
     }
 }
 

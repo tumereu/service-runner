@@ -1,4 +1,5 @@
 autolaunch_profile: example
+load_order: 0
 keybinds:
   block_actions:
     - action: rerun

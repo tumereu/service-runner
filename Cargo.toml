@@ -1,5 +1,5 @@
 [workspace]
-members = ["client", "ui"]
+members = ["client", "ui", "macros"]
 
 [workspace.dependencies]
 ratatui =  { version = "0.29.0", features = ["crossterm"] }

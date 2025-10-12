@@ -1,10 +1,10 @@
 use crate::models::BlockAction;
 use crossterm::event::KeyCode;
 use serde_derive::{Deserialize, Serialize};
+use macros::PartialStruct;
 use ui::input::KeyMatcher;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
-#[serde(default)]
+#[derive(Debug, Clone, Default)]
 pub struct Keybinds {
     pub common: CommonKeybindings,
     pub output: OutputBindings,
@@ -12,48 +12,66 @@ pub struct Keybinds {
     pub block_actions: Vec<ServiceActionBinding>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 #[serde(default)]
+pub struct PartialKeybinds {
+    pub common: PartialCommonKeybindings,
+    pub output: PartialOutputBindings,
+    pub service: PartialServiceBindings,
+    pub block_actions: Option<Vec<ServiceActionBinding>>,
+}
+impl PartialKeybinds {
+    pub fn apply_to(self, binds: &mut Keybinds) {
+        self.common.apply_to(&mut binds.common);
+        self.output.apply_to(&mut binds.output);
+        self.service.apply_to(&mut binds.service);
+        if let Some(block_actions) = self.block_actions {
+            binds.block_actions = block_actions;
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialStruct)]
 pub struct CommonKeybindings {
-    pub quit: Option<Keybinding>,
-    pub focus_next: Option<Keybinding>,
-    pub focus_prev: Option<Keybinding>,
-    pub nav_left: Option<Keybinding>,
-    pub nav_right: Option<Keybinding>,
-    pub nav_up: Option<Keybinding>,
-    pub nav_down: Option<Keybinding>,
-    pub nav_left_large: Option<Keybinding>,
-    pub nav_right_large: Option<Keybinding>,
-    pub nav_up_large: Option<Keybinding>,
-    pub nav_down_large: Option<Keybinding>,
-    pub nav_to_start: Option<Keybinding>,
-    pub nav_to_end: Option<Keybinding>,
-    pub select: Option<Keybinding>,
-    pub cancel: Option<Keybinding>,
+    pub quit: Keybinding,
+    pub focus_next: Keybinding,
+    pub focus_prev: Keybinding,
+    pub nav_left: Keybinding,
+    pub nav_right: Keybinding,
+    pub nav_up: Keybinding,
+    pub nav_down: Keybinding,
+    pub nav_left_large: Keybinding,
+    pub nav_right_large: Keybinding,
+    pub nav_up_large: Keybinding,
+    pub nav_down_large: Keybinding,
+    pub nav_to_start: Keybinding,
+    pub nav_to_end: Keybinding,
+    pub select: Keybinding,
+    pub cancel: Keybinding,
 }
 impl Default for CommonKeybindings {
     fn default() -> Self {
         Self {
-            quit: KeyMatcher::char('q').ctrl().to_binding(),
-            focus_next: KeyMatcher::new(KeyCode::Tab).to_binding(),
-            focus_prev: KeyMatcher::new(KeyCode::Tab).shift().to_binding(),
-            nav_left: [KeyMatcher::char('h'), KeyMatcher::new(KeyCode::Left)].to_binding(),
+            quit: KeyMatcher::char('q').ctrl().into(),
+            focus_next: KeyMatcher::new(KeyCode::Tab).into(),
+            focus_prev: KeyMatcher::new(KeyCode::Tab).shift().into(),
+            nav_left: [KeyMatcher::char('h'), KeyMatcher::new(KeyCode::Left)].into(),
             nav_left_large: [
                 KeyMatcher::char('h').ctrl(),
                 KeyMatcher::new(KeyCode::Left).ctrl(),
                 KeyMatcher::char('h').shift(),
                 KeyMatcher::new(KeyCode::Left).shift(),
             ]
-            .to_binding(),
-            nav_right: [KeyMatcher::char('l'), KeyMatcher::new(KeyCode::Right)].to_binding(),
+            .into(),
+            nav_right: [KeyMatcher::char('l'), KeyMatcher::new(KeyCode::Right)].into(),
             nav_right_large: [
                 KeyMatcher::char('l').ctrl(),
                 KeyMatcher::new(KeyCode::Right).ctrl(),
                 KeyMatcher::char('l').shift(),
                 KeyMatcher::new(KeyCode::Right).shift(),
             ]
-            .to_binding(),
-            nav_up: [KeyMatcher::char('k'), KeyMatcher::new(KeyCode::Up)].to_binding(),
+            .into(),
+            nav_up: [KeyMatcher::char('k'), KeyMatcher::new(KeyCode::Up)].into(),
             nav_up_large: [
                 KeyMatcher::char('k').ctrl(),
                 KeyMatcher::char('k').shift(),
@@ -61,8 +79,8 @@ impl Default for CommonKeybindings {
                 KeyMatcher::new(KeyCode::Up).shift(),
                 KeyMatcher::new(KeyCode::PageUp),
             ]
-            .to_binding(),
-            nav_down: [KeyMatcher::char('j'), KeyMatcher::new(KeyCode::Down)].to_binding(),
+            .into(),
+            nav_down: [KeyMatcher::char('j'), KeyMatcher::new(KeyCode::Down)].into(),
             nav_down_large: [
                 KeyMatcher::char('j').ctrl(),
                 KeyMatcher::char('j').shift(),
@@ -70,43 +88,41 @@ impl Default for CommonKeybindings {
                 KeyMatcher::new(KeyCode::Down).shift(),
                 KeyMatcher::new(KeyCode::PageDown),
             ]
-            .to_binding(),
-            nav_to_start: KeyMatcher::char('g').to_binding(),
-            nav_to_end: KeyMatcher::char('g').shift().to_binding(),
-            select: [KeyMatcher::char(' '), KeyMatcher::new(KeyCode::Enter)].to_binding(),
-            cancel: KeyMatcher::new(KeyCode::Esc).to_binding(),
+            .into(),
+            nav_to_start: KeyMatcher::char('g').into(),
+            nav_to_end: KeyMatcher::char('g').shift().into(),
+            select: [KeyMatcher::char(' '), KeyMatcher::new(KeyCode::Enter)].into(),
+            cancel: KeyMatcher::new(KeyCode::Esc).into(),
         }
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(default)]
+#[derive(Debug, Clone, PartialStruct)]
 pub struct OutputBindings {
-    pub toggle_wrap: Option<Keybinding>,
+    pub toggle_wrap: Keybinding,
 }
 impl Default for OutputBindings {
     fn default() -> Self {
         Self {
-            toggle_wrap: KeyMatcher::char('w').to_binding(),
+            toggle_wrap: KeyMatcher::char('w').into(),
         }
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(default)]
+#[derive(Debug, Clone, PartialStruct)]
 pub struct ServiceBindings {
-    pub toggle_output_selected: Option<Keybinding>,
-    pub toggle_output_all: Option<Keybinding>,
-    pub toggle_automation_selected: Option<Keybinding>,
-    pub toggle_automation_all: Option<Keybinding>,
+    pub toggle_output_selected: Keybinding,
+    pub toggle_output_all: Keybinding,
+    pub toggle_automation_selected: Keybinding,
+    pub toggle_automation_all: Keybinding,
 }
 impl Default for ServiceBindings {
     fn default() -> Self {
         Self {
-            toggle_output_selected: KeyMatcher::char('o').to_binding(),
-            toggle_output_all: KeyMatcher::char('o').shift().to_binding(),
-            toggle_automation_selected: KeyMatcher::char('a').to_binding(),
-            toggle_automation_all: KeyMatcher::char('a').shift().to_binding(),
+            toggle_output_selected: KeyMatcher::char('o').into(),
+            toggle_output_all: KeyMatcher::char('o').shift().into(),
+            toggle_automation_selected: KeyMatcher::char('a').into(),
+            toggle_automation_all: KeyMatcher::char('a').shift().into(),
         }
     }
 }
@@ -165,25 +181,21 @@ pub enum Keybinding {
     Single(KeyMatcher),
     Multi(Vec<KeyMatcher>),
 }
-impl Into<Vec<KeyMatcher>> for Keybinding {
-    fn into(self) -> Vec<KeyMatcher> {
+impl Keybinding {
+    pub fn matchers(&self) -> Vec<KeyMatcher> {
         match self {
-            Keybinding::Single(binding) => vec![binding],
-            Keybinding::Multi(bindings) => bindings,
+            Keybinding::Single(binding) => vec![binding.clone()],
+            Keybinding::Multi(bindings) => bindings.clone(),
         }
     }
 }
-
-trait IntoKeybinding {
-    fn to_binding(self) -> Option<Keybinding>;
-}
-impl IntoKeybinding for KeyMatcher {
-    fn to_binding(self) -> Option<Keybinding> {
-        Some(Keybinding::Single(self))
+impl Into<Keybinding> for KeyMatcher {
+    fn into(self) -> Keybinding {
+        Keybinding::Single(self)
     }
 }
-impl<const L: usize> IntoKeybinding for [KeyMatcher; L] {
-    fn to_binding(self) -> Option<Keybinding> {
-        Some(Keybinding::Multi(Vec::from(self)))
+impl<const L: usize> Into<Keybinding> for [KeyMatcher; L] {
+    fn into(self) -> Keybinding {
+        Keybinding::Multi(Vec::from(self))
     }
 }

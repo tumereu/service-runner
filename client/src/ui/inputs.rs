@@ -44,9 +44,9 @@ impl RegisterKeybinds for ComponentRenderer {
 trait BindKey {
     fn bind_key(&self, attr: &str, target: &mut ComponentRenderer);
 }
-impl BindKey for Option<Keybinding> {
+impl BindKey for Keybinding {
     fn bind_key(&self, attr: &str, target: &mut ComponentRenderer) {
-        let result: Vec<KeyMatcher> = self.as_ref().map(|key| key.clone().into()).unwrap_or_default();
+        let result: Vec<KeyMatcher> = self.matchers().iter().map(|key| key.clone().into()).collect();
         target.set_attr(attr, result);
     }   
 }
