@@ -1,5 +1,5 @@
 pub use automation_definition::*;
-pub use config::*;
+pub use crate::config::settings::*;
 pub use executable_entry::*;
 pub use profile_definition::*;
 pub use requirement::*;
@@ -10,5 +10,4 @@ mod requirement;
 mod automation_definition;
 mod service_definition;
 mod profile_definition;
-mod config;
 
