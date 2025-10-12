@@ -1,7 +1,9 @@
-use crate::config::{Keybinding, Keybinds, ResolvedBlockActionBinding};
 use ui::component::{ATTR_KEY_CANCEL, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, ATTR_KEY_SELECT};
 use ui::input::KeyMatcher;
 use ui::ComponentRenderer;
+use crate::config::Keybinds;
+use crate::config::ResolvedBlockActionBinding;
+use crate::config::Keybinding;
 
 pub trait RegisterKeybinds {
     fn register_keybinds(&mut self, binds: &Keybinds);

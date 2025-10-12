@@ -1,4 +1,4 @@
-use crate::config::{BlockId, ResolvedBlockActionBinding, ServiceActionTarget};
+use crate::config::BlockId;
 use crate::models::{AutomationStatus, BlockStatus, WorkStep};
 use crate::system_state::SystemState;
 use crate::ui::inputs::{
@@ -10,13 +10,13 @@ use itertools::Itertools;
 use ratatui::layout::Size;
 use ratatui::prelude::Color;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use ui::component::{
-    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP, Dir, Flow,
-    FlowableArgs, List, MeasurableComponent, Spinner, StatefulComponent, Text, WithMeasurement,
+    Dir, Flow, FlowableArgs, List, MeasurableComponent, Spinner,
+    StatefulComponent, Text, WithMeasurement, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP,
 };
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
+use crate::config::{ResolvedBlockActionBinding, ServiceActionTarget};
 
 pub struct ServiceList<'a> {
     pub system_state: &'a mut SystemState,
