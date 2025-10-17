@@ -1,13 +1,11 @@
 - Action queue for blocks to allow ex. toggle + run, also possibility to clear action queue from Rhai
+- "Fingerprint" functionality to detect changes while not running 
 - star-paths for file watcher?
 - Task keybinds
 - Output errors in prereq checks even if otherwise silent
 - Combine resource group and prereq checks?
-<<<<<<< Updated upstream
-=======
 - Wrapping output pane should split a word if its too long to display on one line?
 - Multiple settings files, with load order to allow rebinding keys and changing theme
->>>>>>> Stashed changes
 - Typed attribute-keys for renderer
 - Run any task for a service dropdown
 - Run any task from all available modal dialog for profile
