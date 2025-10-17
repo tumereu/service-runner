@@ -1,27 +1,26 @@
-use std::sync::{Arc, Mutex};
-use std::{env, error::Error, io::stdout, process, thread, time::Duration};
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
+use std::{env, error::Error, io::stdout, process, thread, time::Duration};
+
+use config::read_config;
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use tui::{backend::CrosstermBackend, Terminal};
-
-use config::read_config;
 use log::{debug, error, info, LevelFilter};
+use ratatui::{backend::CrosstermBackend, Terminal};
+use ::ui::input::collect_input_events;
+use ::ui::{ComponentRenderer, UIResult};
 
-use crate::system_state::{SystemState};
-use crate::input::process_inputs;
-use crate::models::Action::ActivateProfile;
-use crate::models::Profile;
-use crate::runner::automation::start_automation_processor;
-use crate::runner::file_watcher::start_file_watcher;
-use crate::runner::process_action::process_action;
-use crate::ui::render;
-use crate::runner::service_worker::start_service_worker;
+use crate::runner::file_watcher::FileWatcher;
+use runner::scripting::executor::ScriptExecutor;
+use crate::runner::service_worker::ServiceWorker;
+use crate::system_state::SystemState;
+use crate::ui::inputs::RegisterKeybinds;
+use crate::ui::theming::RegisterTheme;
+use crate::ui::ViewRoot;
 
 mod system_state;
-mod input;
 mod ui;
 mod models;
 mod runner;
@@ -39,16 +38,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config = read_config(&config_dir);
 
     if let Err(error) = &config {
-        let filename = &error.filename;
-        let message = &error.user_message;
-
-        println!("Error: failed to parse configuration file {filename}: {message}");
+        println!("Error in configurations: {error}");
         process::exit(1);
     }
 
-    let state_arc = Arc::new(Mutex::new(SystemState::new(config.unwrap())));
-    let num_profiles = state_arc.lock().unwrap().config.profiles.len();
-    let num_services = state_arc.lock().unwrap().config.services.len();
+    let system_state = Arc::new(RwLock::new(SystemState::new(config.unwrap())));
+    let num_profiles = system_state.read().unwrap().config.profiles.len();
+    let num_services = system_state.read().unwrap().config.services.len();
 
     info!(
         "Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)"
@@ -59,27 +55,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen)?;
 
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    render(&mut terminal, state_arc.clone())?;
+    let rhai_executor = Arc::new(ScriptExecutor::new(system_state.clone()));
+    let service_worker = Arc::new(ServiceWorker::new(system_state.clone(), rhai_executor.clone()));
+    let file_watcher = Arc::new(FileWatcher::new(system_state.clone()));
 
     let mut handles = vec![
-        ("service-worker".into(), start_service_worker(state_arc.clone())),
-        ("file-watcher".into(), start_file_watcher(state_arc.clone())),
-        ("automation-processor".into(), start_automation_processor(state_arc.clone())),
+        ("file-watcher".into(), file_watcher.start()),
+        ("rhai-executor".into(), rhai_executor.start()),
+        ("service-worker".into(), service_worker.start()),
     ];
 
-    state_arc.lock().unwrap().active_threads.append(&mut handles);
+    system_state.write().unwrap().active_threads.append(&mut handles);
 
     let join_threads = {
-        let state_arc = state_arc.clone();
+        let state_arc = system_state.clone();
         thread::spawn(move || {
             let mut last_print = Instant::now();
 
             loop {
                 {
-                    let mut state = state_arc.lock().unwrap();
+                    let mut state = state_arc.write().unwrap();
                     if state.should_exit && state.active_threads.is_empty() {
                         break;
                     }
@@ -117,34 +112,65 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Check for autolaunched profile
     {
-        let mut system = state_arc.lock().unwrap();
+        info!("Checking for autolaunched profile");
+        let mut system = system_state.write().unwrap();
 
-        if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
+        let autolaunch_profile = if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
             let selection = system.config.profiles.iter()
-                .find(|profile| &profile.name == autolaunch_profile)
-                .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile));
+                .find(|profile| &profile.id == autolaunch_profile)
+                .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile))
+                .id.clone();
 
-            let action = ActivateProfile(Profile::new(selection, &system.config.services));
-            process_action(&mut system, action);
+            Some(selection)
+        } else {
+            None
+        };
+
+        if let Some(selection) = autolaunch_profile {
+            info!("Autolaunching profile: {}", selection);
+            system.select_profile(&selection);
         }
     }
 
+
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    let mut renderer = ComponentRenderer::new();
+    renderer.assign_default_attributes();
+    renderer.register_theme(&system_state.read().unwrap().config.settings.theme);
+    renderer.register_keybinds(&system_state.read().unwrap().config.settings.keybinds);
+
+    let mut ui_result: UIResult<()> = Ok(());
+
     loop {
-        process_inputs(state_arc.clone());
-        match render(&mut terminal, state_arc.clone()) {
-            Ok(_) => {},
+        let input_events = collect_input_events();
+        renderer.send_input_signals(input_events);
+
+        match renderer.render_root(
+            &mut terminal,
+            ViewRoot {
+                system_state: &mut system_state.write().unwrap(),
+            },
+        ) {
+            Ok(_) => {}
             Err(error) => {
                 error!("Encountered an unexpected exception during render(): {error:?}");
+                ui_result = Err(error);
                 break;
             }
         }
 
-        if state_arc.lock().unwrap().should_exit {
+        if system_state.read().unwrap().should_exit {
             break;
         } else {
-            thread::sleep(Duration::from_millis(10));
+            thread::sleep(Duration::from_millis(50));
         }
     }
+
+    system_state.write().unwrap().should_exit = true;
+    file_watcher.stop();
+    service_worker.stop();
+    rhai_executor.stop();
 
     match join_threads.join() {
         Ok(_) => info!("Threads joined successfully"),
@@ -159,6 +185,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         LeaveAlternateScreen,
     )?;
     terminal.show_cursor()?;
+
+    // If there were errors with the UI, panic at the very end after cleaning up the terminal
+    match ui_result {
+        Ok(_) => {}
+        Err(error) => panic!("Unexpected error in UI rendering: {error}"),
+    }
 
     Ok(())
 }

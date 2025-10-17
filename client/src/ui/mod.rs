@@ -1,32 +1,43 @@
-use std::sync::{Arc, Mutex};
-
-use tui::backend::Backend;
-use tui::Terminal;
-
-pub use state::{CurrentScreen, UIState, ViewProfilePane, ViewProfileState, ViewProfileFloatingPane};
-
-use crate::ui::screens::profile_select::render_profile_select;
-use crate::ui::screens::view_profile::render_view_profile;
+use crate::ui::inputs::ATTR_KEY_QUIT;
+use crate::ui::screens::select_profile::SelectProfileScreen;
+use crate::ui::screens::view_profile::ViewProfileScreen;
 use crate::SystemState;
+use std::sync::{Arc, RwLock};
+use ui::component::Component;
+use ui::input::KeyMatcherQueryable;
+use ui::{FrameContext, RenderArgs, UIResult};
 
 mod screens;
-mod state;
-mod widgets;
 
-pub fn render<B>(term: &mut Terminal<B>, system_arc: Arc<Mutex<SystemState>>) -> std::io::Result<()>
-where
-    B: Backend,
-{
-    term.draw(|f| {
-        let mut state = system_arc.lock().unwrap();
-        let frame_size = f.size();
-        state.ui.last_frame_size = (frame_size.width, frame_size.height);
+pub mod inputs;
+pub mod theming;
 
-        match &state.ui.screen {
-            CurrentScreen::ProfileSelect { .. } => render_profile_select(f, &state),
-            CurrentScreen::ViewProfile { .. } => render_view_profile(f, &state),
+pub struct ViewRoot<'a> {
+    pub system_state: &'a mut SystemState
+}
+impl<'a> Component for ViewRoot<'a> {
+    type Output = ();
+
+    fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
+        let has_profile = self.system_state.current_profile.is_some();
+
+        if has_profile {
+            context.render_component(RenderArgs::new(ViewProfileScreen {
+                system_state: self.system_state,
+            }))?;
+        } else {
+            context.render_component(RenderArgs::new(SelectProfileScreen {
+                system_state: self.system_state,
+            }))?;
         }
-    })?;
 
-    Ok(())
+        if context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_QUIT)?)
+        {
+            self.system_state.should_exit = true;
+        }
+
+        Ok(())
+    }
 }

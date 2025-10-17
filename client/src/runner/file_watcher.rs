@@ -1,132 +1,292 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
-use log::{error, info, trace};
+use itertools::Itertools;
+use log::{error, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use crate::models::{AutomationTrigger};
-use crate::runner::automation::{enqueue_automation, process_pending_automations};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
+use std::thread;
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
+
+use crate::config::{AutomationDefinitionId, AutomationTrigger, ServiceId};
+use crate::models::{AutomationStatus, OutputKey, OutputKind};
 use crate::system_state::SystemState;
+use crate::utils::resolve_path;
 
-
-pub struct FileWatcherState {
-    pub profile_name: String,
-    pub watchers: Vec<RecommendedWatcher>,
-    pub latest_events: HashMap<String, Instant>,
-    pub latest_recompiles: HashMap<String, Instant>,
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+struct AutomationKey {
+    def_id: AutomationDefinitionId,
+    service_id: Option<ServiceId>,
 }
 
-pub fn start_file_watcher(system_arc: Arc<Mutex<SystemState>>) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        while !system_arc.lock().unwrap().should_exit {
-            let rebuild_watchers = {
-                let system = system_arc.lock().unwrap();
-                match (system.get_profile_name(), &system.file_watchers) {
-                    (None, None) => false,
-                    (None, Some(_)) => true,
-                    (Some(_), None) => true,
-                    (Some(profile), Some(FileWatcherState { profile_name, .. })) => profile != profile_name,
-                }
-            };
-
-            if rebuild_watchers {
-                info!("Rebuilding file watchers due to a change in profile");
-                setup_watchers(system_arc.clone());
-            }
-
-            thread::sleep(Duration::from_millis(100))
+pub struct FileWatcher {
+    state: Arc<RwLock<SystemState>>,
+    keep_alive: Arc<RwLock<bool>>,
+    /// File watchers indexed by (automation_id, service_id)-keys, where service id is optional. The value is a Some
+    /// containing a recommended watcher if the automation is about watching files and the file watcher has been created,
+    /// a None if the automation has been processed and doesn't require file watchers. If the map doesn't contain a
+    /// value for a key, then the automation either is not enabled or has not yet been processed.
+    watchers: Arc<RwLock<HashMap<AutomationKey, Option<RecommendedWatcher>>>>,
+}
+impl FileWatcher {
+    pub fn new(state: Arc<RwLock<SystemState>>) -> Self {
+        Self {
+            state,
+            keep_alive: Arc::new(RwLock::new(true)),
+            watchers: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
 
-        // Dropping the file watcher state should automatically clean up the created watchers
-        system_arc.lock().unwrap().file_watchers = None;
-    })
-}
+    pub fn start(&self) -> JoinHandle<()> {
+        let keep_alive = self.keep_alive.clone();
+        let watchers = self.watchers.clone();
+        let state = self.state.clone();
 
-
-fn setup_watchers(system_arc: Arc<Mutex<SystemState>>) {
-    let mut system = system_arc.lock().unwrap();
-
-    let new_watchers = if let Some(profile_name) = system.get_profile_name() {
-        let watchers: Vec<RecommendedWatcher> = system.iter_services()
-            .flat_map(|service| {
-                service.automation.iter()
-                    .flat_map(|automation_entry| {
-                        match &automation_entry.trigger {
-                            AutomationTrigger::ModifiedFile { paths } => {
-                                Some((
-                                    service.name.clone(),
-                                    service.dir.clone(),
-                                    automation_entry.clone(),
-                                    paths.clone()
-                                ))
-                            },
-                            _ => None
-                        }
-                    })
-            })
-            .filter_map(|(service_name, work_dir, automation_entry, watch_paths)| {
-                info!("Creating a watcher for service {service_name} with paths {watch_paths:?}");
-
-                let watcher = {
-                    let system_arc = system_arc.clone();
-                    let service_name = service_name.clone();
-
-                    notify::recommended_watcher(move |res| {
-                        match res {
-                            Ok(event) => {
-                                trace!("Received filesystem event for service {service_name}: {event:?}");
-                                let mut system = system_arc.lock().unwrap();
-
-                                enqueue_automation(&mut system, &service_name, &automation_entry);
-                                process_pending_automations(&mut system);
-                            }
-                            Err(err) => error!("Error in file watcher for service {service_name}: {err:?}"),
-                        }
-                    })
+        thread::spawn(move || {
+            while *keep_alive.read().unwrap() {
+                // Collect all automations in the whole profile
+                let automation_ids: Vec<(AutomationDefinitionId, Option<ServiceId>)> = {
+                    let state = state.read().unwrap();
+                    state
+                        .current_profile
+                        .iter()
+                        .flat_map(|profile| &profile.automations)
+                        .map(|automation| (automation.definition_id.clone(), None))
+                        .chain(
+                            state
+                                .current_profile
+                                .iter()
+                                .flat_map(|profile| &profile.services)
+                                .flat_map(|service| {
+                                    service.automations.iter().map(|automation| {
+                                        (
+                                            automation.definition_id.clone(),
+                                            Some(service.definition.id.clone()),
+                                        )
+                                    })
+                                }),
+                        )
+                        .collect()
                 };
 
-                if let Ok(mut watcher) = watcher {
-                    // TODO output some error to the Output-system in case there is a failure?
-                    let mut successful = true;
-                    for path in &watch_paths {
-                        let mut watch_path = PathBuf::new();
-                        if let Some(dir) = work_dir.as_ref() {
-                            watch_path.push(Path::new(dir));
-                        }
-                        watch_path.push(Path::new(path));
-
-                        let watch_result = watcher.watch(&watch_path, RecursiveMode::Recursive);
-                        if watch_result.is_err() {
-                            error!(
-                                "Failure when trying to watch path {watch_path:?} for service {service_name}: {watch_result:?}"
-                            );
-                            successful = false;
-                            break;
-                        }
-                    }
-
-                    if successful {
-                        Some(watcher)
-                    } else {
-                        None
-                    }
-                } else {
-                    error!("Failed to create a file watcher for {service_name}: {watcher:?}");
-                    None
+                let mut watchers = watchers.write().unwrap();
+                for (automation_id, service_id) in automation_ids {
+                    Self::handle_automation(
+                        state.clone(),
+                        &mut watchers,
+                        &automation_id,
+                        service_id,
+                    )
                 }
-            })
-            .collect();
 
-        FileWatcherState {
-            profile_name: profile_name.to_string(),
-            watchers,
-            latest_events: HashMap::new(),
-            latest_recompiles: HashMap::new(),
-        }.into()
-    } else {
-        None
-    };
+                thread::sleep(Duration::from_millis(100))
+            }
+        })
+    }
 
-    system.file_watchers = new_watchers;
+    pub fn stop(&self) {
+        *self.keep_alive.write().unwrap() = false;
+    }
+
+    fn handle_automation(
+        system_state: Arc<RwLock<SystemState>>,
+        watchers: &mut HashMap<AutomationKey, Option<RecommendedWatcher>>,
+        automation_id: &AutomationDefinitionId,
+        service_id: Option<ServiceId>,
+    ) {
+        let key = AutomationKey {
+            def_id: automation_id.clone(),
+            service_id: service_id.clone(),
+        };
+        let is_watching = watchers.contains_key(&key);
+        let enabled = {
+            match system_state.read().unwrap().query_automation(
+                &automation_id,
+                &service_id,
+                |automation| automation.status.clone(),
+            ) {
+                None => false,
+                Some(AutomationStatus::Disabled) => false,
+                _ => true,
+            }
+        };
+
+        if is_watching && !enabled {
+            watchers.remove(&key);
+        } else if !is_watching && enabled {
+            // Resolve work directory. If the automation is for a service, use the service's work directory. If the
+            // automation is for the whole profile, use the profile's work directory.
+            let work_dir = service_id
+                .as_ref()
+                .and_then(|service_id| {
+                    system_state
+                        .read()
+                        .unwrap()
+                        .query_service(&service_id, |service| service.definition.workdir.clone())
+                })
+                .or_else(|| {
+                    system_state
+                        .read()
+                        .unwrap()
+                        .current_profile
+                        .as_ref()
+                        .map(|profile| profile.definition.workdir.clone())
+                })
+                .unwrap_or_default();
+
+            // Resolve the paths to watch for this automation. Note that this may not necessarily even yield any
+            // results, the profile could've changed asynchronously or the automation may not defined any paths to
+            // watch.
+            let watch_paths: Vec<PathBuf> = system_state
+                .read()
+                .unwrap()
+                .query_automation(&automation_id, &service_id, |automation| {
+                    automation
+                        .triggers
+                        .iter()
+                        .filter_map(|trigger| match trigger {
+                            AutomationTrigger::RhaiQuery { .. } => None,
+                            AutomationTrigger::FileModified { file_modified } => {
+                                Some(file_modified.clone())
+                            }
+                        })
+                        .map(|watch_path| resolve_path(&watch_path, &work_dir))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            // If there's nothing to watch, we mark the automation as properly handled by inserting None into the map
+            if watch_paths.is_empty() {
+                watchers.insert(key, None);
+            } else {
+                Self::create_automation_watcher(
+                    key,
+                    system_state,
+                    watch_paths,
+                    watchers,
+                    automation_id,
+                    service_id,
+                );
+            }
+        }
+    }
+
+    fn create_automation_watcher(
+        key: AutomationKey,
+        system_state: Arc<RwLock<SystemState>>,
+        watch_paths: Vec<PathBuf>,
+        watchers: &mut HashMap<AutomationKey, Option<RecommendedWatcher>>,
+        automation_id: &AutomationDefinitionId,
+        service_id: Option<ServiceId>,
+    ) {
+        let watcher = {
+            let system_state = system_state.clone();
+            let automation_id = automation_id.clone();
+            let service_id = service_id.clone();
+
+            let watcher = notify::recommended_watcher(
+                move |res: notify::Result<notify::Event>| match res {
+                    Ok(event) => match event.kind {
+                        notify::EventKind::Modify(_)
+                        | notify::EventKind::Remove(_)
+                        | notify::EventKind::Create(_) => {
+                            trace!(
+                                "Received filesystem event for automation {:?} (service: {:?}): {:?}",
+                                automation_id, service_id, event,
+                            );
+                            let mut system = system_state.write().unwrap();
+
+                            system.update_automation(&automation_id, &service_id, |automation| {
+                                automation.last_triggered = Some(Instant::now());
+                            });
+                        }
+                        notify::EventKind::Access(_) | notify::EventKind::Other | notify::EventKind::Any => {
+                            // Ignored on purpose, as we cannot know that a file has been modified
+                        }
+                    },
+                    Err(err) => error!(
+                        "Error in file watcher event for automation {:?} (service: {:?}): {:?}",
+                        automation_id, service_id, err,
+                    ),
+                },
+            );
+
+            watcher
+        };
+
+        // TODO add output for success andfal
+        let successful = if let Ok(mut watcher) = watcher {
+            let mut successful = true;
+            for path in &watch_paths {
+                let watch_result = watcher.watch(&path, RecursiveMode::Recursive);
+                if watch_result.is_err() {
+                    error!(
+                        "Failure when trying to watch path {path:?} for automation {automation_id:?} (service: {service_id:?}): {watch_result:?}"
+                    );
+                    system_state.write().unwrap().add_output(
+                        &OutputKey {
+                            service_id: service_id.clone(),
+                            source_name: "automation".to_owned(),
+                            kind: OutputKind::System,
+                        },
+                        format!(
+                            "Error: unexpected failure when trying to watch path {path}: {description}",
+                            path = path.to_str().unwrap_or_default(),
+                            description = watch_result.unwrap_err().to_string()
+                        ),
+                    );
+
+                    successful = false;
+                    break;
+                }
+            }
+
+            watchers.insert(key, Some(watcher));
+            successful
+        } else {
+            error!(
+                "Failed to create a file watcher for automation {:?} (service: {:?})",
+                automation_id, service_id
+            );
+            system_state.write().unwrap().add_output(
+                &OutputKey {
+                    service_id: service_id.clone(),
+                    source_name: "automation".to_owned(),
+                    kind: OutputKind::System,
+                },
+                format!(
+                    "Error: failed to create a file watcher for automation {automation_id:?} (service: {service_id:?}): {error}",
+                    error = watcher.unwrap_err().to_string(),
+                ),
+            );
+
+            watchers.insert(key, None);
+            false
+        };
+
+        if successful {
+            let path_str = watch_paths
+                .iter()
+                .filter_map(|path| path.to_str())
+                .join(", ");
+            system_state.write().unwrap().add_output(
+                &OutputKey {
+                    service_id: service_id.clone(),
+                    source_name: "automation".to_owned(),
+                    kind: OutputKind::System,
+                },
+                format!("Successfully began watching paths: {path_str}"),
+            );
+        }
+
+        let mut system = system_state.write().unwrap();
+        system.update_automation(&automation_id, &service_id, |automation| {
+            automation.status = match automation.status {
+                AutomationStatus::Disabled => AutomationStatus::Disabled,
+                AutomationStatus::Active if successful => AutomationStatus::Active,
+                AutomationStatus::Active => AutomationStatus::Error,
+                AutomationStatus::Error => AutomationStatus::Error,
+            };
+        });
+    }
 }

@@ -1,3 +1,2 @@
-pub mod profile_select;
+pub mod select_profile;
 pub mod view_profile;
-pub mod exit;

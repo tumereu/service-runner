@@ -1,19 +1,40 @@
-use std::collections::{HashMap};
+use crate::config::{
+    AutomationDefinitionId, Block, BlockId, Config, ServiceId, TaskDefinition, TaskDefinitionId,
+};
+use crate::models::{
+    Automation, BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId,
+};
+use crate::runner::service_worker::ConcurrentOperationHandle;
+use std::collections::HashMap;
 use std::thread::JoinHandle;
-use crate::config::Config;
-use crate::models::{CompileStatus, Dependency, OutputKey, OutputStore, Profile, RequiredState, RunStatus, Service, ServiceAction, ServiceStatus};
-use crate::runner::file_watcher::FileWatcherState;
-use crate::ui::UIState;
 
 pub struct SystemState {
     pub current_profile: Option<Profile>,
-    pub service_statuses: HashMap<String, ServiceStatus>,
     pub output_store: OutputStore,
-    pub ui: UIState,
     pub config: Config,
     pub should_exit: bool,
     pub active_threads: Vec<(String, JoinHandle<()>)>,
-    pub file_watchers: Option<FileWatcherState>
+    concurrent_operations: HashMap<ConcurrentOperationKey, ConcurrentOperationHandle>,
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub enum ConcurrentOperationKey {
+    Block {
+        service_id: ServiceId,
+        block_id: BlockId,
+        operation_type: OperationType,
+    },
+    Task {
+        task_id: TaskId,
+    },
+}
+
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
+pub enum OperationType {
+    /// Operation type used by prerequisite and health checks
+    Check,
+    /// Operation type used by the actual work performed by blocks
+    Work,
 }
 
 impl SystemState {
@@ -21,28 +42,96 @@ impl SystemState {
         SystemState {
             should_exit: false,
             current_profile: None,
-            service_statuses: HashMap::new(),
-            ui: UIState::new(),
             output_store: OutputStore::new(),
             active_threads: Vec::new(),
-            file_watchers: None,
+            concurrent_operations: HashMap::new(),
             config,
         }
     }
 
-    pub fn get_profile_name(&self) -> Option<&str> {
-        self.current_profile.as_ref().map(|profile| profile.name.as_str())
+    pub fn select_profile(&mut self, definition_id: &str) {
+        self.current_profile = Some(Profile::new(
+            self.config
+                .profiles
+                .iter()
+                .find(|def| def.id == definition_id)
+                .expect(&format!("No definition found with id {definition_id}"))
+                .clone(),
+            &self.config.services,
+        ))
     }
 
-    pub fn get_service(&self, service_name: &str) -> Option<&Service> {
+    pub fn get_profile_name(&self) -> Option<&str> {
         self.current_profile
             .as_ref()
-            .and_then(|profile| {
-                profile
-                    .services
-                    .iter()
-                    .find(|service| service.name == service_name)
+            .map(|profile| profile.definition.id.as_str())
+    }
+
+    pub fn get_concurrent_operation(
+        &self,
+        key: &ConcurrentOperationKey,
+    ) -> Option<&ConcurrentOperationHandle> {
+        self.concurrent_operations.get(key)
+    }
+
+    pub fn has_block_operations(&self, service_id: &ServiceId, block_id: &BlockId) -> bool {
+        [OperationType::Check, OperationType::Work]
+            .iter()
+            .any(|operation_type| {
+                self.get_concurrent_operation(&ConcurrentOperationKey::Block {
+                    service_id: service_id.clone(),
+                    block_id: block_id.clone(),
+                    operation_type: operation_type.clone(),
+                })
+                .is_some()
             })
+    }
+
+    pub fn set_concurrent_operation(
+        &mut self,
+        key: ConcurrentOperationKey,
+        process: Option<ConcurrentOperationHandle>,
+    ) {
+        match process {
+            Some(process) => self.concurrent_operations.insert(key, process),
+            None => self.concurrent_operations.remove(&key),
+        };
+    }
+
+    pub fn get_service(&self, service_id: &ServiceId) -> Option<&Service> {
+        self.current_profile.as_ref().and_then(|profile| {
+            profile
+                .services
+                .iter()
+                .find(|service| &service.definition.id == service_id)
+        })
+    }
+
+    pub fn get_task(&self, id: &TaskId) -> Option<&Task> {
+        self.current_profile
+            .as_ref()
+            .and_then(|profile| profile.running_tasks.iter().find(|task| task.id == *id))
+    }
+
+    pub fn get_task_definition(
+        &self,
+        id: &TaskDefinitionId,
+        service_id: Option<ServiceId>,
+    ) -> Option<&TaskDefinition> {
+        let result = self.current_profile.as_ref().and_then(|profile| {
+            profile
+                .all_task_definitions
+                .iter()
+                .find(|(definition, service)| definition.id == *id && *service == service_id)
+                .map(|(definition, _)| definition)
+        });
+
+        result
+    }
+
+    pub fn get_service_block(&self, service_id: &ServiceId, block_id: &BlockId) -> Option<&Block> {
+        self.get_service(service_id)
+            .and_then(|service| service.get_block(block_id))
     }
 
     pub fn iter_services(&self) -> impl Iterator<Item = &Service> {
@@ -51,89 +140,130 @@ impl SystemState {
             .flat_map(|profile| profile.services.iter())
     }
 
-    pub fn iter_services_with_statuses(&self) -> impl Iterator<Item = (&Service, &ServiceStatus)> {
-        self.current_profile
-            .iter()
-            .flat_map(|profile| profile.services.iter())
-            .map(|service| {
-                (service, self.get_service_status(&service.name).unwrap())
-            })
-    }
-
-    pub fn get_service_status(&self, service_name: &str) -> Option<&ServiceStatus> {
-        self.service_statuses.get(service_name)
-    }
-
-    pub fn is_satisfied(&self, dep: &Dependency) -> bool {
-        self.get_service_status(&dep.service)
-            .map(|status| {
-                match dep.requirement {
-                    RequiredState::Running => match (&status.run_status, &status.action) {
-                        // The service must be running without any incoming changes
-                        (RunStatus::Healthy, ServiceAction::None) => true,
-                        (
-                            RunStatus::Healthy,
-                            ServiceAction::Restart | ServiceAction::Recompile
-                        ) => false,
-                        (RunStatus::Running | RunStatus::Failed | RunStatus::Stopped, _) => false,
-                    },
-                    RequiredState::Compiled => match (&status.compile_status, &status.action) {
-                        (
-                            CompileStatus::FullyCompiled,
-                            ServiceAction::Restart | ServiceAction::None,
-                        ) => true,
-                        (_, ServiceAction::Recompile) => false,
-                        (
-                            CompileStatus::None
-                            | CompileStatus::Compiling(_)
-                            | CompileStatus::PartiallyCompiled(_)
-                            | CompileStatus::Failed,
-                            _,
-                        ) => false,
-                    },
-                }
-            })
-            .unwrap_or(true)
-    }
-
-    /// TODO is this necessary anymore?
-    pub fn update_state<F>(&mut self, update: F)
+    pub fn update_service<F>(&mut self, service_id: &ServiceId, update: F)
     where
-        F: FnOnce(&mut SystemState),
+        for<'a> F: FnOnce(&'a mut Service),
     {
-        update(self);
-    }
-
-    pub fn update_service_status<F>(&mut self, service: &str, update: F)
-    where
-        F: FnOnce(&mut ServiceStatus),
-    {
-        self.update_state(move |state| {
-            let status = state.service_statuses.get_mut(service).unwrap();
-            update(status);
+        let service_option = self.current_profile.as_mut().and_then(|profile| {
+            profile
+                .services
+                .iter_mut()
+                .find(|service| &service.definition.id == service_id)
         });
+
+        if let Some(service) = service_option {
+            update(service);
+        }
     }
 
-    pub fn update_all_statuses<F>(&mut self, update: F)
+    pub fn update_profile<F>(&mut self, update: F)
     where
-        F: Fn(&Service, &mut ServiceStatus),
+            for<'a> F: FnOnce(&'a mut Profile),
     {
-        self.update_state(move |state| {
-            state.current_profile.as_ref()
+        if let Some(profile) = self.current_profile.as_mut() {
+            update(profile);
+        }
+    }
+
+    pub fn query_service<F, R>(&self, service_id: &ServiceId, query: F) -> Option<R>
+    where
+        for<'a> F: FnOnce(&'a Service) -> R,
+        R: 'static,
+    {
+        let service_option = self.current_profile.as_ref().and_then(|profile| {
+            profile
+                .services
+                .iter()
+                .find(|service| &service.definition.id == service_id)
+        });
+
+        if let Some(service) = service_option {
+            Some(query(service))
+        } else {
+            None
+        }
+    }
+
+    pub fn query_automation<R, F>(
+        &self,
+        def_id: &AutomationDefinitionId,
+        service_id: &Option<ServiceId>,
+        query: F,
+    ) -> Option<R>
+    where
+        for<'a> F: FnOnce(&'a Automation) -> R,
+        R: 'static,
+    {
+        let automation = if let Some(service_id) = service_id {
+            self.current_profile
                 .iter()
                 .flat_map(|profile| &profile.services)
-                .for_each(|service| {
-                        let status = state.service_statuses.get_mut(&service.name).unwrap();
-                        update(service, status);
+                .filter(|service| service.definition.id == *service_id)
+                .flat_map(|service| &service.automations)
+                .find(|automation| automation.definition_id == *def_id)
+        } else {
+            self.current_profile
+                .as_ref()
+                .iter()
+                .flat_map(|profile| &profile.automations)
+                .find(|automation| automation.definition_id == *def_id)
+        };
 
-                        // Remove impossible configurations
-                        if status.action == ServiceAction::Recompile && service.compile.is_none() {
-                            status.action = ServiceAction::None;
-                        } else if status.action == ServiceAction::Restart && service.run.is_none() {
-                            status.action = ServiceAction::None;
-                        }
-                });
-        });
+        if let Some(automation) = automation {
+            Some(query(automation))
+        } else {
+            None
+        }
+    }
+
+    pub fn update_automation<F>(
+        &mut self,
+        def_id: &AutomationDefinitionId,
+        service_id: &Option<ServiceId>,
+        update: F,
+    ) where
+        for<'a> F: FnOnce(&'a mut Automation),
+    {
+        let automation = if let Some(service_id) = service_id {
+            self.current_profile
+                .iter_mut()
+                .flat_map(|profile| profile.services.iter_mut())
+                .filter(|service| service.definition.id == *service_id)
+                .flat_map(|service| service.automations.iter_mut())
+                .find(|automation| automation.definition_id == *def_id)
+        } else {
+            self.current_profile
+                .iter_mut()
+                .flat_map(|profile| profile.automations.iter_mut())
+                .find(|automation| automation.definition_id == *def_id)
+        };
+
+        if let Some(automation) = automation {
+            update(automation);
+        }
+    }
+
+    pub fn update_all_services<F>(&mut self, update: F)
+    where
+        F: Fn((usize, &mut Service)),
+    {
+        if let Some(profile) = self.current_profile.as_mut() {
+            profile.services.iter_mut().enumerate().for_each(update);
+        }
+    }
+
+    pub fn update_task<F>(&mut self, id: &TaskId, update: F)
+    where
+        F: FnOnce(&mut Task),
+    {
+        let task_option = self
+            .current_profile
+            .as_mut()
+            .and_then(|profile| profile.running_tasks.iter_mut().find(|task| task.id == *id));
+
+        if let Some(task) = task_option {
+            update(task);
+        }
     }
 
     pub fn add_output(&mut self, key: &OutputKey, line: String) {

@@ -1,0 +1,5 @@
+id: example
+workdir: "./example-config/profiles/"
+services:
+  - id: "simple-service"
+  - id: "other-service"

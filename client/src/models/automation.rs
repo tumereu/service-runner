@@ -1,84 +1,38 @@
-use std::convert::Into;
-use serde::{Deserialize, Serialize};
+use crate::config::{AutomationAction, AutomationDefinition, AutomationDefinitionId, AutomationTrigger, ServiceId};
+use std::time::{Duration, Instant};
 
-use crate::config::{
-    AutomationEntry as ConfigAutomationEntry,
-    AutomationEffect as ConfigAutomationEffect,
-    AutomationDefaultMode as ConfigAutomationDefaultMode,
-    AutomationTrigger as ConfigAutomationTrigger,
-};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AutomationEntry {
-    pub name: String,
-    pub debounce_millis: u64,
-    pub effects: Vec<AutomationEffect>,
-    pub trigger: AutomationTrigger,
-    pub default_mode: AutomationMode,
+#[derive(Debug, Clone)]
+pub struct Automation {
+    pub definition_id: AutomationDefinitionId,
+    pub service_id: Option<ServiceId>,
+    pub status: AutomationStatus,
+    pub last_triggered: Option<Instant>,
+    pub debounce: Duration,
+    pub action: AutomationAction,
+    pub triggers: Vec<AutomationTrigger>,
+    
 }
-impl From<ConfigAutomationEntry> for AutomationEntry {
-    fn from(value: ConfigAutomationEntry) -> Self {
-        AutomationEntry {
-            name: value.name,
-            debounce_millis: value.debounce_millis,
-            effects: value.effects.into_iter().map(Into::into).collect(),
-            trigger: value.trigger.into(),
-            default_mode: value.default_mode.unwrap_or(ConfigAutomationDefaultMode::Automatic).into(),
+impl From<(AutomationDefinition, Option<ServiceId>)> for Automation {
+    fn from((definition, service_id): (AutomationDefinition, Option<ServiceId>)) -> Self {
+        Self {
+            definition_id: definition.id,
+            service_id,
+            status: if definition.enabled {
+                AutomationStatus::Active
+            } else {
+                AutomationStatus::Disabled
+            },
+            last_triggered: None,
+            debounce: definition.debounce,
+            action: definition.action,
+            triggers: definition.triggers,
         }
     }
 }
 
-/// See [ConfigAutomationEffect]
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq)]
-pub enum AutomationEffect {
-    Recompile,
-    Start,
-    Restart,
-    Stop,
-    Reset,
-}
-impl From<ConfigAutomationEffect> for AutomationEffect {
-    fn from(value: ConfigAutomationEffect) -> Self {
-        match value {
-            ConfigAutomationEffect::Recompile => AutomationEffect::Recompile,
-            ConfigAutomationEffect::Start => AutomationEffect::Start,
-            ConfigAutomationEffect::Restart => AutomationEffect::Restart,
-            ConfigAutomationEffect::Stop => AutomationEffect::Stop,
-            ConfigAutomationEffect::Reset => AutomationEffect::Reset,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialOrd, PartialEq, Eq, Hash)]
-pub enum AutomationMode {
-    Automatic,
-    Triggerable,
+#[derive(Debug, Clone)]
+pub enum AutomationStatus {
     Disabled,
-}
-impl From<ConfigAutomationDefaultMode> for AutomationMode {
-    fn from(value: ConfigAutomationDefaultMode) -> Self {
-        match value {
-            ConfigAutomationDefaultMode::Automatic => AutomationMode::Automatic,
-            ConfigAutomationDefaultMode::Disabled => AutomationMode::Disabled,
-            ConfigAutomationDefaultMode::Triggerable => AutomationMode::Triggerable,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum AutomationTrigger {
-    RecompiledService { service: String },
-    ModifiedFile { paths: Vec<String> },
-}
-impl From<ConfigAutomationTrigger> for AutomationTrigger {
-    fn from(value: ConfigAutomationTrigger) -> Self {
-        match value {
-            ConfigAutomationTrigger::RecompiledService { service } => {
-                AutomationTrigger::RecompiledService { service }
-            }
-            ConfigAutomationTrigger::ModifiedFile { paths } => {
-                AutomationTrigger::ModifiedFile { paths }
-            }
-        }
-    }
+    Active,
+    Error,
 }

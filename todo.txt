@@ -1,20 +1,34 @@
+- Action queue for blocks to allow ex. toggle + run, also possibility to clear action queue from Rhai
+- "Fingerprint" functionality to detect changes while not running 
+- star-paths for file watcher?
+- Task keybinds
+- Output errors in prereq checks even if otherwise silent
+- Combine resource group and prereq checks?
+- Wrapping output pane should split a word if its too long to display on one line?
+- Multiple settings files, with load order to allow rebinding keys and changing theme
+- Typed attribute-keys for renderer
+- Run any task for a service dropdown
+- Run any task from all available modal dialog for profile
+- Output pane behaviour when deleting lines after reaching limit -- is scroll pos retained properly?
 - More fine-grained control over the autocompile triggering: should be possible to set the mode for each trigger
   separately, so that a service can be in "triggered" mode for file-changes, but "automatic" for dependency recompiles
 - Switch profile during runtime
-- Reset-action for services
-- Retry starts up to n times? configurable option
-- Toggleable output types for output window
+- Fine grained output control: toggleable output types for output window
 - Fullscreen output
 - Search in output
 - Support services that are run and then detach, i.e. have a separate stop command?
 - Parameterizable wait times for kill-signals for processes
 - categorize services
 - git checkout window
+- input configs
 - load .env file from directory?
-- different color A if file watching fails?
-- Override env in profile?
+- Parameterize service & block settings in profile
 - dump output to file -feature. Allow choosing which services, categories and how many lines or all.
 - Colorize/parse output based on regex rules to denote log levels?
-- Take ratatui and a tui-realm library into use?
-- (req: tui-realm): hideable charts at the top for CPU, memory, network usage?
+- hideable charts at the top for CPU, memory, network usage?
 - Containerized services?
+- Secret env vars
+- TAsk/block run status history pane
+- e2e tests
+- condition-based inclusion of blocks to support ex. "debug" mode run block
+- user manual

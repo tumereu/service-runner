@@ -3,3 +3,8 @@
 /config-local/settings.toml
 config-local
 /service_runner.log
+
+# Example 'build' folders are gitignored
+/example-config/services/*/build
+/example-config/services/*/mock-src/*
+!/example-config/services/*/mock-src/.gitkeep

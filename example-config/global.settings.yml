@@ -1,0 +1,16 @@
+autolaunch_profile: example
+load_order: 0
+keybinds:
+  block_actions:
+    - action: rerun
+      blocks:
+        - build
+        - assemble
+      target: selected
+      key: C
+    - action: rerun
+      blocks:
+        - build
+        - assemble
+      target: all
+      key: <shift>C

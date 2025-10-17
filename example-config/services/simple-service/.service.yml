@@ -1,0 +1,72 @@
+id: "simple-service"
+workdir: "./example-config/services/simple-service"
+blocks:
+  - id: build
+    resource_group: build
+    type: cmd-seq
+    commands:
+      - executable: "/usr/bin/python3 $asd"
+        args:
+          - build.py
+      - executable: /usr/bin/python3
+        args:
+          - assemble.py
+    status_line:
+      symbol: B
+      slot: 20
+    health:
+      requirements:
+        - type: file
+          paths:
+            - build/build-artifact.example
+  - id: run
+    type: process
+    command:
+      executable: /usr/bin/python3
+      args:
+        - run.py
+    prerequisites:
+      - type: script
+        query: self.blocks.build.status == OK
+    status_line:
+      symbol: R
+      slot: 10
+    health:
+      timeout: 20s
+      requirements:
+        - type: port
+          port: 8000
+        - type: http
+          timeout: 500ms
+          method: GET
+          url: http://localhost:8000/status
+          status: 200
+tasks:
+  - id: "clean-build"
+    steps:
+      - action: cancel(self.id, self.blocks.build.id)
+      - executable: /usr/bin/python3
+        args:
+          - clean.py
+      - action: rerun(self.id, "build")
+  - id: "toggle-all"
+    steps:
+      - action: |
+          toggle(self.id, self.blocks.build.id);
+          toggle(self.id, self.blocks.run.id);
+automation:
+  - id: "run-after-build"
+    action:
+      type: "inline-task"
+      steps:
+        - action: rerun(self.id, "run")
+    triggers:
+      - becomes_true: self.blocks.build.status == OK && !self.blocks.build.work_skipped
+  - id: "sources-change"
+    debounce: 3s
+    action:
+      type: "inline-task"
+      steps:
+        - action: rerun(self.id, "build")
+    triggers:
+      - file_modified: mock-src

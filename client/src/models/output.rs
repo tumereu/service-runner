@@ -1,8 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 use std::convert::Into;
 
-use serde::{Deserialize, Serialize};
+use crate::config::ServiceId;
 use crate::system_state::SystemState;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OutputStore {
@@ -45,7 +46,7 @@ impl OutputStore {
         let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
         let mut bucket_indices: HashMap<OutputKey, Option<usize>> = keys
             .iter()
-            .map(|key| (key.clone(), self.outputs.get(key).unwrap()))
+            .map(|key| (*key, self.outputs.get(key).unwrap()))
             .map(|(key, lines)| {
                 if lines.is_empty() {
                     // If the bucket has 0 lines, then there's nothing we could ever return
@@ -166,27 +167,17 @@ impl OutputStore {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct OutputKey {
-    pub name: String,
-    pub service_ref: String,
+    pub service_id: Option<ServiceId>,
+    pub source_name: String,
     pub kind: OutputKind,
-}
-impl OutputKey {
-    pub const STD: &'static str = "std";
-    pub const CTL: &'static str = "ctl";
-
-    pub fn new(name: String, service_ref: String, kind: OutputKind) -> Self {
-        OutputKey {
-            name,
-            service_ref,
-            kind,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum OutputKind {
-    Compile,
-    Run,
+    /// Output from the service runner itself
+    System,
+    /// Output from a runnable child process 
+    ExtProcess
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -196,12 +187,18 @@ pub struct OutputLine {
 }
 
 // TODO move elsewhere?
-pub fn get_active_outputs<'a>(store: &'a OutputStore, state: &'a SystemState) -> Vec<&'a OutputKey> {
+pub fn get_active_outputs<'a>(state: &'a SystemState) -> Vec<&'a OutputKey> {
+    let store = &state.output_store;
+
     store.outputs.keys()
         .filter(|key| {
-            state.service_statuses
-                .get(key.service_ref.as_str())
-                .map(|status| status.show_output)
-                .unwrap_or(false)
+            if let Some(service_id) = key.service_id.as_ref() {
+                state.query_service(&service_id, |service| {
+                    service.output_enabled
+                }).unwrap_or(false)
+            } else {
+                // TODO how to disable non-service outputs?
+                true
+            }
         }).collect()
 }
