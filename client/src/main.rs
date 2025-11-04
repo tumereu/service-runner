@@ -50,11 +50,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         "Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)"
     );
 
-    enable_raw_mode()?;
-
-    let mut stdout = stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-
     let rhai_executor = Arc::new(ScriptExecutor::new(system_state.clone()));
     let service_worker = Arc::new(ServiceWorker::new(system_state.clone(), rhai_executor.clone()));
     let file_watcher = Arc::new(FileWatcher::new(system_state.clone()));
@@ -132,6 +127,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    enable_raw_mode()?;
+    let mut stdout = stdout();
+    execute!(stdout, EnterAlternateScreen)?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -142,6 +140,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut ui_result: UIResult<()> = Ok(());
 
+    terminal.clear()?;
     loop {
         let input_events = collect_input_events();
         renderer.send_input_signals(input_events);
