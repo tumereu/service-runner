@@ -28,8 +28,6 @@ mod utils;
 pub mod config;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    simple_logging::log_to_file("service_runner.log", LevelFilter::Debug)?;
-
     let config_dir: String = env::args()
         .collect::<Vec<String>>()
         .get(1)
@@ -41,8 +39,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("Error in configurations: {error}");
         process::exit(1);
     }
+    let config = config?;
+    
+    simple_logging::log_to_file(
+        config.settings.log_file.clone().unwrap_or("service_runner.log".to_string()),
+        LevelFilter::Debug,
+    )?;
 
-    let system_state = Arc::new(RwLock::new(SystemState::new(config.unwrap())));
+    let system_state = Arc::new(RwLock::new(SystemState::new(config)));
     let num_profiles = system_state.read().unwrap().config.profiles.len();
     let num_services = system_state.read().unwrap().config.services.len();
 

@@ -9,7 +9,8 @@ use crate::config::keybinds::PartialKeybinds;
 pub struct Settings {
     pub autolaunch_profile: Option<String>,
     pub theme: Theme,
-    pub keybinds: Keybinds
+    pub keybinds: Keybinds,
+    pub log_file: Option<String>,
 }
 impl From<Vec<PartialSettings>> for Settings {
     fn from(mut value: Vec<PartialSettings>) -> Self {
@@ -29,6 +30,9 @@ pub struct PartialSettings {
     pub load_order: i32,
     #[serde(default)]
     pub autolaunch_profile: Option<String>,
+    /// File path for writing the logs of the runner application itself.
+    #[serde(default)]
+    pub log_file: Option<String>,
     #[serde(default)]
     pub theme: PartialTheme,
     #[serde(default)]
@@ -40,6 +44,9 @@ impl PartialSettings {
         self.keybinds.apply_to(&mut settings.keybinds);
         if let Some(autolaunch_profile) = self.autolaunch_profile {
             settings.autolaunch_profile = Some(autolaunch_profile);
+        }
+        if let Some(log_file) = self.log_file {
+            settings.log_file = Some(log_file);
         }
     }
 }
