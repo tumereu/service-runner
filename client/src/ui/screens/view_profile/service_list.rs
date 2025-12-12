@@ -144,6 +144,9 @@ impl<'a> ServiceList<'a> {
                         .as_ref()
                         .map(|p| p.automation_enabled)
                         .unwrap_or(false);
+                self.system_state.update_all_services(|(_, service)| {
+                    service.automation_enabled = !any_enabled;
+                });
                 self.system_state.current_profile.iter_mut().for_each(|profile| {
                     profile.automation_enabled = !any_enabled;   
                 })
