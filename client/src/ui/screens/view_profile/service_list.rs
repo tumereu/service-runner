@@ -138,15 +138,12 @@ impl<'a> ServiceList<'a> {
                     .unwrap()
                     .services
                     .iter()
-                    .any(|service| service.output_enabled)
+                    .any(|service| service.automation_enabled)
                     || self.system_state
                         .current_profile
                         .as_ref()
                         .map(|p| p.automation_enabled)
                         .unwrap_or(false);
-                self.system_state.update_all_services(|(_, service)| {
-                    service.output_enabled = !any_enabled;
-                });
                 self.system_state.current_profile.iter_mut().for_each(|profile| {
                     profile.automation_enabled = !any_enabled;   
                 })
