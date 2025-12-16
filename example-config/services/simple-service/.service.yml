@@ -5,7 +5,7 @@ blocks:
     resource_group: build
     type: cmd-seq
     commands:
-      - executable: "/usr/bin/python3 $asd"
+      - executable: "/usr/bin/python3"
         args:
           - build.py
       - executable: /usr/bin/python3

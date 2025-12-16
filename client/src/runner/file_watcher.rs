@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use log::{error, trace};
+use log::{debug, error, info, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -100,7 +100,16 @@ impl FileWatcher {
         };
         let is_watching = watchers.contains_key(&key);
         let enabled = {
-            match system_state.read().unwrap().query_automation(
+            let global_enabled = if let Some(service_id) = service_id.as_ref() {
+                system_state.read().unwrap().query_service(service_id, |service| {
+                    service.automation_enabled
+                })
+            } else {
+                system_state.read().unwrap().current_profile.as_ref()
+                    .map(|profile| profile.automation_enabled)
+            }.unwrap_or(true);
+
+            let specific_enabled = match system_state.read().unwrap().query_automation(
                 &automation_id,
                 &service_id,
                 |automation| automation.status.clone(),
@@ -108,12 +117,16 @@ impl FileWatcher {
                 None => false,
                 Some(AutomationStatus::Disabled) => false,
                 _ => true,
-            }
+            };
+
+            global_enabled && specific_enabled
         };
 
         if is_watching && !enabled {
+            info!("Automation {service_id:?}.{automation_id:?} should be disabled, removing file watcher");
             watchers.remove(&key);
         } else if !is_watching && enabled {
+            info!("Automation {service_id:?}.{automation_id:?} should be enabled, adding file watcher");
             // Resolve work directory. If the automation is for a service, use the service's work directory. If the
             // automation is for the whole profile, use the profile's work directory.
             let work_dir = service_id
