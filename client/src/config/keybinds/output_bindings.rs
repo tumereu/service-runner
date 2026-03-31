@@ -1,6 +1,6 @@
+use crate::config::keybinds::keybinding::Keybinding;
 use macros::PartialStruct;
 use ui::input::KeyMatcher;
-use crate::config::keybinds::keybinding::Keybinding;
 
 #[derive(Debug, Clone, PartialStruct)]
 pub struct OutputBindings {

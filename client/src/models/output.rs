@@ -40,7 +40,7 @@ impl OutputStore {
         &self,
         num_lines: usize,
         min_idx: Option<u128>,
-        keys: &Vec<&OutputKey>
+        keys: &Vec<&OutputKey>,
     ) -> Vec<(&OutputKey, &OutputLine)> {
         let min_idx = min_idx.unwrap_or(0);
         let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
@@ -51,12 +51,20 @@ impl OutputStore {
                 if lines.is_empty() {
                     // If the bucket has 0 lines, then there's nothing we could ever return
                     (key.clone(), None)
-                } else if lines.iter().all(|OutputLine { index, .. }| index < &min_idx) {
+                } else if lines
+                    .iter()
+                    .all(|OutputLine { index, .. }| index < &min_idx)
+                {
                     (key.clone(), (lines.len() - 1).into())
                 } else {
                     // Otherwise find the partition point for elements over the given index, and select the first
                     // index of the last partition
-                    (key.clone(), lines.partition_point(|OutputLine { index, .. }| index < &min_idx).into())
+                    (
+                        key.clone(),
+                        lines
+                            .partition_point(|OutputLine { index, .. }| index < &min_idx)
+                            .into(),
+                    )
                 }
             })
             .collect();
@@ -99,7 +107,7 @@ impl OutputStore {
         &self,
         num_lines: usize,
         max_idx: Option<u128>,
-        keys: &Vec<&OutputKey>
+        keys: &Vec<&OutputKey>,
     ) -> Vec<(&OutputKey, &OutputLine)> {
         let max_idx = max_idx.unwrap_or(self.current_idx);
         let mut result: Vec<(&OutputKey, &OutputLine)> = Vec::with_capacity(num_lines);
@@ -124,8 +132,10 @@ impl OutputStore {
                     // index of the first partition
                     (
                         key.clone(),
-                        (lines.partition_point(|OutputLine { index, .. }| index <= &max_idx).saturating_sub(1))
-                            .into(),
+                        (lines
+                            .partition_point(|OutputLine { index, .. }| index <= &max_idx)
+                            .saturating_sub(1))
+                        .into(),
                     )
                 }
             })
@@ -134,7 +144,8 @@ impl OutputStore {
         // Loop until the result vec is fully populated, or we run out of lines.
         while result.len() < num_lines && bucket_indices.iter().any(|(_, value)| value.is_some()) {
             // Figure out the bucket with the next line
-            let next_bucket = self.outputs
+            let next_bucket = self
+                .outputs
                 .iter()
                 .filter(|(key, _)| keys.contains(key))
                 .max_by_key(|(key, lines)| {
@@ -176,8 +187,8 @@ pub struct OutputKey {
 pub enum OutputKind {
     /// Output from the service runner itself
     System,
-    /// Output from a runnable child process 
-    ExtProcess
+    /// Output from a runnable child process
+    ExtProcess,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -187,18 +198,21 @@ pub struct OutputLine {
 }
 
 // TODO move elsewhere?
-pub fn get_active_outputs<'a>(state: &'a SystemState) -> Vec<&'a OutputKey> {
+pub fn get_active_outputs(state: &SystemState) -> Vec<&OutputKey> {
     let store = &state.output_store;
 
-    store.outputs.keys()
+    store
+        .outputs
+        .keys()
         .filter(|key| {
             if let Some(service_id) = key.service_id.as_ref() {
-                state.query_service(&service_id, |service| {
-                    service.output_enabled
-                }).unwrap_or(false)
+                state
+                    .query_service(service_id, |service| service.output_enabled)
+                    .unwrap_or(false)
             } else {
                 // TODO how to disable non-service outputs?
                 true
             }
-        }).collect()
+        })
+        .collect()
 }

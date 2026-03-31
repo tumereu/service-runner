@@ -1,8 +1,8 @@
+use ratatui::style::Color;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer, de};
 use std::fmt;
 use std::ops::Deref;
-use ratatui::style::Color;
-use serde::{de, Deserialize, Deserializer};
-use serde::de::Visitor;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ColorWrapper(pub Color);

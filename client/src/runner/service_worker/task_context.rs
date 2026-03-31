@@ -1,10 +1,8 @@
-use crate::config::TaskDefinitionId;
 use crate::models::{OutputKey, OutputKind, Service, Task, TaskAction, TaskId, TaskStatus};
-use crate::runner::scripting::executor::{ScriptExecutor, RhaiRequest};
+use crate::runner::scripting::executor::{RhaiRequest, ScriptExecutor};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{
-    ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult,
-    WorkWrapper,
+    ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult, WorkWrapper,
 };
 use crate::system_state::{ConcurrentOperationKey, SystemState};
 use log::{debug, error};
@@ -73,7 +71,7 @@ impl TaskContext {
         query(&state)
     }
 
-    pub fn update_system<R, F>(&self, query: F)
+    pub fn update_system<F>(&self, query: F)
     where
         F: for<'a> FnOnce(&'a mut SystemState),
     {
@@ -105,7 +103,7 @@ impl TaskContext {
             .write()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Task {
-                task_id: self.task_id.clone(),
+                task_id: self.task_id,
             })
             .iter()
             .for_each(|operation| operation.stop());
@@ -127,7 +125,7 @@ impl TaskContext {
 
                 self.system_state.write().unwrap().set_concurrent_operation(
                     ConcurrentOperationKey::Task {
-                        task_id: self.task_id.clone(),
+                        task_id: self.task_id,
                     },
                     None,
                 );
@@ -143,7 +141,7 @@ impl TaskContext {
             .read()
             .unwrap()
             .get_concurrent_operation(&ConcurrentOperationKey::Task {
-                task_id: self.task_id.clone(),
+                task_id: self.task_id,
             })
             .map(|operation| operation.status())
     }
@@ -158,7 +156,7 @@ impl TaskContext {
 
 pub struct TaskWorkContext<'a> {
     task_context: &'a TaskContext,
-    silent: bool
+    silent: bool,
 }
 impl<'a> Deref for TaskWorkContext<'a> {
     type Target = &'a TaskContext;
@@ -194,7 +192,7 @@ impl WorkContext for TaskWorkContext<'_> {
         );
         self.system_state.write().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Task {
-                task_id: self.task_id.clone(),
+                task_id: self.task_id,
             },
             Some(ConcurrentOperationHandle::Work(wrapper)),
         );
@@ -210,7 +208,7 @@ impl WorkContext for TaskWorkContext<'_> {
 
         self.system_state.write().unwrap().set_concurrent_operation(
             ConcurrentOperationKey::Task {
-                task_id: self.task_id.clone(),
+                task_id: self.task_id,
             },
             Some(ConcurrentOperationHandle::Process(wrapper)),
         );
@@ -218,28 +216,25 @@ impl WorkContext for TaskWorkContext<'_> {
 
     fn enqueue_rhai(&self, script: String, allow_fn: bool) -> Receiver<RhaiResult> {
         let service_id = self.query_task(|task| task.service_id.clone());
-        
+
         self.rhai_executor.enqueue(RhaiRequest {
             script,
             allow_functions: allow_fn,
             service_id,
         })
     }
-    
+
     fn add_system_output(&self, output: String) {
         let service_id = self.query_task(|task| task.service_id.clone());
         let source_name = self.query_task(|task| task.name.clone());
 
-        self.system_state
-            .write()
-            .unwrap()
-            .add_output(
-                &OutputKey {
-                    service_id,
-                    source_name,
-                    kind: OutputKind::System
-                },
-                output
-            );
+        self.system_state.write().unwrap().add_output(
+            &OutputKey {
+                service_id,
+                source_name,
+                kind: OutputKind::System,
+            },
+            output,
+        );
     }
 }

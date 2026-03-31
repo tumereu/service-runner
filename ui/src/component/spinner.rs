@@ -1,6 +1,6 @@
+use crate::UIResult;
 use crate::component::{Component, MeasurableComponent, Text};
 use crate::frame_ctx::FrameContext;
-use crate::UIResult;
 use once_cell::sync::Lazy;
 use ratatui::layout::Size;
 use ratatui::prelude::{Color, Span, Style};
@@ -13,14 +13,11 @@ const SPINNER_CHARS: &[&str] = &["⠋", "⠙", "⠸", "⠴", "⠦", "⠇"];
 #[derive(Debug, Default)]
 pub struct Spinner {
     active: bool,
-    fg: Option<Color>
+    fg: Option<Color>,
 }
 impl Spinner {
     pub fn new(active: bool) -> Self {
-        Self {
-            active,
-            fg: None
-        }
+        Self { active, fg: None }
     }
 }
 
@@ -28,10 +25,9 @@ impl Component for Spinner {
     type Output = ();
 
     fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
-        let style = Style::default()
-            .fg(self.fg.unwrap_or(
-                context.req_attr::<Color>(Text::ATTR_COLOR_FG)?.clone()
-            ));
+        let style = Style::default().fg(self
+            .fg
+            .unwrap_or(context.req_attr::<Color>(Text::ATTR_COLOR_FG)?.clone()));
 
         let icon = if !self.active {
             " "
@@ -47,14 +43,17 @@ impl Component for Spinner {
         context.render_widget(
             Paragraph::new(Span::styled(icon, style)),
             (0, 0).into(),
-            (1, 1).into()
+            (1, 1).into(),
         );
-        
+
         Ok(())
     }
 }
 impl MeasurableComponent for Spinner {
     fn measure(&self, _context: &FrameContext) -> UIResult<Size> {
-        Ok(Size { width: 1, height: 1 })
+        Ok(Size {
+            width: 1,
+            height: 1,
+        })
     }
 }

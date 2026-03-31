@@ -1,18 +1,17 @@
-use serde_derive::Deserialize;
 use block_bindings::ServiceActionBinding;
-use ui::input::KeyMatcher;
+use serde_derive::Deserialize;
 
+pub use block_bindings::*;
 pub use common_bindings::*;
+pub use keybinding::*;
 pub use output_bindings::*;
 pub use service_bindings::*;
-pub use block_bindings::*;
-pub use keybinding::*;
 
+mod block_bindings;
 mod common_bindings;
+mod keybinding;
 mod output_bindings;
 mod service_bindings;
-mod block_bindings;
-mod keybinding;
 
 #[derive(Debug, Clone, Default)]
 pub struct Keybinds {

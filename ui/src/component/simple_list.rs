@@ -1,4 +1,7 @@
-use crate::component::{List, MeasurableComponent, StatefulComponent, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, ATTR_KEY_SELECT};
+use crate::component::{
+    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_UP, ATTR_KEY_SELECT, List, MeasurableComponent,
+    StatefulComponent,
+};
 use crate::input::KeyMatcherQueryable;
 use crate::{FrameContext, RenderArgs, UIError, UIResult};
 use ratatui::layout::Size;
@@ -103,22 +106,23 @@ where
         {
             state.selection = state.selection.saturating_sub(1)
         }
-        let selection_mde = context.signals().is_key_pressed(context.req_attr(ATTR_KEY_SELECT)?);
-        
-        context.render_component(
-            RenderArgs::new(
-                List::new(
-                    &format!("{}-list", self.id),
-                    self.items,
-                    self.create_element
-                ).selection(if self.hide_highlight {
-                    None
-                } else {
-                    Some(state.selection)
-                })
+        let selection_mde = context
+            .signals()
+            .is_key_pressed(context.req_attr(ATTR_KEY_SELECT)?);
+
+        context.render_component(RenderArgs::new(
+            List::new(
+                &format!("{}-list", self.id),
+                self.items,
+                self.create_element,
             )
-        )?;
-        
+            .selection(if self.hide_highlight {
+                None
+            } else {
+                Some(state.selection)
+            }),
+        ))?;
+
         if selection_mde {
             Ok(Some(ListSelection {
                 selected_index: state.selection,

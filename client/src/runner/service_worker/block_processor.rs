@@ -25,7 +25,7 @@ impl BlockProcessor for ServiceBlockContext {
         let debug_id = format!("{}.{}", self.service_id, self.block_id);
         let has_running_operations = [OperationType::Work, OperationType::Check].into_iter().any(
             |operation_type| match self.get_concurrent_operation_status(operation_type) {
-                Some(ConcurrentOperationStatus::Running { .. }) => true,
+                Some(ConcurrentOperationStatus::Running) => true,
                 _ => false,
             },
         );
@@ -175,7 +175,7 @@ impl BlockProcessor for ServiceBlockContext {
 
         let has_running_operations = [OperationType::Work, OperationType::Check].into_iter().any(
             |operation_type| match self.get_concurrent_operation_status(operation_type) {
-                Some(ConcurrentOperationStatus::Running { .. }) => true,
+                Some(ConcurrentOperationStatus::Running) => true,
                 _ => false,
             },
         );
@@ -213,7 +213,9 @@ impl BlockProcessor for ServiceBlockContext {
                                     })
                                     .any(|block| match service.get_block_status(&block.id) {
                                         BlockStatus::Working {
-                                            step: WorkStep::ResourceGroupCheck { .. } | WorkStep::PrerequisiteCheck { .. },
+                                            step:
+                                                WorkStep::ResourceGroupCheck { .. }
+                                                | WorkStep::PrerequisiteCheck { .. },
                                         } => false,
                                         BlockStatus::Working { .. } => true,
                                         _ => false,
@@ -268,7 +270,7 @@ impl BlockProcessor for ServiceBlockContext {
                         self.update_status(BlockStatus::Working {
                             step: WorkStep::ResourceGroupCheck {
                                 skip_work_if_healthy,
-                            }
+                            },
                         });
                     }
                     RequirementCheckResult::CurrentCheckOk => {
@@ -430,7 +432,10 @@ impl BlockProcessor for ServiceBlockContext {
                             }
                             Err(error) => {
                                 self.update_status(BlockStatus::Error);
-                                self.add_system_output(format_err!("Error in command creation",error));
+                                self.add_system_output(format_err!(
+                                    "Error in command creation",
+                                    error
+                                ));
                             }
                         }
                     }
@@ -446,7 +451,7 @@ impl BlockProcessor for ServiceBlockContext {
                 let result = RequirementChecker {
                     all_requirements: self.query_block(|block| block.health.requirements.clone()),
                     completed_count: checks_completed,
-                    timeout: Some(self.query_block(|block| block.health.timeout.clone())),
+                    timeout: Some(self.query_block(|block| block.health.timeout)),
                     failure_wait_time: POST_WORK_HEALTH_FAILURE_WAIT,
                     start_time,
                     last_failure,

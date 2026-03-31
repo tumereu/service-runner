@@ -15,15 +15,32 @@ impl StateTreeNode {
         }
     }
 
-    pub fn take_state<T>(&self) -> Box<T> where T: Default + 'static {
-        if self.state.borrow().as_ref().map(|value| !value.is::<T>()).unwrap_or(true) {
+    pub fn take_state<T>(&self) -> Box<T>
+    where
+        T: Default + 'static,
+    {
+        if self
+            .state
+            .borrow()
+            .as_ref()
+            .map(|value| !value.is::<T>())
+            .unwrap_or(true)
+        {
             self.state.replace(Some(Box::new(T::default())));
         }
 
-        self.state.borrow_mut().take().unwrap().downcast::<T>().unwrap()
+        self.state
+            .borrow_mut()
+            .take()
+            .unwrap()
+            .downcast::<T>()
+            .unwrap()
     }
 
-    pub fn return_state<T>(&self, state: Box<T>) where T: Default + 'static {
+    pub fn return_state<T>(&self, state: Box<T>)
+    where
+        T: Default + 'static,
+    {
         self.state.borrow_mut().replace(state);
     }
 
@@ -37,4 +54,3 @@ impl StateTreeNode {
         children.get(key).unwrap().clone()
     }
 }
-

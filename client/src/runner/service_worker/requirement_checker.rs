@@ -1,12 +1,11 @@
-use crate::config::{ExecutableEntry, HttpMethod, Requirement};
+use crate::config::{HttpMethod, Requirement};
 use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::{ConcurrentOperationStatus, WorkResult};
-use reqwest::blocking::Client as HttpClient;
 use reqwest::Method;
+use reqwest::blocking::Client as HttpClient;
 use std::net::TcpListener;
 use std::path::Path;
 use std::time::{Duration, Instant};
-use log::info;
 
 pub enum RequirementCheckResult {
     AllOk,
@@ -36,15 +35,19 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
             // check successful
             (_, None, _) => RequirementCheckResult::AllOk,
             // We have failed at least one health check, a timeout is defined, and we have exceeded it
-            (_, _, Some(_)) if self.timeout.map(|timeout| {
-                Instant::now().duration_since(self.start_time) > timeout
-            }).unwrap_or(false) => {
+            (_, _, Some(_))
+                if self
+                    .timeout
+                    .map(|timeout| Instant::now().duration_since(self.start_time) > timeout)
+                    .unwrap_or(false) =>
+            {
                 match check_status {
                     Some(ConcurrentOperationStatus::Running) => {
                         self.context.stop_concurrent_operation();
                         RequirementCheckResult::Working
                     }
-                    Some(ConcurrentOperationStatus::Failed) | Some(ConcurrentOperationStatus::Ok) => {
+                    Some(ConcurrentOperationStatus::Failed)
+                    | Some(ConcurrentOperationStatus::Ok) => {
                         self.context.clear_concurrent_operation();
                         RequirementCheckResult::Working
                     }
@@ -104,7 +107,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                             },
                             &url,
                         )
-                        .timeout(timeout.clone())
+                        .timeout(timeout)
                         .send();
 
                     match result {
@@ -141,33 +144,33 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                     None => "127.0.0.1".to_owned(),
                 };
 
-                self.context.perform_concurrent_work(
-                    move || {
-                        let successful = TcpListener::bind(format!("{host}:{port}")).is_err();
+                self.context.perform_concurrent_work(move || {
+                    let successful = TcpListener::bind(format!("{host}:{port}")).is_err();
 
-                        WorkResult {
-                            successful,
-                            output: if successful {
-                                vec![format!("Req OK: successsfully bound to {host}:{port}")]
-                            } else {
-                                vec![format!("Req fail: could not bind to {host}:{port}")]
-                            },
-                        }
-                    },
-                );
+                    WorkResult {
+                        successful,
+                        output: if successful {
+                            vec![format!("Req OK: successsfully bound to {host}:{port}")]
+                        } else {
+                            vec![format!("Req fail: could not bind to {host}:{port}")]
+                        },
+                    }
+                });
             }
             Requirement::StateQuery { query } => {
                 let result_rx = self.context.enqueue_rhai(query.clone(), true);
 
-                self.context.perform_concurrent_work(move || {
-                    match result_rx.recv() {
+                self.context
+                    .perform_concurrent_work(move || match result_rx.recv() {
                         Ok(Ok(value)) if value.is::<bool>() => WorkResult {
                             successful: value.as_bool().unwrap(),
                             output: vec![format!("Query '{query}' => {value}")],
                         },
                         Ok(Ok(value)) => WorkResult {
                             successful: false,
-                            output: vec![format!("Error: Query outputted non-boolean: '{query}' => {value}")],
+                            output: vec![format!(
+                                "Error: Query outputted non-boolean: '{query}' => {value}"
+                            )],
                         },
                         Ok(Err(error)) => WorkResult {
                             successful: false,
@@ -175,10 +178,11 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                         },
                         Err(error) => WorkResult {
                             successful: false,
-                            output: vec![format!("Error in receiving response from Rhai executor: {error:?}")],
-                        }
-                    }
-                });
+                            output: vec![format!(
+                                "Error in receiving response from Rhai executor: {error:?}"
+                            )],
+                        },
+                    });
             }
             Requirement::File { paths } => {
                 let workdir = self.workdir.clone();

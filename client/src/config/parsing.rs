@@ -1,14 +1,14 @@
+use Vec;
 use itertools::Itertools;
 use log::{debug, info};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::fs::{read_to_string, File};
+use std::fs::{File, read_to_string};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use Vec;
 
 use crate::config::models::{Config, ProfileDefinition, ServiceDefinition};
 use crate::config::{BlockId, PartialSettings, Settings};
@@ -82,7 +82,8 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigurationError> {
     if raw_settings.is_empty() {
         Err(ConfigurationError {
             filename: None,
-            msg: "No settings files (ending in .settings.yml, .settings.toml etc) found!".to_string(),
+            msg: "No settings files (ending in .settings.yml, .settings.toml etc) found!"
+                .to_string(),
         })?;
     }
 
@@ -107,10 +108,10 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigurationError> {
                 None
             }
         })
-        .map(|group| group.iter().next().unwrap().id.inner().to_owned())
+        .map(|group| group.first().unwrap().id.inner().to_owned())
         .collect();
 
-    if duplicate_service_ids.len() > 0 {
+    if !duplicate_service_ids.is_empty() {
         Err(ConfigurationError {
             filename: None,
             msg: format!(
@@ -132,43 +133,37 @@ fn validate_service_definition(
     service: ServiceDefinition,
 ) -> Result<ServiceDefinition, ConfigurationError> {
     if service.id.inner().len() > 23 {
-        return Err(
-            ConfigurationError {
-                filename: None,
-                msg: format!(
-                    "Service id {service_id} is longer than 23 characters",
-                    service_id = service.id.inner()
-                ),
-            }
-        );
+        return Err(ConfigurationError {
+            filename: None,
+            msg: format!(
+                "Service id {service_id} is longer than 23 characters",
+                service_id = service.id.inner()
+            ),
+        });
     }
-    
+
     let mut used_block_ids = HashSet::<BlockId>::new();
     for block in service.blocks.iter() {
         if block.id.inner().len() > 23 {
-            return Err(
-                ConfigurationError {
-                    filename: None,
-                    msg: format!(
-                        "Block id {block_id} is longer than 23 characters",
-                        block_id = block.id.inner(),
-                    ),
-                }
-            );
+            return Err(ConfigurationError {
+                filename: None,
+                msg: format!(
+                    "Block id {block_id} is longer than 23 characters",
+                    block_id = block.id.inner(),
+                ),
+            });
         } else if used_block_ids.contains(&block.id) {
-            return Err(
-                ConfigurationError {
-                    filename: None,
-                    msg: format!(
-                        "Block ids must be unique, but '{block_id}' appears more than once",
-                        block_id = block.id.inner()
-                    ),
-                }
-            );
+            return Err(ConfigurationError {
+                filename: None,
+                msg: format!(
+                    "Block ids must be unique, but '{block_id}' appears more than once",
+                    block_id = block.id.inner()
+                ),
+            });
         }
         used_block_ids.insert(block.id.clone());
     }
-    
+
     Ok(service)
 }
 

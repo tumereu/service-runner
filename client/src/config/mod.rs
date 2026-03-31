@@ -1,11 +1,11 @@
-pub use models::*;
-pub use theme::*;
 pub use keybinds::*;
-pub use settings::*;
+pub use models::*;
 pub use parsing::read_config;
+pub use settings::*;
+pub use theme::*;
 
+mod keybinds;
 mod models;
 mod parsing;
-mod theme;
-mod keybinds;
 mod settings;
+mod theme;

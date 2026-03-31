@@ -24,19 +24,20 @@ impl Signals {
         Self::of(vec![Rc::new(payload)])
     }
 
-    pub fn push<T : Any + 'static>(&mut self, signal: T) {
+    pub fn push<T: Any + 'static>(&mut self, signal: T) {
         self.0.push(Rc::new(signal));
     }
 
     pub fn merged(left: &Signals, right: &Signals) -> Self {
         Self(
-            left.0.iter()
+            left.0
+                .iter()
                 .chain(right.0.iter())
                 .map(|signal| signal.clone())
-                .collect()
+                .collect(),
         )
     }
-    
+
     pub fn overwrite(&mut self, other: Signals) -> Signals {
         std::mem::replace(self, other)
     }
@@ -55,7 +56,8 @@ impl Signals {
         T: Any + 'static,
     {
         self.0
-            .iter().filter(|signal| signal.is::<T>())
+            .iter()
+            .filter(|signal| signal.is::<T>())
             .flat_map(|signal| signal.clone().downcast::<T>().ok())
             .collect()
     }

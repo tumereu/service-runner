@@ -7,7 +7,7 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders};
 use std::cmp::{max, min};
 
-pub struct Cell<O, C : MeasurableComponent<Output = O>> {
+pub struct Cell<O, C: MeasurableComponent<Output = O>> {
     content: Option<C>,
     pub bg: Option<Color>,
     pub border: Option<(Color, String)>,
@@ -22,7 +22,7 @@ pub struct Cell<O, C : MeasurableComponent<Output = O>> {
     pub max_width: u16,
     pub max_height: u16,
 }
-impl<O, C : MeasurableComponent<Output = O>> Cell<O, C> {
+impl<O, C: MeasurableComponent<Output = O>> Cell<O, C> {
     pub fn new(element: C) -> Cell<O, C> {
         Cell {
             content: Some(element),
@@ -37,7 +37,7 @@ impl<O, C : MeasurableComponent<Output = O>> Cell<O, C> {
             min_width: 0,
             min_height: 0,
             max_width: u16::MAX,
-            max_height: u16::MAX,       
+            max_height: u16::MAX,
         }
     }
 
@@ -122,57 +122,51 @@ impl<O, C : MeasurableComponent<Output = O>> Cell<O, C> {
         self.min_height = height;
         self
     }
-    
+
     pub fn max_width(mut self, width: u16) -> Self {
         self.max_width = width;
         self
     }
-    
+
     pub fn max_height(mut self, height: u16) -> Self {
         self.max_height = height;
         self
     }
-    
+
     pub fn width(mut self, width: u16) -> Self {
         self.min_width = width;
         self.max_width = width;
         self
     }
-    
+
     pub fn height(mut self, height: u16) -> Self {
         self.min_height = height;
         self.max_height = height;
-        self   
+        self
     }
 }
 
-impl<O, C : MeasurableComponent<Output = O>> Component for Cell<O, C> {
+impl<O, C: MeasurableComponent<Output = O>> Component for Cell<O, C> {
     type Output = O;
 
     fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let size = context.size();
         let size: Size = (
             min(size.width, self.max_width),
-            min(size.height, self.max_height)
-        ).into();
-        
+            min(size.height, self.max_height),
+        )
+            .into();
+
         if self.border.is_some() || self.bg.is_some() {
-            let mut block = Block::default()
-                .style(
-                    Style::default()
-                        .bg(self.bg.unwrap_or(Color::Reset))
-                );
+            let mut block =
+                Block::default().style(Style::default().bg(self.bg.unwrap_or(Color::Reset)));
             if let Some((color, title)) = &self.border {
                 block = block
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(*color))
                     .title(Line::from(title.to_string()).left_aligned());
             }
-            context.render_widget(
-                block,
-                (0, 0).into(),
-                size,
-            );
+            context.render_widget(block, (0, 0).into(), size);
         }
 
         let mut padding_left = self.padding_left;
@@ -216,11 +210,7 @@ impl<O, C : MeasurableComponent<Output = O>> Component for Cell<O, C> {
                 Align::Center => rect.y + (rect.height - height) / 2,
             };
 
-            context.render_component(
-                RenderArgs::new(content)
-                    .pos(x, y)
-                    .size(width, height)
-            )
+            context.render_component(RenderArgs::new(content).pos(x, y).size(width, height))
         } else {
             Err(UIError::InvalidProp {
                 msg: "Missing required property 'content'".to_string(),
@@ -229,7 +219,7 @@ impl<O, C : MeasurableComponent<Output = O>> Component for Cell<O, C> {
     }
 }
 
-impl<O, C : MeasurableComponent<Output = O>> MeasurableComponent for Cell<O, C> {
+impl<O, C: MeasurableComponent<Output = O>> MeasurableComponent for Cell<O, C> {
     fn measure(&self, context: &FrameContext) -> UIResult<Size> {
         let content_size = self
             .content
@@ -237,11 +227,7 @@ impl<O, C : MeasurableComponent<Output = O>> MeasurableComponent for Cell<O, C> 
             .map(|content| context.measure_component::<C>(&content))
             .unwrap_or_else(|| Ok(Default::default()))?;
 
-        let border_pad = if self.border.is_some() {
-            2
-        } else {
-            0
-        };
+        let border_pad = if self.border.is_some() { 2 } else { 0 };
 
         let mut width = content_size.width + self.padding_left + self.padding_right + border_pad;
         width = max(width, self.min_width);
@@ -249,7 +235,7 @@ impl<O, C : MeasurableComponent<Output = O>> MeasurableComponent for Cell<O, C> 
 
         let mut height = content_size.height + self.padding_top + self.padding_bottom + border_pad;
         height = max(height, self.min_height);
-        height = min(height, self.max_height);       
+        height = min(height, self.max_height);
 
         Ok((width, height).into())
     }

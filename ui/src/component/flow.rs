@@ -9,22 +9,33 @@ use std::cmp::{max, min};
 pub trait Flowable {
     fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size>;
     // TODO output?
-    fn render(self: Box<Self>, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()>;
+    fn render(
+        self: Box<Self>,
+        ctx: &mut FrameContext,
+        idx: usize,
+        pos: Position,
+        size: Size,
+    ) -> UIResult<()>;
 }
 
-impl<O, C: MeasurableComponent<Output = O>> Flowable for C
-{
+impl<O, C: MeasurableComponent<Output = O>> Flowable for C {
     fn measure(&self, ctx: &FrameContext, idx: usize) -> UIResult<Size> {
         ctx.measure_component(self)
     }
 
-    fn render(self: Box<Self>, ctx: &mut FrameContext, idx: usize, pos: Position, size: Size) -> UIResult<()> {
+    fn render(
+        self: Box<Self>,
+        ctx: &mut FrameContext,
+        idx: usize,
+        pos: Position,
+        size: Size,
+    ) -> UIResult<()> {
         ctx.render_component(
             RenderArgs::new(*self)
                 .pos(pos.x, pos.y)
                 .size(size.width, size.height)
                 // TODO parameterize?
-                .signals(SignalHandling::Forward)
+                .signals(SignalHandling::Forward),
         )?;
 
         Ok(())
@@ -56,7 +67,7 @@ impl Flow {
         self
     }
 
-    pub fn element<F : Flowable + 'static>(self, flowable: F, args: FlowableArgs) -> Self {
+    pub fn element<F: Flowable + 'static>(self, flowable: F, args: FlowableArgs) -> Self {
         self.boxed_element(Box::new(flowable), args)
     }
 

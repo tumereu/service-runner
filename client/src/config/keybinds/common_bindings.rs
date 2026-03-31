@@ -1,7 +1,7 @@
+use crate::config::keybinds::keybinding::Keybinding;
 use crossterm::event::KeyCode;
 use macros::PartialStruct;
 use ui::input::KeyMatcher;
-use crate::config::keybinds::keybinding::Keybinding;
 
 #[derive(Debug, Clone, PartialStruct)]
 pub struct CommonKeybindings {

@@ -1,16 +1,12 @@
-use crate::config::{BlockId, ServiceId, TaskDefinitionId};
-use crate::models::{BlockAction, BlockStatus, WorkStep};
+use crate::config::ServiceId;
+use crate::runner::scripting::engine::ScriptEngine;
 use crate::system_state::SystemState;
 use log::error;
-use rhai::module_resolvers::DummyModuleResolver;
-use rhai::packages::{Package, StandardPackage};
 use rhai::plugin::RhaiResult;
-use rhai::{Dynamic, Engine, Map, Scope};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
-use crate::runner::scripting::engine::ScriptEngine;
 
 pub struct ScriptExecutor {
     keep_alive: Arc<Mutex<bool>>,

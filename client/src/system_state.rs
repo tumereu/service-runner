@@ -1,9 +1,7 @@
 use crate::config::{
     AutomationDefinitionId, Block, BlockId, Config, ServiceId, TaskDefinition, TaskDefinitionId,
 };
-use crate::models::{
-    Automation, BlockStatus, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId,
-};
+use crate::models::{Automation, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId};
 use crate::runner::service_worker::ConcurrentOperationHandle;
 use std::collections::HashMap;
 use std::thread::JoinHandle;
@@ -55,7 +53,7 @@ impl SystemState {
                 .profiles
                 .iter()
                 .find(|def| def.id == definition_id)
-                .expect(&format!("No definition found with id {definition_id}"))
+                .unwrap_or_else(|| panic!("No definition found with id {definition_id}"))
                 .clone(),
             &self.config.services,
         ))
@@ -81,7 +79,7 @@ impl SystemState {
                 self.get_concurrent_operation(&ConcurrentOperationKey::Block {
                     service_id: service_id.clone(),
                     block_id: block_id.clone(),
-                    operation_type: operation_type.clone(),
+                    operation_type: *operation_type,
                 })
                 .is_some()
             })
@@ -118,15 +116,13 @@ impl SystemState {
         id: &TaskDefinitionId,
         service_id: Option<ServiceId>,
     ) -> Option<&TaskDefinition> {
-        let result = self.current_profile.as_ref().and_then(|profile| {
+        self.current_profile.as_ref().and_then(|profile| {
             profile
                 .all_task_definitions
                 .iter()
                 .find(|(definition, service)| definition.id == *id && *service == service_id)
                 .map(|(definition, _)| definition)
-        });
-
-        result
+        })
     }
 
     pub fn get_service_block(&self, service_id: &ServiceId, block_id: &BlockId) -> Option<&Block> {
@@ -158,7 +154,7 @@ impl SystemState {
 
     pub fn update_profile<F>(&mut self, update: F)
     where
-            for<'a> F: FnOnce(&'a mut Profile),
+        for<'a> F: FnOnce(&'a mut Profile),
     {
         if let Some(profile) = self.current_profile.as_mut() {
             update(profile);
@@ -177,11 +173,7 @@ impl SystemState {
                 .find(|service| &service.definition.id == service_id)
         });
 
-        if let Some(service) = service_option {
-            Some(query(service))
-        } else {
-            None
-        }
+        service_option.map(query)
     }
 
     pub fn query_automation<R, F>(
@@ -209,11 +201,7 @@ impl SystemState {
                 .find(|automation| automation.definition_id == *def_id)
         };
 
-        if let Some(automation) = automation {
-            Some(query(automation))
-        } else {
-            None
-        }
+        automation.map(query)
     }
 
     pub fn update_automation<F>(

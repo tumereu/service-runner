@@ -17,14 +17,14 @@ impl Keybinding {
     }
 }
 
-impl Into<Keybinding> for KeyMatcher {
-    fn into(self) -> Keybinding {
-        Keybinding::Single(self)
+impl From<KeyMatcher> for Keybinding {
+    fn from(val: KeyMatcher) -> Self {
+        Keybinding::Single(val)
     }
 }
 
-impl<const L: usize> Into<Keybinding> for [KeyMatcher; L] {
-    fn into(self) -> Keybinding {
-        Keybinding::Multi(Vec::from(self))
+impl<const L: usize> From<[KeyMatcher; L]> for Keybinding {
+    fn from(val: [KeyMatcher; L]) -> Self {
+        Keybinding::Multi(Vec::from(val))
     }
 }

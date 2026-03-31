@@ -4,8 +4,11 @@ use crate::ui::screens::view_profile::output_display::{LinePart, OutputDisplay, 
 use ratatui::style::Color;
 use std::cmp::max;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::sync::{Arc, RwLock};
-use ui::component::{ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, Dir, Flow, FlowableArgs, Spinner, StatefulComponent, ATTR_KEY_NAV_TO_END};
+use ui::component::{
+    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_LEFT_LARGE,
+    ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START,
+    ATTR_KEY_NAV_UP, ATTR_KEY_NAV_UP_LARGE, Dir, Flow, FlowableArgs, Spinner, StatefulComponent,
+};
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIResult};
 
@@ -85,16 +88,15 @@ impl<'a> OutputPane<'a> {
             .signals()
             .is_key_pressed(context.req_attr(ATTR_KEY_NAV_TO_START)?)
         {
-            let active_outputs = get_active_outputs(&self.system_state);
+            let active_outputs = get_active_outputs(self.system_state);
             state.pos_vert = Some(
-                self
-                    .system_state
+                self.system_state
                     .output_store
                     .query_lines_from(context.size().height as usize, None, &active_outputs)
                     .last()
                     .unwrap()
                     .1
-                    .index
+                    .index,
             );
         } else if context
             .signals()
@@ -102,7 +104,7 @@ impl<'a> OutputPane<'a> {
         {
             state.pos_vert = None;
         } else if let Some(amount) = nav_up {
-            let active_outputs = get_active_outputs(&self.system_state);
+            let active_outputs = get_active_outputs(self.system_state);
             // Prevent users from scrolling past the first line of output
             // TODO this actually prevents viewing the first lines if wrapping is on, as it doesn't account for that.
             let min_index = self
@@ -129,7 +131,7 @@ impl<'a> OutputPane<'a> {
                 let lines = self.system_state.output_store.query_lines_from(
                     amount + 1,
                     Some(pos),
-                    &get_active_outputs(&self.system_state),
+                    &get_active_outputs(self.system_state),
                 );
                 if lines.len() == amount + 1 {
                     lines.last().map(|(_, line)| line.index)
@@ -176,7 +178,7 @@ impl<'a> StatefulComponent for OutputPane<'a> {
                     .query_lines_to(
                         size.height as usize,
                         state.pos_vert,
-                        &get_active_outputs(&self.system_state),
+                        &get_active_outputs(self.system_state),
                     )
                     .into_iter()
                     .map(|(key, line)| {
@@ -216,14 +218,16 @@ impl<'a> StatefulComponent for OutputPane<'a> {
                                 LinePart {
                                     text: format!("{name}/"),
                                     color: theme.service_colors
-                                        [color_idx % theme.service_colors.len()].0
+                                        [color_idx % theme.service_colors.len()]
+                                    .0
                                     .into(),
                                 },
                                 LinePart {
                                     text: format!("{name} | ", name = key.source_name),
                                     color: Some(
                                         theme.source_colors[Self::hash_name(&key.source_name)
-                                            % theme.source_colors.len()].0,
+                                            % theme.source_colors.len()]
+                                        .0,
                                     ),
                                 },
                             ],

@@ -21,7 +21,7 @@ impl RectAt for Size {
     }
 }
 
-impl<R : RectAt> RectAtOrigin for R {
+impl<R: RectAt> RectAtOrigin for R {
     fn rect_at_origin(&self) -> Rect {
         self.rect_at(Position::origin())
     }

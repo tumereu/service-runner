@@ -2,7 +2,7 @@ use crate::config::{AutomationDefinitionId, AutomationTrigger, ServiceId};
 use crate::runner::scripting::engine::ScriptEngine;
 use crate::system_state::SystemState;
 use itertools::Itertools;
-use log::{debug, info};
+use log::info;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};

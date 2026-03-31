@@ -1,7 +1,7 @@
-use serde_derive::{Deserialize, Serialize};
-use ui::input::KeyMatcher;
 use crate::config::keybinds::keybinding::Keybinding;
 use crate::models::BlockAction;
+use serde_derive::{Deserialize, Serialize};
+use ui::input::KeyMatcher;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ServiceActionBinding {
@@ -24,7 +24,7 @@ impl ServiceActionBinding {
             keys: match &self.key {
                 Keybinding::Single(matcher) => vec![matcher.clone()],
                 Keybinding::Multi(matchers) => matchers.clone(),
-            }
+            },
         }
     }
 }

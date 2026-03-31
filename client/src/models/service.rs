@@ -16,23 +16,33 @@ pub struct Service {
     pub automation_enabled: bool,
 }
 impl Service {
-    pub fn update_block_status(&mut self, block_id: &BlockId, status: BlockStatus)
-    {
-        if self.definition.blocks.iter().all(|block| &block.id != block_id) {
+    pub fn update_block_status(&mut self, block_id: &BlockId, status: BlockStatus) {
+        if self
+            .definition
+            .blocks
+            .iter()
+            .all(|block| &block.id != block_id)
+        {
             return;
         }
 
         self.block_statuses.insert(block_id.clone(), status);
     }
 
-    pub fn get_block_status(&self, block_id: &BlockId) -> BlockStatus
-    {
-        self.block_statuses.get(block_id).unwrap_or(&BlockStatus::Initial).clone()
+    pub fn get_block_status(&self, block_id: &BlockId) -> BlockStatus {
+        self.block_statuses
+            .get(block_id)
+            .unwrap_or(&BlockStatus::Initial)
+            .clone()
     }
 
-    pub fn update_block_action(&mut self, block_id: &BlockId, action: Option<BlockAction>)
-    {
-        if self.definition.blocks.iter().all(|block| &block.id != block_id) {
+    pub fn update_block_action(&mut self, block_id: &BlockId, action: Option<BlockAction>) {
+        if self
+            .definition
+            .blocks
+            .iter()
+            .all(|block| &block.id != block_id)
+        {
             return;
         }
 
@@ -44,27 +54,33 @@ impl Service {
 
     pub fn update_automation<F>(&mut self, id: &AutomationDefinitionId, update: F)
     where
-            for<'a> F: FnOnce(&'a mut Automation),
+        for<'a> F: FnOnce(&'a mut Automation),
     {
-        if let Some(automation) = self.automations.iter_mut()
-                .find(|automation| &automation.definition_id == id) {
+        if let Some(automation) = self
+            .automations
+            .iter_mut()
+            .find(|automation| &automation.definition_id == id)
+        {
             update(automation);
         }
     }
 
-    pub fn get_block_action(&self, block_id: &BlockId) -> Option<BlockAction>
-    {
-        self.block_actions.get(block_id).map(|action| action.clone())
+    pub fn get_block_action(&self, block_id: &BlockId) -> Option<BlockAction> {
+        self.block_actions.get(block_id).cloned()
     }
 }
 impl From<ServiceDefinition> for Service {
     fn from(value: ServiceDefinition) -> Self {
         Service {
             block_statuses: HashMap::new(),
-            block_actions: value.blocks.iter()
+            block_actions: value
+                .blocks
+                .iter()
                 .map(|block| (block.id.clone(), BlockAction::Run))
                 .collect(),
-            automations: value.automation.iter()
+            automations: value
+                .automation
+                .iter()
                 .map(|auto_def| (auto_def.clone(), Some(value.id.clone())).into())
                 .collect(),
             definition: value,
@@ -80,10 +96,10 @@ pub enum BlockStatus {
     Working {
         step: WorkStep,
     },
-    Ok { 
+    Ok {
         // If `false`, then the block bypassed its work-steps due to a pre-work health check succeeding. This is only
         // possible for some types of blocks. `true` otherwise.
-        was_worked: bool 
+        was_worked: bool,
     },
     Error,
     Disabled,
@@ -124,7 +140,12 @@ pub enum WorkStep {
 }
 impl WorkStep {
     pub fn initial(skip_work_if_healthy: bool) -> Self {
-        Self::PrerequisiteCheck { skip_work_if_healthy, start_time: Instant::now(), checks_completed: 0, last_failure: None, }
+        Self::PrerequisiteCheck {
+            skip_work_if_healthy,
+            start_time: Instant::now(),
+            checks_completed: 0,
+            last_failure: None,
+        }
     }
 }
 

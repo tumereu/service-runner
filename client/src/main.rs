@@ -176,10 +176,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .profiles
                     .iter()
                     .find(|profile| &profile.id == autolaunch_profile)
-                    .expect(&format!(
-                        "Autolaunch profile with name '{}' not found",
-                        autolaunch_profile
-                    ))
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Autolaunch profile with name '{}' not found",
+                            autolaunch_profile
+                        )
+                    })
                     .id
                     .clone();
 

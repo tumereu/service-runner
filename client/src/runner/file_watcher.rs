@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -101,16 +101,22 @@ impl FileWatcher {
         let is_watching = watchers.contains_key(&key);
         let enabled = {
             let global_enabled = if let Some(service_id) = service_id.as_ref() {
-                system_state.read().unwrap().query_service(service_id, |service| {
-                    service.automation_enabled
-                })
+                system_state
+                    .read()
+                    .unwrap()
+                    .query_service(service_id, |service| service.automation_enabled)
             } else {
-                system_state.read().unwrap().current_profile.as_ref()
+                system_state
+                    .read()
+                    .unwrap()
+                    .current_profile
+                    .as_ref()
                     .map(|profile| profile.automation_enabled)
-            }.unwrap_or(true);
+            }
+            .unwrap_or(true);
 
             let specific_enabled = match system_state.read().unwrap().query_automation(
-                &automation_id,
+                automation_id,
                 &service_id,
                 |automation| automation.status.clone(),
             ) {
@@ -123,10 +129,14 @@ impl FileWatcher {
         };
 
         if is_watching && !enabled {
-            info!("Automation {service_id:?}.{automation_id:?} should be disabled, removing file watcher");
+            info!(
+                "Automation {service_id:?}.{automation_id:?} should be disabled, removing file watcher"
+            );
             watchers.remove(&key);
         } else if !is_watching && enabled {
-            info!("Automation {service_id:?}.{automation_id:?} should be enabled, adding file watcher");
+            info!(
+                "Automation {service_id:?}.{automation_id:?} should be enabled, adding file watcher"
+            );
             // Resolve work directory. If the automation is for a service, use the service's work directory. If the
             // automation is for the whole profile, use the profile's work directory.
             let work_dir = service_id
@@ -135,7 +145,7 @@ impl FileWatcher {
                     system_state
                         .read()
                         .unwrap()
-                        .query_service(&service_id, |service| service.definition.workdir.clone())
+                        .query_service(service_id, |service| service.definition.workdir.clone())
                 })
                 .or_else(|| {
                     system_state
@@ -153,7 +163,7 @@ impl FileWatcher {
             let watch_paths: Vec<PathBuf> = system_state
                 .read()
                 .unwrap()
-                .query_automation(&automation_id, &service_id, |automation| {
+                .query_automation(automation_id, &service_id, |automation| {
                     automation
                         .triggers
                         .iter()
@@ -197,41 +207,39 @@ impl FileWatcher {
             let automation_id = automation_id.clone();
             let service_id = service_id.clone();
 
-            let watcher = notify::recommended_watcher(
-                move |res: notify::Result<notify::Event>| match res {
-                    Ok(event) => match event.kind {
-                        notify::EventKind::Modify(_)
-                        | notify::EventKind::Remove(_)
-                        | notify::EventKind::Create(_) => {
-                            trace!(
-                                "Received filesystem event for automation {:?} (service: {:?}): {:?}",
-                                automation_id, service_id, event,
-                            );
-                            let mut system = system_state.write().unwrap();
+            notify::recommended_watcher(move |res: notify::Result<notify::Event>| match res {
+                Ok(event) => match event.kind {
+                    notify::EventKind::Modify(_)
+                    | notify::EventKind::Remove(_)
+                    | notify::EventKind::Create(_) => {
+                        trace!(
+                            "Received filesystem event for automation {:?} (service: {:?}): {:?}",
+                            automation_id, service_id, event,
+                        );
+                        let mut system = system_state.write().unwrap();
 
-                            system.update_automation(&automation_id, &service_id, |automation| {
-                                automation.last_triggered = Some(Instant::now());
-                            });
-                        }
-                        notify::EventKind::Access(_) | notify::EventKind::Other | notify::EventKind::Any => {
-                            // Ignored on purpose, as we cannot know that a file has been modified
-                        }
-                    },
-                    Err(err) => error!(
-                        "Error in file watcher event for automation {:?} (service: {:?}): {:?}",
-                        automation_id, service_id, err,
-                    ),
+                        system.update_automation(&automation_id, &service_id, |automation| {
+                            automation.last_triggered = Some(Instant::now());
+                        });
+                    }
+                    notify::EventKind::Access(_)
+                    | notify::EventKind::Other
+                    | notify::EventKind::Any => {
+                        // Ignored on purpose, as we cannot know that a file has been modified
+                    }
                 },
-            );
-
-            watcher
+                Err(err) => error!(
+                    "Error in file watcher event for automation {:?} (service: {:?}): {:?}",
+                    automation_id, service_id, err,
+                ),
+            })
         };
 
         // TODO add output for success andfal
         let successful = if let Ok(mut watcher) = watcher {
             let mut successful = true;
             for path in &watch_paths {
-                let watch_result = watcher.watch(&path, RecursiveMode::Recursive);
+                let watch_result = watcher.watch(path, RecursiveMode::Recursive);
                 if watch_result.is_err() {
                     error!(
                         "Failure when trying to watch path {path:?} for automation {automation_id:?} (service: {service_id:?}): {watch_result:?}"
@@ -245,7 +253,7 @@ impl FileWatcher {
                         format!(
                             "Error: unexpected failure when trying to watch path {path}: {description}",
                             path = path.to_str().unwrap_or_default(),
-                            description = watch_result.unwrap_err().to_string()
+                            description = watch_result.unwrap_err()
                         ),
                     );
 
@@ -269,7 +277,7 @@ impl FileWatcher {
                 },
                 format!(
                     "Error: failed to create a file watcher for automation {automation_id:?} (service: {service_id:?}): {error}",
-                    error = watcher.unwrap_err().to_string(),
+                    error = watcher.unwrap_err(),
                 ),
             );
 
@@ -293,7 +301,7 @@ impl FileWatcher {
         }
 
         let mut system = system_state.write().unwrap();
-        system.update_automation(&automation_id, &service_id, |automation| {
+        system.update_automation(automation_id, &service_id, |automation| {
             automation.status = match automation.status {
                 AutomationStatus::Disabled => AutomationStatus::Disabled,
                 AutomationStatus::Active if successful => AutomationStatus::Active,

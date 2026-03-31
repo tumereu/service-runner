@@ -6,7 +6,6 @@ use rhai::packages::{Package, StandardPackage};
 use rhai::plugin::RhaiResult;
 use rhai::{Dynamic, Engine, Map, Scope};
 use std::sync::{Arc, RwLock};
-use log::debug;
 
 pub struct ScriptEngine {
     engine: Engine,
@@ -14,10 +13,7 @@ pub struct ScriptEngine {
     scope_len: usize,
 }
 impl ScriptEngine {
-    pub fn new(
-        state: Arc<RwLock<SystemState>>,
-        with_fn: bool,
-    ) -> Self {
+    pub fn new(state: Arc<RwLock<SystemState>>, with_fn: bool) -> Self {
         let mut engine = Self::init_rhai_engine();
         let scope = Self::init_rhai_scope(state.clone());
 
@@ -36,19 +32,23 @@ impl ScriptEngine {
     pub fn set_self_service(&mut self, service_id: &Option<ServiceId>) {
         self.scope.rewind(self.scope_len - 1);
         match service_id {
-            Some(service_id) => self.scope.push_constant("self", Dynamic::from(ServiceProxy { id: service_id.inner().to_owned() })),
+            Some(service_id) => self.scope.push_constant(
+                "self",
+                Dynamic::from(ServiceProxy {
+                    id: service_id.inner().to_owned(),
+                }),
+            ),
             None => self.scope.push_constant("self", Dynamic::from(())),
         };
     }
 
     pub fn eval(&mut self, script: &str) -> RhaiResult {
         self.scope.rewind(self.scope_len);
-        self.engine.eval_with_scope::<Dynamic>(&mut self.scope, script)
+        self.engine
+            .eval_with_scope::<Dynamic>(&mut self.scope, script)
     }
 
-    fn init_rhai_scope<'a>(
-        state_arc: Arc<RwLock<SystemState>>,
-    ) -> Scope<'a> {
+    fn init_rhai_scope<'a>(state_arc: Arc<RwLock<SystemState>>) -> Scope<'a> {
         let mut scope = Scope::<'a>::new();
         let state = state_arc.read().unwrap();
         let mut services_map = Map::new();
@@ -138,7 +138,9 @@ impl ScriptEngine {
         engine.register_type_with_name::<BlockProxy>("Block");
 
         // Service proxy properties
-        engine.register_get("id", |self_proxy: &mut ServiceProxy| self_proxy.id.to_owned());
+        engine.register_get("id", |self_proxy: &mut ServiceProxy| {
+            self_proxy.id.to_owned()
+        });
         {
             let state = state.clone();
             engine.register_get("blocks", move |svc: &mut ServiceProxy| {
@@ -203,7 +205,10 @@ impl ScriptEngine {
             let state = state.clone();
             engine.register_get("is_processing", move |blk: &mut BlockProxy| {
                 let state = state.read().unwrap();
-                state.has_block_operations(&ServiceId::new(&blk.service_id), &BlockId::new(&blk.block_id))
+                state.has_block_operations(
+                    &ServiceId::new(&blk.service_id),
+                    &BlockId::new(&blk.block_id),
+                )
             });
         }
 
@@ -211,17 +216,19 @@ impl ScriptEngine {
             let state = state.clone();
             engine.register_get("is_idle", move |blk: &mut BlockProxy| {
                 let state = state.read().unwrap();
-                state.query_service(&ServiceId::new(&blk.service_id), |service| {
-                    let block_id = BlockId::new(&blk.block_id);
-                    if service.get_block_action(&block_id).is_some() {
-                        false
-                    } else {
-                        match service.get_block_status(&block_id) {
-                            BlockStatus::Working { .. } => false,
-                            _ => true
+                state
+                    .query_service(&ServiceId::new(&blk.service_id), |service| {
+                        let block_id = BlockId::new(&blk.block_id);
+                        if service.get_block_action(&block_id).is_some() {
+                            false
+                        } else {
+                            match service.get_block_status(&block_id) {
+                                BlockStatus::Working { .. } => false,
+                                _ => true,
+                            }
                         }
-                    }
-                }).unwrap_or(false)
+                    })
+                    .unwrap_or(false)
             });
         }
     }

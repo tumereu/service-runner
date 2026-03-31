@@ -15,19 +15,15 @@ pub enum Requirement {
         timeout: Duration,
         status: u16,
     },
-    
+
     #[serde(rename = "port")]
     Port { port: u16, host: Option<String> },
 
     #[serde(rename = "file")]
-    File {
-        paths: Vec<String>
-    },
+    File { paths: Vec<String> },
 
     #[serde(rename = "script")]
-    StateQuery {
-        query: String,
-    }
+    StateQuery { query: String },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

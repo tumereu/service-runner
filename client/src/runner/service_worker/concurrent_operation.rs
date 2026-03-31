@@ -51,8 +51,11 @@ impl WorkWrapper {
         service_id: Option<ServiceId>,
         work_name: String,
         silent: bool,
-        work: F
-    ) -> WorkWrapper where F : (FnOnce() -> WorkResult) + Send + 'static {
+        work: F,
+    ) -> WorkWrapper
+    where
+        F: (FnOnce() -> WorkResult) + Send + 'static,
+    {
         let wrapper = WorkWrapper {
             status: Arc::new(Mutex::new(ConcurrentOperationStatus::Running)),
         };
@@ -63,7 +66,9 @@ impl WorkWrapper {
             source_name: work_name.clone(),
             kind: OutputKind::System,
         };
-        let full_name = service_id.map(|id| format!("{id}.{work_name}")).unwrap_or(work_name);
+        let full_name = service_id
+            .map(|id| format!("{id}.{work_name}"))
+            .unwrap_or(work_name);
 
         let thread = thread::spawn(move || {
             let result = work();
@@ -84,19 +89,18 @@ impl WorkWrapper {
 
         {
             let mut state = state_arc.write().unwrap();
-            state.active_threads.push((
-                format!("{full_name}-work"),
-                thread
-            ));
+            state
+                .active_threads
+                .push((format!("{full_name}-work"), thread));
         }
-        
+
         wrapper
     }
 }
 
 pub struct WorkResult {
     pub successful: bool,
-    pub output: Vec<String>
+    pub output: Vec<String>,
 }
 
 pub struct ProcessWrapper {
@@ -120,103 +124,98 @@ impl ProcessWrapper {
             force_exit: Arc::new(Mutex::new(false)),
             status: Arc::new(Mutex::new(ConcurrentOperationStatus::Running)),
         };
-        let full_name = service_id.map(|id| format!("{id}.{work_name}")).unwrap_or(work_name.clone());
+        let full_name = service_id
+            .map(|id| format!("{id}.{work_name}"))
+            .unwrap_or(work_name.clone());
 
         let mut new_threads = vec![
             // Kill the process when the server exits and invoke the callback after the process finishes
-            (
-                format!("{full_name}-manager"),
-                {
-                    let process_handle = handler.handle.clone();
-                    let force_exit = handler.force_exit.clone();
-                    let status_arc = handler.status.clone();
-                    let state_arc = state_arc.clone();
+            (format!("{full_name}-manager"), {
+                let process_handle = handler.handle.clone();
+                let force_exit = handler.force_exit.clone();
+                let status_arc = handler.status.clone();
+                let state_arc = state_arc.clone();
 
-                    thread::spawn(move || {
-                        // Wait as long as the system and process are both running, or until an early-exit condition
-                        // is fulfilled.
-                        loop {
-                            if *force_exit.lock().unwrap() {
-                                break;
-                            }
-                            if state_arc.read().unwrap().should_exit {
-                                break;
-                            }
-                            if process_handle.lock().unwrap().try_wait().unwrap_or(None).is_some() {
-                                break;
-                            }
-                            thread::sleep(Duration::from_millis(10));
+                thread::spawn(move || {
+                    // Wait as long as the system and process are both running, or until an early-exit condition
+                    // is fulfilled.
+                    loop {
+                        if *force_exit.lock().unwrap() {
+                            break;
                         }
-
-                        let system_exiting = state_arc.read().unwrap().should_exit;
-                        let status = Self::kill_process(process_handle, !system_exiting);
-                        let success = status.as_ref().map_or(false, |status| status.success());
-
-                        let mut exit_status = status_arc.lock().unwrap();
-                        *exit_status = if success {
-                            ConcurrentOperationStatus::Ok
-                        } else {
-                            ConcurrentOperationStatus::Failed
+                        if state_arc.read().unwrap().should_exit {
+                            break;
                         }
-                    })
-                },
-            ),
+                        if process_handle
+                            .lock()
+                            .unwrap()
+                            .try_wait()
+                            .unwrap_or(None)
+                            .is_some()
+                        {
+                            break;
+                        }
+                        thread::sleep(Duration::from_millis(10));
+                    }
+
+                    let system_exiting = state_arc.read().unwrap().should_exit;
+                    let status = Self::kill_process(process_handle, !system_exiting);
+                    let success = status.as_ref().is_ok_and(|status| status.success());
+
+                    let mut exit_status = status_arc.lock().unwrap();
+                    *exit_status = if success {
+                        ConcurrentOperationStatus::Ok
+                    } else {
+                        ConcurrentOperationStatus::Failed
+                    }
+                })
+            }),
             // Read stdout
-            (
-                format!("{full_name}-stdout"),
-                {
-                    let process_handle = handler.handle.clone();
-                    let state_arc = state_arc.clone();
-                    let service_id = handler.service_id.clone();
-                    let output_key = OutputKey {
-                        service_id: service_id.clone(),
-                        source_name: work_name.clone(),
-                        kind: OutputKind::ExtProcess,
+            (format!("{full_name}-stdout"), {
+                let process_handle = handler.handle.clone();
+                let state_arc = state_arc.clone();
+                let service_id = handler.service_id.clone();
+                let output_key = OutputKey {
+                    service_id: service_id.clone(),
+                    source_name: work_name.clone(),
+                    kind: OutputKind::ExtProcess,
+                };
+
+                thread::spawn(move || {
+                    let stream = {
+                        let mut handle = process_handle.lock().unwrap();
+                        handle.stdout.take().unwrap()
                     };
 
-                    thread::spawn(move || {
-                        let stream = {
-                            let mut handle = process_handle.lock().unwrap();
-                            handle.stdout.take().unwrap()
-                        };
-
-                        for line in BufReader::new(stream).lines() {
-                            if let Ok(line) = line {
-                                let mut state = state_arc.write().unwrap();
-                                state.output_store.add_output(&output_key, line);
-                            }
-                        }
-                    })
-                },
-            ),
+                    for line in BufReader::new(stream).lines().flatten() {
+                        let mut state = state_arc.write().unwrap();
+                        state.output_store.add_output(&output_key, line);
+                    }
+                })
+            }),
             // Read stderr
-            (
-                format!("{full_name}-stderr"),
-                {
-                    let process_handle = handler.handle.clone();
-                    let state_arc = state_arc.clone();
-                    let service_id = handler.service_id.clone();
-                    let output_key = OutputKey {
-                        service_id: service_id.clone(),
-                        source_name: work_name.clone(),
-                        kind: OutputKind::ExtProcess,
+            (format!("{full_name}-stderr"), {
+                let process_handle = handler.handle.clone();
+                let state_arc = state_arc.clone();
+                let service_id = handler.service_id.clone();
+                let output_key = OutputKey {
+                    service_id: service_id.clone(),
+                    source_name: work_name.clone(),
+                    kind: OutputKind::ExtProcess,
+                };
+
+                thread::spawn(move || {
+                    let stream = {
+                        let mut handle = process_handle.lock().unwrap();
+                        handle.stderr.take().unwrap()
                     };
 
-                    thread::spawn(move || {
-                        let stream = {
-                            let mut handle = process_handle.lock().unwrap();
-                            handle.stderr.take().unwrap()
-                        };
-
-                        for line in BufReader::new(stream).lines() {
-                            if let Ok(line) = line {
-                                let mut state = state_arc.write().unwrap();
-                                state.output_store.add_output(&output_key, line);
-                            }
-                        }
-                    })
-                },
-            )
+                    for line in BufReader::new(stream).lines().flatten() {
+                        let mut state = state_arc.write().unwrap();
+                        state.output_store.add_output(&output_key, line);
+                    }
+                })
+            }),
         ];
 
         {
@@ -233,8 +232,8 @@ impl ProcessWrapper {
 
     #[cfg(target_os = "linux")]
     fn kill_process(handle: Arc<Mutex<Child>>, be_nice: bool) -> io::Result<ExitStatus> {
-        use nix::unistd::Pid;
         use nix::sys::signal::{self, Signal};
+        use nix::unistd::Pid;
 
         let mut handle = handle.lock().unwrap();
 
@@ -274,10 +273,15 @@ impl ProcessWrapper {
                 signal_and_wait(&mut handle, Signal::SIGKILL, Duration::from_millis(5000))
             }
         } else {
-            info!("Sending {signal} to process group {pid}", signal = Signal::SIGKILL, pid = handle.id());
-            match signal::kill(Pid::from_raw((handle.id() as i32).neg()), Signal::SIGKILL) {
-                Err(error) => error!("Failed to send signal to process: {error:?}"),
-                Ok(_) => {},
+            info!(
+                "Sending {signal} to process group {pid}",
+                signal = Signal::SIGKILL,
+                pid = handle.id()
+            );
+            if let Err(error) =
+                signal::kill(Pid::from_raw((handle.id() as i32).neg()), Signal::SIGKILL)
+            {
+                error!("Failed to send signal to process: {error:?}")
             }
         }
 

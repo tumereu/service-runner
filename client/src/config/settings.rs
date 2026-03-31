@@ -1,9 +1,9 @@
 use serde_derive::Deserialize;
 
 use crate::config::keybinds::Keybinds;
+use crate::config::keybinds::PartialKeybinds;
 use crate::config::theme::Theme;
 use crate::config::{PartialTheme, ProfileDefinition, ServiceDefinition};
-use crate::config::keybinds::PartialKeybinds;
 
 #[derive(Debug, Clone, Default)]
 pub struct Settings {
@@ -66,4 +66,3 @@ pub struct Config {
     pub services: Vec<ServiceDefinition>,
     pub profiles: Vec<ProfileDefinition>,
 }
-

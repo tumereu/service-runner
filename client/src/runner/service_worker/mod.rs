@@ -1,29 +1,29 @@
-use crate::models::{Automation, Task, TaskStatus};
+use crate::config::{AutomationAction, AutomationDefinitionId, ServiceId};
+use crate::models::TaskStatus;
+use crate::runner::query_trigger_handler::QueryTriggerHandler;
 use crate::runner::scripting::executor::ScriptExecutor;
+use crate::runner::service_worker::ConcurrentOperationStatus;
 use crate::runner::service_worker::block_processor::BlockProcessor;
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
 use crate::runner::service_worker::task_context::TaskContext;
+use crate::runner::service_worker::task_processor::TaskProcessor;
 use crate::system_state::SystemState;
 pub use concurrent_operation::*;
+use log::info;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use log::{debug, info};
-use crate::config::{AutomationAction, AutomationDefinitionId, ServiceId};
-use crate::runner::query_trigger_handler::QueryTriggerHandler;
-use crate::runner::service_worker::task_processor::TaskProcessor;
-use crate::runner::service_worker::ConcurrentOperationStatus;
 
-mod concurrent_operation;
-mod service_block_context;
 mod block_processor;
+mod concurrent_operation;
+mod create_cmd;
 mod requirement_checker;
-mod work_context;
-mod work_sequence_executor;
+mod service_block_context;
 mod task_context;
 mod task_processor;
-mod create_cmd;
+mod work_context;
+mod work_sequence_executor;
 
 pub struct ServiceWorker {
     state: Arc<RwLock<SystemState>>,
@@ -61,10 +61,7 @@ impl ServiceWorker {
         *self.keep_running.lock().unwrap() = false;
     }
 
-    fn work_services(
-        state_arc: Arc<RwLock<SystemState>>,
-        rhai_executor: Arc<ScriptExecutor>,
-    ) {
+    fn work_services(state_arc: Arc<RwLock<SystemState>>, rhai_executor: Arc<ScriptExecutor>) {
         // A collection of (service_id, block_id) pairs describing all services and their blocks
         // that might need to be worked on.
         let blocks_to_work = {
@@ -85,7 +82,10 @@ impl ServiceWorker {
         let tasks_to_work = {
             let state = state_arc.read().unwrap();
 
-            state.current_profile.iter().flat_map(|profile| profile.running_tasks.iter())
+            state
+                .current_profile
+                .iter()
+                .flat_map(|profile| profile.running_tasks.iter())
                 .filter(|task| matches!(task.status, TaskStatus::Running { .. }))
                 .map(|task| task.id)
                 .collect::<Vec<_>>()
@@ -101,29 +101,28 @@ impl ServiceWorker {
                     rhai_executor.clone(),
                     service_id,
                     block_id,
-                ).process_block();
+                )
+                .process_block();
             });
 
         tasks_to_work.into_iter().for_each(|task_id| {
-            TaskContext::new(
-                state_arc.clone(),
-                rhai_executor.clone(),
-                task_id,
-            ).process_task();
+            TaskContext::new(state_arc.clone(), rhai_executor.clone(), task_id).process_task();
         });
 
         // Clean up, remove finished tasks
-        state_arc.write().unwrap().current_profile
-            .iter_mut().for_each(|profile| {
-            profile.running_tasks.retain(|task| {
-                matches!(task.status, TaskStatus::Running { .. })
+        state_arc
+            .write()
+            .unwrap()
+            .current_profile
+            .iter_mut()
+            .for_each(|profile| {
+                profile
+                    .running_tasks
+                    .retain(|task| matches!(task.status, TaskStatus::Running { .. }));
             });
-        });
     }
 
-    fn spawn_automation_tasks(
-        state_arc: Arc<RwLock<SystemState>>,
-    ) {
+    fn spawn_automation_tasks(state_arc: Arc<RwLock<SystemState>>) {
         struct TriggerableAutomation {
             automation_id: AutomationDefinitionId,
             service_id: Option<ServiceId>,
@@ -147,16 +146,16 @@ impl ServiceWorker {
                 })
                 // Find all automations that should be processed
                 .filter(|automation| match automation.last_triggered {
-                    Some(triggered_on) => Instant::now().duration_since(triggered_on) >= automation.debounce,
+                    Some(triggered_on) => {
+                        Instant::now().duration_since(triggered_on) >= automation.debounce
+                    }
                     None => false,
                 })
                 // Collect ids into a struct so we can release the state-lock
-                .map(|(automation)| {
-                    TriggerableAutomation {
-                        automation_id: automation.definition_id.clone(),
-                        service_id: automation.service_id.clone(),
-                        action: automation.action.clone(),
-                    }
+                .map(|automation| TriggerableAutomation {
+                    automation_id: automation.definition_id.clone(),
+                    service_id: automation.service_id.clone(),
+                    action: automation.action.clone(),
                 })
                 .collect()
         };
@@ -178,7 +177,7 @@ impl ServiceWorker {
                         state.update_profile(|profile| {
                             profile.spawn_task(&id, triggerable.service_id.clone());
                         })
-                    },
+                    }
                     AutomationAction::RunAnyTask { id, service } => {
                         info!(
                             "Spawning task {id} for {service_id:?} as a result of automation {automation:?}",
@@ -212,16 +211,13 @@ impl ServiceWorker {
                             automation.last_triggered = None;
                         })
                     }),
-                    None => {
-                        state.update_profile(|profile| {
-                            profile.update_automation(&triggerable.automation_id, |automation| {
-                                automation.last_triggered = None;
-                            })
+                    None => state.update_profile(|profile| {
+                        profile.update_automation(&triggerable.automation_id, |automation| {
+                            automation.last_triggered = None;
                         })
-                    }
+                    }),
                 }
             }
         }
     }
 }
-

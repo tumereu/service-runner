@@ -1,4 +1,6 @@
-use crate::config::{AutomationAction, AutomationDefinition, AutomationDefinitionId, AutomationTrigger, ServiceId};
+use crate::config::{
+    AutomationAction, AutomationDefinition, AutomationDefinitionId, AutomationTrigger, ServiceId,
+};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
@@ -10,7 +12,6 @@ pub struct Automation {
     pub debounce: Duration,
     pub action: AutomationAction,
     pub triggers: Vec<AutomationTrigger>,
-    
 }
 impl From<(AutomationDefinition, Option<ServiceId>)> for Automation {
     fn from((definition, service_id): (AutomationDefinition, Option<ServiceId>)) -> Self {

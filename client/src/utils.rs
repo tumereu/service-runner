@@ -28,9 +28,9 @@ macro_rules! format_err {
     }};
 }
 
+pub(crate) use format_err;
 use std::path::Path;
-pub (crate) use write_escaped_str;
-pub (crate) use format_err;
+pub(crate) use write_escaped_str;
 
 /// Resolves the given (user defined) path as a proper path object. If the path is relative, then it is treated as a
 /// relative path directly under the given workdir. If the path-input is absolute, then workdir is ignored and the path

@@ -22,7 +22,7 @@ impl ServiceId {
     pub fn new(id: &str) -> Self {
         Self(id.to_string())
     }
-    
+
     pub fn inner(&self) -> &str {
         &self.0
     }
@@ -47,7 +47,7 @@ impl BlockId {
     pub fn new(id: &str) -> Self {
         Self(id.to_string())
     }
-    
+
     pub fn inner(&self) -> &str {
         &self.0
     }
@@ -57,7 +57,7 @@ impl BlockId {
 pub struct HealthCheckConfig {
     #[serde(default, with = "humantime_serde")]
     pub timeout: Duration,
-    pub requirements: Vec<Requirement>
+    pub requirements: Vec<Requirement>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -90,10 +90,12 @@ pub struct TaskDefinition {
 pub enum TaskStep {
     Command {
         #[serde(flatten)]
-        command: ExecutableEntry
+        command: ExecutableEntry,
     },
-    Action { action: String },
-    Wait { 
+    Action {
+        action: String,
+    },
+    Wait {
         #[serde(with = "humantime_serde")]
         timeout: Duration,
         requirement: Requirement,

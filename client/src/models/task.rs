@@ -1,4 +1,4 @@
-use crate::config::{ServiceId, TaskDefinition, TaskDefinitionId, TaskStep};
+use crate::config::{ServiceId, TaskDefinitionId, TaskStep};
 use derive_more::Display;
 use std::time::Instant;
 
@@ -28,7 +28,7 @@ pub enum TaskStatus {
 }
 impl Default for TaskStatus {
     fn default() -> Self {
-        Self::Running { 
+        Self::Running {
             completed_steps: 0,
             step_start_time: Instant::now(),
             last_recoverable_failure: None,
@@ -38,5 +38,5 @@ impl Default for TaskStatus {
 
 #[derive(Debug, Clone)]
 pub enum TaskAction {
-    Cancel
+    Cancel,
 }

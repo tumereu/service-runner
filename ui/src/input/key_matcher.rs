@@ -41,7 +41,9 @@ impl KeyMatcher {
 
     pub fn matches(&self, event: &crossterm::event::KeyEvent) -> bool {
         let key_matches = match (event.code, self.key) {
-            (KeyCode::Char(ev_char), KeyCode::Char(req_char)) => ev_char.to_ascii_lowercase() == req_char,
+            (KeyCode::Char(ev_char), KeyCode::Char(req_char)) => {
+                ev_char.to_ascii_lowercase() == req_char
+            }
             (KeyCode::BackTab, KeyCode::Tab) if self.shift => true,
             _ => event.code == self.key,
         };
@@ -69,14 +71,15 @@ impl KeyMatcher {
 }
 
 pub trait KeyMatcherQueryable {
-    fn is_key_pressed<B : Borrow<Vec<KeyMatcher>>>(&self, matcher: B) -> bool;
+    fn is_key_pressed<B: Borrow<Vec<KeyMatcher>>>(&self, matcher: B) -> bool;
 }
 impl KeyMatcherQueryable for Signals {
-    fn is_key_pressed<B : Borrow<Vec<KeyMatcher>>>(&self, matcher: B) -> bool {
+    fn is_key_pressed<B: Borrow<Vec<KeyMatcher>>>(&self, matcher: B) -> bool {
         self.matching::<crossterm::event::KeyEvent>()
             .iter()
             .any(|ev| {
-                ev.kind == KeyEventKind::Press && matcher.borrow().iter().any(|matcher| matcher.matches(ev))
+                ev.kind == KeyEventKind::Press
+                    && matcher.borrow().iter().any(|matcher| matcher.matches(ev))
             })
     }
 }
@@ -180,8 +183,8 @@ impl<'de> Deserialize<'de> for KeyMatcher {
             "<delete>" => KeyCode::Delete,
             "<home>" => KeyCode::Home,
             "<end>" => KeyCode::End,
-            "<pageup>" | "<pgup>"=> KeyCode::PageUp,
-            "<pagedown>" | "<pgdown> "=> KeyCode::PageDown,
+            "<pageup>" | "<pgup>" => KeyCode::PageUp,
+            "<pagedown>" | "<pgdown> " => KeyCode::PageDown,
             "<f1>" => KeyCode::F(1),
             "<f2>" => KeyCode::F(2),
             "<f3>" => KeyCode::F(3),
@@ -205,7 +208,7 @@ impl<'de> Deserialize<'de> for KeyMatcher {
                 return Err(serde::de::Error::custom(format!(
                     "Unrecognized key: {}",
                     remaining
-                )))
+                )));
             }
         };
 

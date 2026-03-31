@@ -1,8 +1,8 @@
 mod color;
 
+use crate::config::theme::color::ColorWrapper;
 use macros::PartialStruct;
 use ratatui::prelude::Color;
-use crate::config::theme::color::ColorWrapper;
 
 #[derive(Debug, Clone, PartialStruct)]
 pub struct Theme {

@@ -1,11 +1,11 @@
 mod cell;
+mod fixed_measurement;
 mod flow;
 mod list;
 mod simple_list;
-mod text;
-mod fixed_measurement;
 mod space;
 mod spinner;
+mod text;
 
 pub use cell::*;
 pub use fixed_measurement::*;
@@ -16,8 +16,8 @@ pub use space::*;
 pub use spinner::*;
 pub use text::*;
 
-use crate::frame_ctx::FrameContext;
 use crate::UIResult;
+use crate::frame_ctx::FrameContext;
 use ratatui::layout::Size;
 
 pub trait Component {
@@ -34,7 +34,10 @@ pub trait StatefulComponent {
     fn render(self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output>;
 }
 
-impl<T, S : StatefulComponent<State = T>> Component for S where T : Default + 'static {
+impl<T, S: StatefulComponent<State = T>> Component for S
+where
+    T: Default + 'static,
+{
     type Output = S::Output;
 
     fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {

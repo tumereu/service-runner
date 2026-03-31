@@ -4,14 +4,11 @@ use std::ops::{Add, Sub};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Position {
     pub x: i32,
-    pub y: i32
+    pub y: i32,
 }
 impl Position {
     pub fn origin() -> Self {
-        Self {
-            x: 0,
-            y: 0
-        }
+        Self { x: 0, y: 0 }
     }
 }
 
@@ -19,7 +16,7 @@ impl Into<Offset> for Position {
     fn into(self) -> Offset {
         Offset {
             x: self.x,
-            y: self.y
+            y: self.y,
         }
     }
 }
@@ -28,7 +25,7 @@ impl Into<Offset> for &Position {
     fn into(self) -> Offset {
         Offset {
             x: self.x,
-            y: self.y
+            y: self.y,
         }
     }
 }
@@ -36,8 +33,8 @@ impl Into<Offset> for &Position {
 impl<W, H> Into<Position> for (W, H)
 where
     W: Into<i32>,
-    H: Into<i32> {
-
+    H: Into<i32>,
+{
     fn into(self) -> Position {
         Position {
             x: self.0.into(),

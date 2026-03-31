@@ -1,4 +1,4 @@
-use crate::component::{MeasurableComponent, StatefulComponent, ATTR_COLOR_HIGHLIGHT};
+use crate::component::{ATTR_COLOR_HIGHLIGHT, MeasurableComponent, StatefulComponent};
 use crate::{FrameContext, RenderArgs, UIError, UIResult};
 use ratatui::layout::Size;
 use ratatui::prelude::Style;
@@ -31,7 +31,7 @@ where
             selection: None,
         }
     }
-    
+
     pub fn selection(mut self, selection: Option<usize>) -> Self {
         self.selection = selection;
         self
@@ -85,7 +85,11 @@ where
                 index,
             });
         }
-        let selection = self.selection.unwrap_or_default().max(0).min(resolved_elements.len() - 1);
+        let selection = self
+            .selection
+            .unwrap_or_default()
+            .max(0)
+            .min(resolved_elements.len() - 1);
 
         // Check if we need to scroll to keep the selected item in view
         let selection_bottom_y: i32 = resolved_elements[0..selection]
@@ -100,7 +104,8 @@ where
             .saturating_sub(self_size.height as i32)
             .max(0);
         // Same but for up
-        state.scroll_offset -= state.scroll_offset
+        state.scroll_offset -= state
+            .scroll_offset
             .saturating_sub(1)
             .saturating_sub(selection_bottom_y)
             .saturating_add(resolved_elements[selection].size.height as i32)
@@ -137,7 +142,7 @@ where
 
             current_y += size.height as i32;
         }
-        
+
         Ok(())
     }
 }

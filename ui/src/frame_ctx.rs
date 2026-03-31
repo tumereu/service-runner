@@ -2,16 +2,16 @@ use crate::component::{Component, MeasurableComponent};
 use crate::signals::Signals;
 use crate::space::Position;
 use crate::{ComponentRenderer, UIError, UIResult};
+use ratatui::Frame;
 use ratatui::layout::{Rect, Size};
 use ratatui::widgets::Widget;
-use ratatui::Frame;
 use std::any::Any;
 
 pub struct FrameContext<'a, 'b, 'c> {
     frame: &'a mut Frame<'b>,
     current_area: Rect,
     signals: Signals,
-    renderer: &'c mut ComponentRenderer
+    renderer: &'c mut ComponentRenderer,
 }
 impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
     pub fn new(
@@ -30,7 +30,10 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
     pub fn render_component<Output, C>(
         &mut self,
         args: RenderArgs<Output, C>,
-    ) -> Result<Output, UIError> where C : Component<Output = Output> {
+    ) -> Result<Output, UIError>
+    where
+        C: Component<Output = Output>,
+    {
         let RenderArgs {
             component,
             pos,
@@ -46,8 +49,9 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
             y: (self.current_area.y as i32 + pos.y).try_into().unwrap_or(0),
             width: size.width,
             height: size.height,
-        }.intersection(self.current_area);
-        
+        }
+        .intersection(self.current_area);
+
         let old_signals = match signal_handling {
             SignalHandling::Forward => None,
             SignalHandling::Overwrite(signals) => Some(self.signals.overwrite(signals)),
@@ -56,8 +60,7 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         };
         let old_area = std::mem::replace(&mut self.current_area, new_area);
 
-        let output = component.render(self)
-            .map_err(|err| err.nested::<C>());
+        let output = component.render(self).map_err(|err| err.nested::<C>());
 
         self.current_area = old_area;
         if let Some(signals) = old_signals {
@@ -67,7 +70,10 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         output
     }
 
-    pub fn render_widget<W>(&mut self, widget: W, pos: Position, size: Size) where W : Widget {
+    pub fn render_widget<W>(&mut self, widget: W, pos: Position, size: Size)
+    where
+        W: Widget,
+    {
         self.frame.render_widget(
             widget,
             Rect {
@@ -75,16 +81,16 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
                 y: (self.current_area.y as i32 + pos.y).try_into().unwrap_or(0),
                 width: size.width,
                 height: size.height,
-            }.intersection(self.current_area),
+            }
+            .intersection(self.current_area),
         );
     }
 
-    pub fn measure_component<C>(
-        &self,
-        component: &C,
-    ) -> UIResult<Size> where C : MeasurableComponent {
-        let measurement = component.measure(&self)
-            .map_err(|err| err.nested::<C>());
+    pub fn measure_component<C>(&self, component: &C) -> UIResult<Size>
+    where
+        C: MeasurableComponent,
+    {
+        let measurement = component.measure(&self).map_err(|err| err.nested::<C>());
 
         measurement
     }
@@ -109,32 +115,49 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         &self.signals
     }
 
-    pub fn get_attr<T>(&self, key: &str) -> Option<&T> where T : Any + 'static {
+    pub fn get_attr<T>(&self, key: &str) -> Option<&T>
+    where
+        T: Any + 'static,
+    {
         self.renderer.get_attr(key)
     }
 
-    pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T> where T : Any + 'static {
+    pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T>
+    where
+        T: Any + 'static,
+    {
         self.renderer.req_attr(attr)
     }
 
-    pub fn take_state<T>(&mut self, key: &str) -> T where T : Any + Default + 'static {
+    pub fn take_state<T>(&mut self, key: &str) -> T
+    where
+        T: Any + Default + 'static,
+    {
         self.renderer.take_state(key)
     }
 
-    pub fn return_state<T>(&mut self, key: &str, state: T) where T : Any + Default + 'static {
+    pub fn return_state<T>(&mut self, key: &str, state: T)
+    where
+        T: Any + Default + 'static,
+    {
         self.renderer.return_state(key, state);
     }
 }
 
 #[derive(Clone)]
-pub struct RenderArgs<Output, C> where C : Component<Output = Output>
+pub struct RenderArgs<Output, C>
+where
+    C: Component<Output = Output>,
 {
     pub component: C,
     pub pos: Option<Position>,
     pub size: Option<Size>,
     pub signals: SignalHandling,
 }
-impl<'a, Output, C> RenderArgs<Output, C> where C : Component<Output = Output> {
+impl<'a, Output, C> RenderArgs<Output, C>
+where
+    C: Component<Output = Output>,
+{
     pub fn new(component: C) -> RenderArgs<Output, C> {
         RenderArgs {
             component,
@@ -144,15 +167,18 @@ impl<'a, Output, C> RenderArgs<Output, C> where C : Component<Output = Output> {
         }
     }
 
-    pub fn pos<X : Into<i32>, Y: Into<i32>>(self, x: X, y: Y) -> Self {
+    pub fn pos<X: Into<i32>, Y: Into<i32>>(self, x: X, y: Y) -> Self {
         let mut self_mut = self;
         self_mut.pos = Some((x, y).into());
         self_mut
     }
 
-    pub fn size<X : Into<u16>, Y: Into<u16>>(self, width: X, height: Y) -> Self {
+    pub fn size<X: Into<u16>, Y: Into<u16>>(self, width: X, height: Y) -> Self {
         let mut self_mut = self;
-        self_mut.size = Some(Size { width: width.into(), height: height.into() });
+        self_mut.size = Some(Size {
+            width: width.into(),
+            height: height.into(),
+        });
         self_mut
     }
 
@@ -168,7 +194,7 @@ pub enum SignalHandling {
     Overwrite(Signals),
     Add(Signals),
     Forward,
-    Block
+    Block,
 }
 impl Default for SignalHandling {
     fn default() -> Self {

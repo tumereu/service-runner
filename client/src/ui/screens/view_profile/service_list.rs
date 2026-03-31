@@ -1,22 +1,26 @@
 use crate::config::BlockId;
+use crate::config::{ResolvedBlockActionBinding, ServiceActionTarget};
 use crate::models::{AutomationStatus, BlockStatus, WorkStep};
 use crate::system_state::SystemState;
 use crate::ui::inputs::{
     ATTR_KEY_BLOCK_ACTIONS, ATTR_KEY_TOGGLE_ALL_AUTOMATIONS, ATTR_KEY_TOGGLE_ALL_OUTPUT,
     ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS, ATTR_KEY_TOGGLE_SELECTED_OUTPUT,
 };
-use crate::ui::theming::{ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE, ATTR_COLOR_WORK_PARTIALLY_ACTIVE, ATTR_COLOR_WORK_PROCESSING, ATTR_COLOR_WORK_WAITING_TO_PROCESS};
+use crate::ui::theming::{
+    ATTR_COLOR_WORK_ACTIVE, ATTR_COLOR_WORK_ERROR, ATTR_COLOR_WORK_IDLE, ATTR_COLOR_WORK_INACTIVE,
+    ATTR_COLOR_WORK_PARTIALLY_ACTIVE, ATTR_COLOR_WORK_PROCESSING,
+    ATTR_COLOR_WORK_WAITING_TO_PROCESS,
+};
 use itertools::Itertools;
 use ratatui::layout::Size;
 use ratatui::prelude::Color;
 use std::collections::HashMap;
 use ui::component::{
-    Dir, Flow, FlowableArgs, List, MeasurableComponent, Spinner,
-    StatefulComponent, Text, WithMeasurement, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP,
+    ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_TO_END, ATTR_KEY_NAV_TO_START, ATTR_KEY_NAV_UP, Dir, Flow,
+    FlowableArgs, List, MeasurableComponent, Spinner, StatefulComponent, Text, WithMeasurement,
 };
 use ui::input::KeyMatcherQueryable;
 use ui::{FrameContext, RenderArgs, UIError, UIResult};
-use crate::config::{ResolvedBlockActionBinding, ServiceActionTarget};
 
 pub struct ServiceList<'a> {
     pub system_state: &'a mut SystemState,
@@ -24,7 +28,8 @@ pub struct ServiceList<'a> {
 }
 impl<'a> ServiceList<'a> {
     fn resolve_slots(&self) -> UIResult<Vec<SlotInfo>> {
-        let services = &self.system_state
+        let services = &self
+            .system_state
             .current_profile
             .as_ref()
             .ok_or(UIError::IllegalState {
@@ -59,7 +64,8 @@ impl<'a> ServiceList<'a> {
         state: &mut ServiceListState,
     ) -> UIResult<()> {
         {
-            let services = &self.system_state
+            let services = &self
+                .system_state
                 .current_profile
                 .as_ref()
                 .ok_or(UIError::IllegalState {
@@ -109,7 +115,8 @@ impl<'a> ServiceList<'a> {
                 .signals()
                 .is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_ALL_OUTPUT)?)
             {
-                let any_enabled = self.system_state
+                let any_enabled = self
+                    .system_state
                     .current_profile
                     .as_ref()
                     .unwrap()
@@ -132,14 +139,16 @@ impl<'a> ServiceList<'a> {
                 .signals()
                 .is_key_pressed(context.req_attr(ATTR_KEY_TOGGLE_ALL_AUTOMATIONS)?)
             {
-                let any_enabled = self.system_state
+                let any_enabled = self
+                    .system_state
                     .current_profile
                     .as_ref()
                     .unwrap()
                     .services
                     .iter()
                     .any(|service| service.automation_enabled)
-                    || self.system_state
+                    || self
+                        .system_state
                         .current_profile
                         .as_ref()
                         .map(|profile| profile.automation_enabled)
@@ -147,9 +156,12 @@ impl<'a> ServiceList<'a> {
                 self.system_state.update_all_services(|(_, service)| {
                     service.automation_enabled = !any_enabled;
                 });
-                self.system_state.current_profile.iter_mut().for_each(|profile| {
-                    profile.automation_enabled = !any_enabled;   
-                })
+                self.system_state
+                    .current_profile
+                    .iter_mut()
+                    .for_each(|profile| {
+                        profile.automation_enabled = !any_enabled;
+                    })
             }
         }
 
@@ -210,10 +222,15 @@ impl<'a> StatefulComponent for ServiceList<'a> {
         "view-profile-service-list"
     }
 
-    fn render(mut self, context: &mut FrameContext, state: &mut Self::State) -> UIResult<Self::Output> {
+    fn render(
+        mut self,
+        context: &mut FrameContext,
+        state: &mut Self::State,
+    ) -> UIResult<Self::Output> {
         self.process_inputs(context, state)?;
 
-        let services = &self.system_state
+        let services = &self
+            .system_state
             .current_profile
             .as_ref()
             .ok_or(UIError::IllegalState {
@@ -227,20 +244,17 @@ impl<'a> StatefulComponent for ServiceList<'a> {
             .max()
             .unwrap_or(0);
 
-        let idle_color = context.req_attr::<Color>(ATTR_COLOR_WORK_IDLE)?.clone();
-        let inactive_color = context.req_attr::<Color>(ATTR_COLOR_WORK_INACTIVE)?.clone();
-        let active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ACTIVE)?.clone();
-        let partially_active_color = context.req_attr::<Color>(ATTR_COLOR_WORK_PARTIALLY_ACTIVE)?.clone();
-        let processing_color = context
-            .req_attr::<Color>(ATTR_COLOR_WORK_PROCESSING)?
-            .clone();
-        let waiting_color = context
-            .req_attr::<Color>(ATTR_COLOR_WORK_WAITING_TO_PROCESS)?
-            .clone();
-        let error_color = context.req_attr::<Color>(ATTR_COLOR_WORK_ERROR)?.clone();
+        let idle_color = *context.req_attr::<Color>(ATTR_COLOR_WORK_IDLE)?;
+        let inactive_color = *context.req_attr::<Color>(ATTR_COLOR_WORK_INACTIVE)?;
+        let active_color = *context.req_attr::<Color>(ATTR_COLOR_WORK_ACTIVE)?;
+        let partially_active_color =
+            *context.req_attr::<Color>(ATTR_COLOR_WORK_PARTIALLY_ACTIVE)?;
+        let processing_color = *context.req_attr::<Color>(ATTR_COLOR_WORK_PROCESSING)?;
+        let waiting_color = *context.req_attr::<Color>(ATTR_COLOR_WORK_WAITING_TO_PROCESS)?;
+        let error_color = *context.req_attr::<Color>(ATTR_COLOR_WORK_ERROR)?;
 
         context.render_component(RenderArgs::new(
-            List::new(&"view-profile-service-list-list", services, |service, _| {
+            List::new("view-profile-service-list-list", services, |service, _| {
                 let block_statuses: HashMap<String, BlockUIStatus> = service
                     .definition
                     .blocks
@@ -275,7 +289,7 @@ impl<'a> StatefulComponent for ServiceList<'a> {
                 let mut flow = Flow::new().dir(Dir::LeftRight);
 
                 flow = flow.element(
-                    Text::new(&service.definition.id.inner().to_owned())
+                    Text::new(service.definition.id.inner().to_owned())
                         .with_measurement(longest_name as u16, 1u16),
                     FlowableArgs { fill: true },
                 );
@@ -321,36 +335,37 @@ impl<'a> StatefulComponent for ServiceList<'a> {
                         FlowableArgs { fill: false },
                     );
                 } else {
-                    let has_automation_errors = service.automations
+                    let has_automation_errors = service
+                        .automations
                         .iter()
                         .any(|automation| matches!(automation.status, AutomationStatus::Error));
-                    let has_active_automations = service.automations
+                    let has_active_automations = service
+                        .automations
                         .iter()
                         .any(|automation| matches!(automation.status, AutomationStatus::Active));
-                    let has_disabled_automations = service.automations
+                    let has_disabled_automations = service
+                        .automations
                         .iter()
                         .any(|automation| matches!(automation.status, AutomationStatus::Disabled));
-                    let has_triggered_automations = service.automations
+                    let has_triggered_automations = service
+                        .automations
                         .iter()
                         .any(|automation| automation.last_triggered.is_some());
 
                     flow = flow.element(
-                        Text::new("A")
-                            .fg(
-                                if !service.automation_enabled {
-                                    inactive_color
-                                } else if has_triggered_automations {
-                                    processing_color
-                                } else if has_automation_errors {
-                                    error_color
-                                } else if has_active_automations && has_disabled_automations {
-                                    partially_active_color
-                                } else if has_active_automations {
-                                    active_color
-                                } else {
-                                    inactive_color
-                                }
-                            ),
+                        Text::new("A").fg(if !service.automation_enabled {
+                            inactive_color
+                        } else if has_triggered_automations {
+                            processing_color
+                        } else if has_automation_errors {
+                            error_color
+                        } else if has_active_automations && has_disabled_automations {
+                            partially_active_color
+                        } else if has_active_automations {
+                            active_color
+                        } else {
+                            inactive_color
+                        }),
                         FlowableArgs { fill: false },
                     );
                 }
@@ -372,7 +387,8 @@ impl<'a> StatefulComponent for ServiceList<'a> {
 
 impl<'a> MeasurableComponent for ServiceList<'a> {
     fn measure(&self, _context: &FrameContext) -> UIResult<Size> {
-        let services = &self.system_state
+        let services = &self
+            .system_state
             .current_profile
             .as_ref()
             .ok_or(UIError::IllegalState {

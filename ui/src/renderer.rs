@@ -1,14 +1,14 @@
 use crate::component::{
-    Component, Text, ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN,
-    ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_UP, ATTR_KEY_SELECT,
+    ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_RIGHT,
+    ATTR_KEY_NAV_UP, ATTR_KEY_SELECT, Component, Text,
 };
 use crate::frame_ctx::{FrameContext, RenderArgs};
 use crate::input::KeyMatcher;
 use crate::{SignalHandling, Signals, UIError, UIResult};
 use crossterm::event::KeyCode;
+use ratatui::Terminal;
 use ratatui::backend::Backend;
 use ratatui::style::Color;
-use ratatui::Terminal;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
