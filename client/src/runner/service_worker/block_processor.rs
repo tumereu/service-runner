@@ -372,6 +372,10 @@ impl BlockProcessor for ServiceBlockContext {
 
                                 if stored.as_deref() == Some(current_fingerprint.as_str()) {
                                     // Fingerprints match — sources unchanged, skip work
+                                    self.add_system_output(format!(
+                                        "Fingerprint unchanged ({}), skipping work",
+                                        &current_fingerprint
+                                    ));
                                     self.update_status(BlockStatus::Ok { was_worked: false });
                                 } else {
                                     // Fingerprints differ — need to perform work
@@ -541,6 +545,7 @@ impl BlockProcessor for ServiceBlockContext {
                     RequirementCheckResult::AllOk => {
                         if let Some(fp) = &new_fingerprint {
                             self.store_fingerprint(fp);
+                            self.add_system_output(format!("Stored new fingerprint ({})", fp));
                         }
                         self.update_status(BlockStatus::Ok { was_worked: true })
                     }
