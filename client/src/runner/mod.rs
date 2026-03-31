@@ -1,6 +1,7 @@
 extern crate core;
 
 pub mod file_watcher;
+pub mod fingerprint_checker;
 pub mod scripting;
 pub mod service_worker;
 

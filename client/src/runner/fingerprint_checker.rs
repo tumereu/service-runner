@@ -72,7 +72,7 @@ impl FingerprintChecker {
             }
         }
 
-        Ok(format!("{:x}", ctx.compute()))
+        Ok(format!("{:x}", ctx.finalize()))
     }
 
     fn hash_path(
@@ -115,7 +115,8 @@ impl FingerprintChecker {
             .exclude
             .iter()
             .map(|pat| {
-                Regex::new(pat).map_err(|e| FingerprintError::InvalidExcludePattern(e.to_string()))
+                Regex::new(pat)
+                    .map_err(|e| FingerprintError::InvalidExcludePattern(e.to_string()))
             })
             .collect()
     }

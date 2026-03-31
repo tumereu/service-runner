@@ -128,14 +128,19 @@ pub enum WorkStep {
         start_time: Instant,
         checks_completed: usize,
     },
+    PreWorkFingerprintCheck,
     PerformWork {
         current_step_started: Instant,
         steps_completed: usize,
+        /// The fingerprint calculated before performing work, to be stored after success.
+        new_fingerprint: Option<String>,
     },
     PostWorkHealthCheck {
         start_time: Instant,
         checks_completed: usize,
         last_failure: Option<Instant>,
+        /// The fingerprint calculated before performing work, to be stored after success.
+        new_fingerprint: Option<String>,
     },
 }
 impl WorkStep {

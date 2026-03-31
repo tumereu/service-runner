@@ -10,6 +10,7 @@ pub struct SystemState {
     pub current_profile: Option<Profile>,
     pub output_store: OutputStore,
     pub config: Config,
+    pub resolved_data_dir: String,
     pub should_exit: bool,
     pub active_threads: Vec<(String, JoinHandle<()>)>,
     concurrent_operations: HashMap<ConcurrentOperationKey, ConcurrentOperationHandle>,
@@ -36,7 +37,7 @@ pub enum OperationType {
 }
 
 impl SystemState {
-    pub fn new(config: Config) -> SystemState {
+    pub fn new(config: Config, resolved_data_dir: String) -> SystemState {
         SystemState {
             should_exit: false,
             current_profile: None,
@@ -44,6 +45,7 @@ impl SystemState {
             active_threads: Vec::new(),
             concurrent_operations: HashMap::new(),
             config,
+            resolved_data_dir,
         }
     }
 

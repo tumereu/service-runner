@@ -1,8 +1,9 @@
-use log::{error, info};
+use log::{error, info, warn};
 use std::time::{Duration, Instant};
 
-use crate::config::WorkDefinition;
+use crate::config::{Fingerprint, WorkDefinition};
 use crate::models::{BlockAction, BlockStatus, WorkStep};
+use crate::runner::fingerprint_checker::FingerprintChecker;
 use crate::runner::service_worker::ConcurrentOperationStatus;
 use crate::runner::service_worker::create_cmd::create_cmd;
 use crate::runner::service_worker::requirement_checker::{
@@ -236,6 +237,7 @@ impl BlockProcessor for ServiceBlockContext {
                             WorkStep::PerformWork {
                                 current_step_started: Instant::now(),
                                 steps_completed: 0,
+                                new_fingerprint: None,
                             }
                         },
                     });
@@ -322,8 +324,10 @@ impl BlockProcessor for ServiceBlockContext {
                         // Do nothing intentionally, we're still processing
                     }
                     RequirementCheckResult::AllOk => {
-                        // The block is healthy, we can move to OK status
-                        self.update_status(BlockStatus::Ok { was_worked: false });
+                        // The block is healthy pre-work; check fingerprint before skipping work
+                        self.update_status(BlockStatus::Working {
+                            step: WorkStep::PreWorkFingerprintCheck,
+                        });
                     }
                     RequirementCheckResult::CurrentCheckOk => {
                         // One check completed, move to check the next one
@@ -341,8 +345,64 @@ impl BlockProcessor for ServiceBlockContext {
                             step: WorkStep::PerformWork {
                                 current_step_started: Instant::now(),
                                 steps_completed: 0,
+                                new_fingerprint: None,
                             },
                         });
+                    }
+                }
+            }
+
+            WorkStep::PreWorkFingerprintCheck => {
+                let fingerprint_def: Option<Fingerprint> =
+                    self.query_block(|block| block.fingerprint.clone());
+
+                match fingerprint_def {
+                    None => {
+                        // No fingerprint defined — treat as matching (skip work)
+                        self.update_status(BlockStatus::Ok { was_worked: false });
+                    }
+                    Some(fingerprint) => {
+                        let workdir =
+                            self.query_service(|service| service.definition.workdir.clone());
+                        let checker = FingerprintChecker::new(fingerprint, workdir);
+
+                        match checker.calculate_checksum() {
+                            Ok(current_fingerprint) => {
+                                let stored = self.get_stored_fingerprint();
+
+                                if stored.as_deref() == Some(current_fingerprint.as_str()) {
+                                    // Fingerprints match — sources unchanged, skip work
+                                    self.update_status(BlockStatus::Ok { was_worked: false });
+                                } else {
+                                    // Fingerprints differ — need to perform work
+                                    self.add_system_output(format!(
+                                        "Fingerprint changed (stored={}, current={}), performing work",
+                                        stored.as_deref().unwrap_or("none"),
+                                        &current_fingerprint
+                                    ));
+                                    self.update_status(BlockStatus::Working {
+                                        step: WorkStep::PerformWork {
+                                            current_step_started: Instant::now(),
+                                            steps_completed: 0,
+                                            new_fingerprint: Some(current_fingerprint),
+                                        },
+                                    });
+                                }
+                            }
+                            Err(err) => {
+                                warn!("Fingerprint calculation failed: {err}, performing work");
+                                self.add_system_output(format!(
+                                    "Fingerprint calculation failed: {err}, performing work"
+                                ));
+                                self.update_status(BlockStatus::Working {
+                                    step: WorkStep::PerformWork {
+                                        current_step_started: Instant::now(),
+                                        steps_completed: 0,
+                                        new_fingerprint: None,
+                                    },
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -350,6 +410,7 @@ impl BlockProcessor for ServiceBlockContext {
             WorkStep::PerformWork {
                 steps_completed,
                 current_step_started: step_started,
+                new_fingerprint,
             } => {
                 match self.query_block(|block| block.work.clone()) {
                     WorkDefinition::CommandSeq {
@@ -381,6 +442,7 @@ impl BlockProcessor for ServiceBlockContext {
                                     step: WorkStep::PerformWork {
                                         current_step_started: Instant::now(),
                                         steps_completed: steps_completed + 1,
+                                        new_fingerprint,
                                     },
                                 })
                             }
@@ -390,6 +452,7 @@ impl BlockProcessor for ServiceBlockContext {
                                         start_time: Instant::now(),
                                         checks_completed: 0,
                                         last_failure: None,
+                                        new_fingerprint,
                                     },
                                 })
                             }
@@ -417,6 +480,7 @@ impl BlockProcessor for ServiceBlockContext {
                                                 start_time: Instant::now(),
                                                 checks_completed: 0,
                                                 last_failure: None,
+                                                new_fingerprint: new_fingerprint.clone(),
                                             },
                                         })
                                     }
@@ -445,6 +509,7 @@ impl BlockProcessor for ServiceBlockContext {
                 start_time,
                 checks_completed,
                 last_failure,
+                new_fingerprint,
             } => {
                 let context = self.create_work_context(OperationType::Check, false);
                 let result = RequirementChecker {
@@ -474,6 +539,9 @@ impl BlockProcessor for ServiceBlockContext {
                     // If there are no more (or at all) requirements to check, then we can finally consider the
                     // block healthy
                     RequirementCheckResult::AllOk => {
+                        if let Some(fp) = &new_fingerprint {
+                            self.store_fingerprint(fp);
+                        }
                         self.update_status(BlockStatus::Ok { was_worked: true })
                     }
                     RequirementCheckResult::Timeout => self.update_status(BlockStatus::Error),
@@ -483,6 +551,7 @@ impl BlockProcessor for ServiceBlockContext {
                                 start_time,
                                 last_failure,
                                 checks_completed: checks_completed + 1,
+                                new_fingerprint,
                             },
                         });
                     }
@@ -492,6 +561,7 @@ impl BlockProcessor for ServiceBlockContext {
                                 start_time,
                                 checks_completed: 0,
                                 last_failure: Some(Instant::now()),
+                                new_fingerprint,
                             },
                         });
                     }

@@ -92,7 +92,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let system_state = Arc::new(RwLock::new(SystemState::new(config)));
+    let system_state = Arc::new(RwLock::new(SystemState::new(
+        config,
+        resolved_data_dir.to_string_lossy().into_owned(),
+    )));
     let num_profiles = system_state.read().unwrap().config.profiles.len();
     let num_services = system_state.read().unwrap().config.services.len();
 

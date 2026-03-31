@@ -6,9 +6,10 @@ use crate::runner::service_worker::{
     ConcurrentOperationHandle, ConcurrentOperationStatus, ProcessWrapper, WorkResult, WorkWrapper,
 };
 use crate::system_state::{ConcurrentOperationKey, OperationType, SystemState};
-use log::{debug, error};
+use log::{debug, error, warn};
 use rhai::plugin::RhaiResult;
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::process::Child;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
@@ -186,6 +187,38 @@ impl ServiceBlockContext {
             },
             output,
         );
+    }
+
+    fn fingerprint_path(&self) -> PathBuf {
+        let data_dir = self.query_state(|state| state.resolved_data_dir.clone());
+        PathBuf::from(data_dir).join(format!(
+            "{}.{}.fingerprint.md5",
+            self.service_id, self.block_id
+        ))
+    }
+
+    pub fn get_stored_fingerprint(&self) -> Option<String> {
+        let path = self.fingerprint_path();
+        match std::fs::read_to_string(&path) {
+            Ok(content) => {
+                let trimmed = content.trim().to_owned();
+                // Validate it looks like a hex-encoded MD5 (32 hex chars)
+                if trimmed.len() == 32 && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+                    Some(trimmed)
+                } else {
+                    warn!("Stored fingerprint at '{}' has invalid format, ignoring", path.display());
+                    None
+                }
+            }
+            Err(_) => None,
+        }
+    }
+
+    pub fn store_fingerprint(&self, fingerprint: &str) {
+        let path = self.fingerprint_path();
+        if let Err(e) = std::fs::write(&path, fingerprint) {
+            error!("Failed to write fingerprint to '{}': {e}", path.display());
+        }
     }
 
     pub fn register_external_process(&self, handle: Child, operation_type: OperationType) {
