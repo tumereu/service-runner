@@ -2,30 +2,30 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use std::{env, error::Error, io::stdout, process, thread, time::Duration};
 
+use ::ui::input::collect_input_events;
+use ::ui::{ComponentRenderer, UIResult};
 use config::read_config;
 use crossterm::{
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use log::{debug, error, info, LevelFilter};
-use ratatui::{backend::CrosstermBackend, Terminal};
-use ::ui::input::collect_input_events;
-use ::ui::{ComponentRenderer, UIResult};
+use log::{LevelFilter, debug, error, info};
+use ratatui::{Terminal, backend::CrosstermBackend};
 
 use crate::runner::file_watcher::FileWatcher;
-use runner::scripting::executor::ScriptExecutor;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
+use crate::ui::ViewRoot;
 use crate::ui::inputs::RegisterKeybinds;
 use crate::ui::theming::RegisterTheme;
-use crate::ui::ViewRoot;
+use runner::scripting::executor::ScriptExecutor;
 
-mod system_state;
-mod ui;
+pub mod config;
 mod models;
 mod runner;
+mod system_state;
+mod ui;
 mod utils;
-pub mod config;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let config_dir: String = env::args()
@@ -40,22 +40,69 @@ fn main() -> Result<(), Box<dyn Error>> {
         process::exit(1);
     }
     let config = config?;
-    
+
     simple_logging::log_to_file(
-        config.settings.log_file.clone().unwrap_or("service_runner.log".to_string()),
+        config
+            .settings
+            .log_file
+            .clone()
+            .unwrap_or("service_runner.log".to_string()),
         LevelFilter::Debug,
     )?;
+
+    let resolved_data_dir = {
+        use std::path::Path;
+        let raw = config.settings.data_dir.as_deref().unwrap();
+        let raw_path = Path::new(raw);
+        if raw_path.is_absolute() {
+            raw_path.to_path_buf()
+        } else {
+            Path::new(&config_dir).join(raw_path)
+        }
+    };
+    info!("Resolved data directory as {resolved_data_dir:?}");
+
+    {
+        if !resolved_data_dir.exists() {
+            println!(
+                "Error: data directory '{}' does not exist",
+                resolved_data_dir.display()
+            );
+            process::exit(1);
+        }
+        if !resolved_data_dir.is_dir() {
+            println!(
+                "Error: data directory path '{}' is not a directory",
+                resolved_data_dir.display()
+            );
+            process::exit(1);
+        }
+        let test_file = resolved_data_dir.join(".service_runner_write_test");
+        match std::fs::write(&test_file, b"") {
+            Ok(_) => {
+                let _ = std::fs::remove_file(&test_file);
+            }
+            Err(_) => {
+                println!(
+                    "Error: data directory '{}' is not writeable",
+                    resolved_data_dir.display()
+                );
+                process::exit(1);
+            }
+        }
+    }
 
     let system_state = Arc::new(RwLock::new(SystemState::new(config)));
     let num_profiles = system_state.read().unwrap().config.profiles.len();
     let num_services = system_state.read().unwrap().config.services.len();
 
-    info!(
-        "Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)"
-    );
+    info!("Loaded configuration with {num_profiles} profile(s) and {num_services} service(s)");
 
     let rhai_executor = Arc::new(ScriptExecutor::new(system_state.clone()));
-    let service_worker = Arc::new(ServiceWorker::new(system_state.clone(), rhai_executor.clone()));
+    let service_worker = Arc::new(ServiceWorker::new(
+        system_state.clone(),
+        rhai_executor.clone(),
+    ));
     let file_watcher = Arc::new(FileWatcher::new(system_state.clone()));
 
     let mut handles = vec![
@@ -64,7 +111,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         ("service-worker".into(), service_worker.start()),
     ];
 
-    system_state.write().unwrap().active_threads.append(&mut handles);
+    system_state
+        .write()
+        .unwrap()
+        .active_threads
+        .append(&mut handles);
 
     let join_threads = {
         let state_arc = system_state.clone();
@@ -78,7 +129,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                         break;
                     }
 
-                    state.active_threads.retain(|(_, thread)| !thread.is_finished());
+                    state
+                        .active_threads
+                        .retain(|(_, thread)| !thread.is_finished());
 
                     let print_delay = if state.should_exit {
                         Duration::from_millis(1000)
@@ -94,7 +147,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                         };
 
                         let thread_count = state.active_threads.len();
-                        let threads = state.active_threads.iter()
+                        let threads = state
+                            .active_threads
+                            .iter()
                             .map(|(name, _)| name.clone())
                             .collect::<Vec<String>>()
                             .join(", ");
@@ -114,16 +169,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         info!("Checking for autolaunched profile");
         let mut system = system_state.write().unwrap();
 
-        let autolaunch_profile = if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
-            let selection = system.config.profiles.iter()
-                .find(|profile| &profile.id == autolaunch_profile)
-                .expect(&format!("Autolaunch profile with name '{}' not found", autolaunch_profile))
-                .id.clone();
+        let autolaunch_profile =
+            if let Some(autolaunch_profile) = &system.config.settings.autolaunch_profile {
+                let selection = system
+                    .config
+                    .profiles
+                    .iter()
+                    .find(|profile| &profile.id == autolaunch_profile)
+                    .expect(&format!(
+                        "Autolaunch profile with name '{}' not found",
+                        autolaunch_profile
+                    ))
+                    .id
+                    .clone();
 
-            Some(selection)
-        } else {
-            None
-        };
+                Some(selection)
+            } else {
+                None
+            };
 
         if let Some(selection) = autolaunch_profile {
             info!("Autolaunching profile: {}", selection);
@@ -177,16 +240,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match join_threads.join() {
         Ok(_) => info!("Threads joined successfully"),
-        Err(error) => error!("Error when joining threads: {error:?}")
+        Err(error) => error!("Error when joining threads: {error:?}"),
     }
 
     // Clear terminal and restore normal mode
     terminal.clear()?;
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
     terminal.show_cursor()?;
 
     // If there were errors with the UI, panic at the very end after cleaning up the terminal

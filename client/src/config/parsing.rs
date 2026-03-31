@@ -88,6 +88,13 @@ pub fn read_config(dir: &str) -> Result<Config, ConfigurationError> {
 
     let settings: Settings = raw_settings.into();
 
+    if settings.data_dir.is_none() {
+        Err(ConfigurationError {
+            filename: None,
+            msg: "No data_dir specified in settings. Set data_dir to a writable directory path for persisting application state.".to_string(),
+        })?;
+    }
+
     let duplicate_service_ids: Vec<String> = services
         .iter()
         .chunk_by(|service| &service.id)

@@ -1,6 +1,7 @@
 - Action queue for blocks to allow ex. toggle + run, also possibility to clear action queue from Rhai
-- "Fingerprint" functionality to detect changes while not running 
+- "Fingerprint" functionality to detect changes while not running. 
 - star-paths for file watcher?
+- hidden automations that are always on, to manage ex. run-after-build. Possibly as two separate boolean flags.
 - Task keybinds
 - Output errors in prereq checks even if otherwise silent
 - Combine resource group and prereq checks?

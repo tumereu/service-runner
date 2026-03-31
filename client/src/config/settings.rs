@@ -11,6 +11,8 @@ pub struct Settings {
     pub theme: Theme,
     pub keybinds: Keybinds,
     pub log_file: Option<String>,
+    /// Directory for persisting application state across runs.
+    pub data_dir: Option<String>,
 }
 impl From<Vec<PartialSettings>> for Settings {
     fn from(mut value: Vec<PartialSettings>) -> Self {
@@ -33,6 +35,9 @@ pub struct PartialSettings {
     /// File path for writing the logs of the runner application itself.
     #[serde(default)]
     pub log_file: Option<String>,
+    /// Directory for persisting application state across runs.
+    #[serde(default)]
+    pub data_dir: Option<String>,
     #[serde(default)]
     pub theme: PartialTheme,
     #[serde(default)]
@@ -47,6 +52,9 @@ impl PartialSettings {
         }
         if let Some(log_file) = self.log_file {
             settings.log_file = Some(log_file);
+        }
+        if let Some(data_dir) = self.data_dir {
+            settings.data_dir = Some(data_dir);
         }
     }
 }

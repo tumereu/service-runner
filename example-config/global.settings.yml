@@ -1,5 +1,6 @@
 autolaunch_profile: example
 load_order: 0
+data_dir: .data
 keybinds:
   block_actions:
     - action: rerun
