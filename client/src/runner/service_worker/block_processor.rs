@@ -9,7 +9,6 @@ use crate::runner::service_worker::requirement_checker::{
     RequirementCheckResult, RequirementChecker,
 };
 use crate::runner::service_worker::service_block_context::ServiceBlockContext;
-use crate::runner::service_worker::work_context::WorkContext;
 use crate::runner::service_worker::work_sequence_executor::{
     WorkExecutionResult, WorkSequenceExecutor,
 };

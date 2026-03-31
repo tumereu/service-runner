@@ -39,6 +39,16 @@ pub struct Block {
     #[serde(flatten)]
     pub work: WorkDefinition,
     pub resource_group: Option<String>,
+    pub fingerprint: Option<Fingerprint>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Fingerprint {
+    /// Glob expressions for files to include in the checksum.
+    pub paths: Vec<String>,
+    /// Regex expressions for file paths to exclude from the checksum.
+    #[serde(default)]
+    pub exclude: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Display, Hash, PartialEq, Eq, PartialOrd, Ord)]

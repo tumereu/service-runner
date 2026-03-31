@@ -19,6 +19,12 @@ blocks:
         - type: file
           paths:
             - build/build-artifact.example
+    fingerprint:
+      paths:
+        - "mock-src/*"
+      exclude:
+        - "ignore"
+        - "exclude"
   - id: run
     type: process
     command:

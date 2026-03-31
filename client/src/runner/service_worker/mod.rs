@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 mod block_processor;
 mod concurrent_operation;
 mod create_cmd;
+pub mod fingerprint_checker;
 mod requirement_checker;
 mod service_block_context;
 mod task_context;
