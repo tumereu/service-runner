@@ -1,5 +1,4 @@
 - Action queue for blocks to allow ex. toggle + run, also possibility to clear action queue from Rhai
-- "Fingerprint" functionality to detect changes while not running. 
 - star-paths for file watcher?
 - hidden automations that are always on, to manage ex. run-after-build. Possibly as two separate boolean flags.
 - Task keybinds
@@ -7,7 +6,6 @@
 - Combine resource group and prereq checks?
 - Wrapping output pane should split a word if its too long to display on one line?
 - Multiple settings files, with load order to allow rebinding keys and changing theme
-- Typed attribute-keys for renderer
 - Run any task for a service dropdown
 - Run any task from all available modal dialog for profile
 - Output pane behaviour when deleting lines after reaching limit -- is scroll pos retained properly?
@@ -16,11 +14,9 @@
 - Switch profile during runtime
 - Fine grained output control: toggleable output types for output window
 - Fullscreen output
-- Search in output
 - Support services that are run and then detach, i.e. have a separate stop command?
 - Parameterizable wait times for kill-signals for processes
 - categorize services
-- git checkout window
 - input configs
 - load .env file from directory?
 - Parameterize service & block settings in profile

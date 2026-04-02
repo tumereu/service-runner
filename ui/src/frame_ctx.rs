@@ -1,3 +1,4 @@
+use crate::attr_key::AttrKey;
 use crate::component::{Component, MeasurableComponent};
 use crate::signals::Signals;
 use crate::space::Position;
@@ -115,14 +116,14 @@ impl<'a, 'b, 'c> FrameContext<'a, 'b, 'c> {
         &self.signals
     }
 
-    pub fn get_attr<T>(&self, key: &str) -> Option<&T>
+    pub fn get_attr<T>(&self, key: AttrKey<T>) -> Option<&T>
     where
         T: Any + 'static,
     {
         self.renderer.get_attr(key)
     }
 
-    pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T>
+    pub fn req_attr<T>(&self, attr: AttrKey<T>) -> UIResult<&T>
     where
         T: Any + 'static,
     {

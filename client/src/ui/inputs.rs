@@ -1,7 +1,7 @@
 use crate::config::Keybinding;
 use crate::config::Keybinds;
 use crate::config::ResolvedBlockActionBinding;
-use ui::ComponentRenderer;
+use ui::{AttrKey, ComponentRenderer};
 use ui::component::{
     ATTR_KEY_CANCEL, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_DOWN_LARGE, ATTR_KEY_NAV_LEFT,
     ATTR_KEY_NAV_LEFT_LARGE, ATTR_KEY_NAV_RIGHT, ATTR_KEY_NAV_RIGHT_LARGE, ATTR_KEY_NAV_TO_END,
@@ -83,27 +83,27 @@ impl RegisterKeybinds for ComponentRenderer {
 }
 
 trait BindKey {
-    fn bind_key(&self, attr: &str, target: &mut ComponentRenderer);
+    fn bind_key(&self, attr: AttrKey<Vec<KeyMatcher>>, target: &mut ComponentRenderer);
 }
 impl BindKey for Keybinding {
-    fn bind_key(&self, attr: &str, target: &mut ComponentRenderer) {
+    fn bind_key(&self, attr: AttrKey<Vec<KeyMatcher>>, target: &mut ComponentRenderer) {
         let result: Vec<KeyMatcher> = self.matchers().iter().cloned().collect();
         target.set_attr(attr, result);
     }
 }
 
-pub const ATTR_KEY_QUIT: &str = "keybinds.system.quit";
+pub const ATTR_KEY_QUIT: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.system.quit");
 
-pub const ATTR_KEY_FOCUS_NEXT: &str = "keybinds.common.focus_next";
-pub const ATTR_KEY_FOCUS_PREV: &str = "keybinds.common.focus_prev";
+pub const ATTR_KEY_FOCUS_NEXT: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.focus_next");
+pub const ATTR_KEY_FOCUS_PREV: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.focus_prev");
 
-pub const ATTR_KEY_TOGGLE_WRAP: &str = "keybinds.text_area.toggle_wrap";
+pub const ATTR_KEY_TOGGLE_WRAP: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.text_area.toggle_wrap");
 
-pub const ATTR_KEY_TOGGLE_SELECTED_OUTPUT: &str = "keybinds.services.toggle_selected_output";
-pub const ATTR_KEY_TOGGLE_ALL_OUTPUT: &str = "keybinds.services.toggle_all_output";
+pub const ATTR_KEY_TOGGLE_SELECTED_OUTPUT: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.services.toggle_selected_output");
+pub const ATTR_KEY_TOGGLE_ALL_OUTPUT: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.services.toggle_all_output");
 
-pub const ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS: &str =
-    "keybinds.services.toggle_selected_automation";
-pub const ATTR_KEY_TOGGLE_ALL_AUTOMATIONS: &str = "keybinds.services.toggle_all_automation";
+pub const ATTR_KEY_TOGGLE_SELECTED_AUTOMATIONS: AttrKey<Vec<KeyMatcher>> =
+    AttrKey::new("keybinds.services.toggle_selected_automation");
+pub const ATTR_KEY_TOGGLE_ALL_AUTOMATIONS: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.services.toggle_all_automation");
 
-pub const ATTR_KEY_BLOCK_ACTIONS: &str = "keymappings.service_list.block_actions";
+pub const ATTR_KEY_BLOCK_ACTIONS: AttrKey<Vec<ResolvedBlockActionBinding>> = AttrKey::new("keymappings.service_list.block_actions");

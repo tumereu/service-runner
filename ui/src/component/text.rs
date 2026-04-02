@@ -1,4 +1,5 @@
 use crate::UIResult;
+use crate::attr_key::AttrKey;
 use crate::component::{Component, MeasurableComponent};
 use crate::frame_ctx::FrameContext;
 use ratatui::layout::Size;
@@ -13,7 +14,7 @@ pub struct Text {
     pub bg: Option<Color>,
 }
 impl Text {
-    pub const ATTR_COLOR_FG: &'static str = "colors.Text.fg";
+    pub const ATTR_COLOR_FG: AttrKey<Color> = AttrKey::new("colors.Text.fg");
 
     pub fn new<S: Into<String>>(text: S) -> Self {
         Self {
@@ -43,7 +44,7 @@ impl Component for Text {
     fn render(self, context: &mut FrameContext) -> UIResult<Self::Output> {
         let mut style = Style::default().fg(self
             .fg
-            .unwrap_or(context.req_attr::<Color>(Self::ATTR_COLOR_FG)?.clone()));
+            .unwrap_or(context.req_attr(Self::ATTR_COLOR_FG)?.clone()));
 
         if let Some(bg) = self.bg {
             style = style.bg(bg);

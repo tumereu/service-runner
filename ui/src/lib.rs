@@ -3,6 +3,7 @@
 // This is a plain library file for the `ui` crate.
 // Add public API here when needed.
 
+pub mod attr_key;
 pub mod component;
 pub mod input;
 pub mod space;
@@ -12,6 +13,7 @@ mod renderer;
 mod signals;
 mod state_store;
 
+pub use attr_key::*;
 pub use frame_ctx::*;
 pub use renderer::*;
 pub use signals::*;

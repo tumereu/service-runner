@@ -1,3 +1,4 @@
+use crate::attr_key::AttrKey;
 use crate::component::{
     ATTR_COLOR_HIGHLIGHT, ATTR_KEY_NAV_DOWN, ATTR_KEY_NAV_LEFT, ATTR_KEY_NAV_RIGHT,
     ATTR_KEY_NAV_UP, ATTR_KEY_SELECT, Component, Text,
@@ -116,29 +117,29 @@ impl ComponentRenderer {
         )
     }
 
-    pub fn set_attr<T>(&mut self, key: &str, value: T)
+    pub fn set_attr<T>(&mut self, key: AttrKey<T>, value: T)
     where
         T: Any + 'static,
     {
-        self.attributes.insert(key.to_string(), Box::new(value));
+        self.attributes.insert(key.key.to_string(), Box::new(value));
     }
 
-    pub fn get_attr<T>(&self, key: &str) -> Option<&T>
+    pub fn get_attr<T>(&self, key: AttrKey<T>) -> Option<&T>
     where
         T: Any + 'static,
     {
-        self.attributes.get(key).and_then(|v| v.downcast_ref::<T>())
+        self.attributes.get(key.key).and_then(|v| v.downcast_ref::<T>())
     }
 
-    pub fn req_attr<T>(&self, attr: &str) -> UIResult<&T>
+    pub fn req_attr<T>(&self, attr: AttrKey<T>) -> UIResult<&T>
     where
         T: Any + 'static,
     {
         self.attributes
-            .get(attr)
+            .get(attr.key)
             .and_then(|v| v.downcast_ref::<T>())
             .ok_or(UIError::MissingAttr {
-                attr: attr.to_string(),
+                attr: attr.key.to_string(),
             })
     }
 

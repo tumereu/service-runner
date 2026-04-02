@@ -17,8 +17,11 @@ pub use spinner::*;
 pub use text::*;
 
 use crate::UIResult;
+use crate::attr_key::AttrKey;
 use crate::frame_ctx::FrameContext;
+use crate::input::KeyMatcher;
 use ratatui::layout::Size;
+use ratatui::style::Color;
 
 pub trait Component {
     type Output;
@@ -53,20 +56,20 @@ pub trait MeasurableComponent: Component {
     fn measure(&self, context: &FrameContext) -> UIResult<Size>;
 }
 
-pub const ATTR_KEY_NAV_DOWN: &'static str = "keybinds.common.nav_down";
-pub const ATTR_KEY_NAV_UP: &'static str = "keybinds.common.nav_up";
-pub const ATTR_KEY_NAV_LEFT: &'static str = "keybinds.common.nav_left";
-pub const ATTR_KEY_NAV_RIGHT: &'static str = "keybinds.common.nav_right";
+pub const ATTR_KEY_NAV_DOWN: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_down");
+pub const ATTR_KEY_NAV_UP: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_up");
+pub const ATTR_KEY_NAV_LEFT: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_left");
+pub const ATTR_KEY_NAV_RIGHT: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_right");
 
-pub const ATTR_KEY_NAV_DOWN_LARGE: &'static str = "keybinds.common.nav_down_large";
-pub const ATTR_KEY_NAV_UP_LARGE: &'static str = "keybinds.common.nav_up_large";
-pub const ATTR_KEY_NAV_LEFT_LARGE: &'static str = "keybinds.common.nav_left_large";
-pub const ATTR_KEY_NAV_RIGHT_LARGE: &'static str = "keybinds.common.nav_right_large";
+pub const ATTR_KEY_NAV_DOWN_LARGE: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_down_large");
+pub const ATTR_KEY_NAV_UP_LARGE: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_up_large");
+pub const ATTR_KEY_NAV_LEFT_LARGE: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_left_large");
+pub const ATTR_KEY_NAV_RIGHT_LARGE: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_right_large");
 
-pub const ATTR_KEY_NAV_TO_START: &'static str = "keybinds.common.nav_to_start";
-pub const ATTR_KEY_NAV_TO_END: &'static str = "keybinds.common.nav_to_end";
+pub const ATTR_KEY_NAV_TO_START: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_to_start");
+pub const ATTR_KEY_NAV_TO_END: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.nav_to_end");
 
-pub const ATTR_KEY_CANCEL: &'static str = "keybinds.common.cancel";
-pub const ATTR_KEY_SELECT: &'static str = "keybinds.common.select";
+pub const ATTR_KEY_CANCEL: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.cancel");
+pub const ATTR_KEY_SELECT: AttrKey<Vec<KeyMatcher>> = AttrKey::new("keybinds.common.select");
 
-pub const ATTR_COLOR_HIGHLIGHT: &'static str = "colors.common.highlight";
+pub const ATTR_COLOR_HIGHLIGHT: AttrKey<Color> = AttrKey::new("colors.common.highlight");
