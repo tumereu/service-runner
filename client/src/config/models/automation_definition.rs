@@ -37,5 +37,9 @@ pub enum AutomationAction {
 #[serde(untagged, deny_unknown_fields)]
 pub enum AutomationTrigger {
     RhaiQuery { becomes_true: String },
-    FileModified { file_modified: String },
+    FileModified {
+        /// Glob expression of a file path/folder(s) that should be watched using file system change
+        /// events.
+        file_modified: String
+    },
 }

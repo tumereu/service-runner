@@ -1,5 +1,4 @@
 - Action queue for blocks to allow ex. toggle + run, also possibility to clear action queue from Rhai
-- star-paths for file watcher?
 - hidden automations that are always on, to manage ex. run-after-build. Possibly as two separate boolean flags.
 - Task keybinds
 - Output errors in prereq checks even if otherwise silent

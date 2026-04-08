@@ -157,10 +157,9 @@ impl FileWatcher {
                 })
                 .unwrap_or_default();
 
-            // Resolve the paths to watch for this automation. Note that this may not necessarily even yield any
-            // results, the profile could've changed asynchronously or the automation may not defined any paths to
-            // watch.
-            let watch_paths: Vec<PathBuf> = system_state
+            // Resolve the glob patterns for this automation. Note that this may not necessarily even yield any
+            // results, the profile could've been incorrectly defined.
+            let glob_patterns: Vec<String> = system_state
                 .read()
                 .unwrap()
                 .query_automation(automation_id, &service_id, |automation| {
@@ -169,14 +168,48 @@ impl FileWatcher {
                         .iter()
                         .filter_map(|trigger| match trigger {
                             AutomationTrigger::RhaiQuery { .. } => None,
-                            AutomationTrigger::FileModified { file_modified } => {
-                                Some(file_modified.clone())
-                            }
+                            AutomationTrigger::FileModified { file_modified } => Some(
+                                resolve_path(file_modified, &work_dir)
+                                    .to_string_lossy()
+                                    .into_owned(),
+                            ),
                         })
-                        .map(|watch_path| resolve_path(&watch_path, &work_dir))
                         .collect()
                 })
                 .unwrap_or_default();
+
+            let output_key = OutputKey {
+                service_id: service_id.clone(),
+                source_name: automation_id.0.clone(),
+                kind: OutputKind::System,
+            };
+
+            let mut watch_paths: Vec<PathBuf> = Vec::new();
+            for full_pattern in glob_patterns {
+                match glob::glob(&full_pattern) {
+                    Err(err) => {
+                        error!(
+                            "Invalid glob pattern '{full_pattern}' in automation \
+                            {automation_id:?} (service: {service_id:?}): {err}"
+                        );
+                        system_state.write().unwrap().add_output(
+                            &output_key,
+                            format!("Error: invalid glob pattern '{full_pattern}': {err}"),
+                        );
+                    }
+                    Ok(paths) => {
+                        let matched: Vec<PathBuf> = paths.filter_map(|r| r.ok()).collect();
+                        if matched.is_empty() {
+                            system_state.write().unwrap().add_output(
+                                &output_key,
+                                format!("Warning: glob pattern '{full_pattern}' matched no paths"),
+                            );
+                        } else {
+                            watch_paths.extend(matched);
+                        }
+                    }
+                }
+            }
 
             // If there's nothing to watch, we mark the automation as properly handled by inserting None into the map
             if watch_paths.is_empty() {
@@ -235,7 +268,6 @@ impl FileWatcher {
             })
         };
 
-        // TODO add output for success andfal
         let successful = if let Ok(mut watcher) = watcher {
             let mut successful = true;
             for path in &watch_paths {
@@ -247,7 +279,7 @@ impl FileWatcher {
                     system_state.write().unwrap().add_output(
                         &OutputKey {
                             service_id: service_id.clone(),
-                            source_name: "automation".to_owned(),
+                            source_name: automation_id.0.clone(),
                             kind: OutputKind::System,
                         },
                         format!(
@@ -272,7 +304,7 @@ impl FileWatcher {
             system_state.write().unwrap().add_output(
                 &OutputKey {
                     service_id: service_id.clone(),
-                    source_name: "automation".to_owned(),
+                    source_name: automation_id.0.clone(),
                     kind: OutputKind::System,
                 },
                 format!(
@@ -293,7 +325,7 @@ impl FileWatcher {
             system_state.write().unwrap().add_output(
                 &OutputKey {
                     service_id: service_id.clone(),
-                    source_name: "automation".to_owned(),
+                    source_name: automation_id.0.clone(),
                     kind: OutputKind::System,
                 },
                 format!("Successfully began watching paths: {path_str}"),
