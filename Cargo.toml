@@ -1,5 +1,6 @@
 [workspace]
 members = ["client", "ui", "macros"]
+exclude = ["e2e-test-suite"]
 
 [workspace.dependencies]
 ratatui =  { version = "0.29.0", features = ["crossterm"] }

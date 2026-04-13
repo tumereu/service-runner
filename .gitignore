@@ -4,6 +4,9 @@
 config-local
 /service_runner.log
 
+# E2E test suite
+/e2e-test-suite/target
+
 # Example 'build' folders are gitignored
 /example-config/services/*/build
 /example-config/services/*/mock-src/*

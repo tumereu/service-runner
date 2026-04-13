@@ -1,0 +1,11 @@
+[package]
+name = "e2e-suite"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+e2e-harness = { path = "../harness" }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
