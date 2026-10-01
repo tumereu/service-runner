@@ -1,7 +1,9 @@
 use crate::config::{
     AutomationDefinitionId, Block, BlockId, Config, ServiceId, TaskDefinition, TaskDefinitionId,
 };
-use crate::models::{Automation, GetBlock, OutputKey, OutputStore, Profile, Service, Task, TaskId};
+use crate::models::{
+    Automation, GetBlock, OutputKey, OutputKind, OutputStore, Profile, Service, Task, TaskId,
+};
 use crate::runner::service_worker::ConcurrentOperationHandle;
 use std::collections::HashMap;
 use std::thread::JoinHandle;
@@ -50,6 +52,7 @@ impl SystemState {
     }
 
     pub fn select_profile(&mut self, definition_id: &str) {
+        log::info!("Selecting profile {definition_id}");
         self.current_profile = Some(Profile::new(
             self.config
                 .profiles
@@ -257,6 +260,18 @@ impl SystemState {
     }
 
     pub fn add_output(&mut self, key: &OutputKey, line: String) {
+        // Mirror runner diagnostics to disk so they survive closing the output pane/session.
+        // The service and source identify the block or task that produced the message.
+        if key.kind == OutputKind::System {
+            log::info!(
+                "[{}.{}] {line}",
+                key.service_id
+                    .as_ref()
+                    .map(ServiceId::inner)
+                    .unwrap_or("profile"),
+                key.source_name
+            );
+        }
         self.output_store.add_output(key, line);
     }
 }

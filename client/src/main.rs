@@ -12,6 +12,7 @@ use crossterm::{
 use log::{LevelFilter, debug, error, info};
 use ratatui::{Terminal, backend::CrosstermBackend};
 
+use crate::models::{OutputKey, OutputKind};
 use crate::runner::file_watcher::FileWatcher;
 use crate::runner::service_worker::ServiceWorker;
 use crate::system_state::SystemState;
@@ -41,14 +42,31 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     let config = config?;
 
-    simple_logging::log_to_file(
+    let log_file = std::path::absolute(
         config
             .settings
             .log_file
-            .clone()
-            .unwrap_or("service_runner.log".to_string()),
-        LevelFilter::Debug,
+            .as_deref()
+            .unwrap_or("service_runner.log"),
     )?;
+    simple_logging::log_to_file(&log_file, LevelFilter::Debug)?;
+    // A worker can panic while the TUI obscures stderr. Persist its panic details to the log
+    // as well, while retaining the existing hook's normal panic/backtrace reporting.
+    let previous_panic_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic| {
+        error!("Thread {:?} panicked: {panic}", thread::current().id());
+        previous_panic_hook(panic);
+    }));
+    info!(
+        "Service runner {} starting: os={}, arch={}, executable={:?}, cwd={:?}, config={:?}, log={}",
+        env!("CARGO_PKG_VERSION"),
+        env::consts::OS,
+        env::consts::ARCH,
+        env::current_exe()?,
+        env::current_dir()?,
+        std::path::absolute(&config_dir)?,
+        log_file.display(),
+    );
 
     let resolved_data_dir = {
         use std::path::Path;
@@ -132,9 +150,27 @@ fn main() -> Result<(), Box<dyn Error>> {
                         break;
                     }
 
-                    state
-                        .active_threads
-                        .retain(|(_, thread)| !thread.is_finished());
+                    // Reap completed threads so the active list reflects remaining work and
+                    // shutdown can finish once all workers have exited.
+                    let mut index = 0;
+                    while index < state.active_threads.len() {
+                        // Only join finished threads: a running worker may need the state lock
+                        // held here, so waiting for it to finish could deadlock.
+                        if state.active_threads[index].1.is_finished() {
+                            // Ordering is unimportant; swap_remove avoids shifting later entries.
+                            let (name, handle) = state.active_threads.swap_remove(index);
+                            // Joining exposes panics that would be lost by just dropping the handle.
+                            if handle.join().is_err() {
+                                error!(
+                                    "Worker thread {name} panicked; see the panic details in this log"
+                                );
+                            }
+                            // Recheck this index: swap_remove moved the last entry into its place.
+                        } else {
+                            // Keep running threads registered and move on to the next entry.
+                            index += 1;
+                        }
+                    }
 
                     let print_delay = if state.should_exit {
                         Duration::from_millis(1000)

@@ -132,7 +132,7 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                         Err(error) => {
                             WorkResult {
                                 successful: false,
-                                output: vec![format_reqwest_error(&error)]
+                                    output: vec![format!("Req fail: {method} {url}: {}", format_reqwest_error(&error))]
                             }
                         }
                     }
@@ -145,14 +145,16 @@ impl<'a, W: WorkContext> RequirementChecker<'a, W> {
                 };
 
                 self.context.perform_concurrent_work(move || {
+                    // This check infers port occupancy from a failed bind. Successfully binding
+                    // means the port is available, so the requirement is not yet satisfied.
                     let successful = TcpListener::bind(format!("{host}:{port}")).is_err();
 
                     WorkResult {
                         successful,
                         output: if successful {
-                            vec![format!("Req OK: successsfully bound to {host}:{port}")]
+                            vec![format!("Req OK: {host}:{port} is unavailable for binding (port in use)")]
                         } else {
-                            vec![format!("Req fail: could not bind to {host}:{port}")]
+                            vec![format!("Req fail: {host}:{port} is available for binding (no listener detected)")]
                         },
                     }
                 });

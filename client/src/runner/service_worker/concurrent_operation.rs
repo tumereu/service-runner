@@ -127,6 +127,8 @@ impl ProcessWrapper {
         let full_name = service_id
             .map(|id| format!("{id}.{work_name}"))
             .unwrap_or(work_name.clone());
+        let pid = handler.handle.lock().unwrap().id();
+        info!("Process {full_name} started with pid={pid}");
 
         let mut new_threads = vec![
             // Kill the process when the server exits and invoke the callback after the process finishes
@@ -135,6 +137,7 @@ impl ProcessWrapper {
                 let force_exit = handler.force_exit.clone();
                 let status_arc = handler.status.clone();
                 let state_arc = state_arc.clone();
+                let full_name = full_name.clone();
 
                 thread::spawn(move || {
                     // Wait as long as the system and process are both running, or until an early-exit condition
@@ -146,20 +149,22 @@ impl ProcessWrapper {
                         if state_arc.read().unwrap().should_exit {
                             break;
                         }
-                        if process_handle
-                            .lock()
-                            .unwrap()
-                            .try_wait()
-                            .unwrap_or(None)
-                            .is_some()
-                        {
-                            break;
+                        match process_handle.lock().unwrap().try_wait() {
+                            Ok(Some(_)) => break,
+                            Ok(None) => {}
+                            Err(error) => {
+                                // Stop polling and enter process cleanup: treating an OS polling
+                                // error as "still running" would hide the error indefinitely.
+                                error!("Failed to poll process {full_name} pid={pid}: {error}");
+                                break;
+                            }
                         }
                         thread::sleep(Duration::from_millis(10));
                     }
 
                     let system_exiting = state_arc.read().unwrap().should_exit;
                     let status = Self::kill_process(process_handle, !system_exiting);
+                    info!("Process {full_name} pid={pid} finished: {status:?}");
                     let success = status.as_ref().is_ok_and(|status| status.success());
 
                     let mut exit_status = status_arc.lock().unwrap();

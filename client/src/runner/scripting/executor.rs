@@ -28,6 +28,16 @@ impl ScriptExecutor {
         let (tx, rx) = channel::<(RhaiRequest, Sender<RhaiResult>)>();
 
         let worker_thread = thread::spawn(move || {
+            // Profile selection creates the complete, fixed set of services. Wait for it before
+            // caching the Rhai scopes; no engines are needed while the main menu is open.
+            while *keep_alive.lock().unwrap() && state_arc.read().unwrap().current_profile.is_none()
+            {
+                thread::sleep(std::time::Duration::from_millis(50));
+            }
+            // Quitting from the main menu must not initialize engines or delay shutdown.
+            if !*keep_alive.lock().unwrap() {
+                return;
+            }
             let mut plain_engine = ScriptEngine::new(state_arc.clone(), false);
             let mut function_engine = ScriptEngine::new(state_arc.clone(), true);
 

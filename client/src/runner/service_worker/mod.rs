@@ -45,6 +45,14 @@ impl ServiceWorker {
         let executor = self.rhai_executor.clone();
 
         thread::spawn(move || {
+            // The trigger handler also caches a Rhai scope. Build it only once the profile's
+            // services exist, before processing their blocks and automation.
+            while *keep_running.lock().unwrap() && state.read().unwrap().current_profile.is_none() {
+                thread::sleep(Duration::from_millis(30));
+            }
+            if !*keep_running.lock().unwrap() {
+                return;
+            }
             let mut query_trigger_handler = QueryTriggerHandler::new(state.clone());
 
             while *keep_running.lock().unwrap() {

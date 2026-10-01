@@ -15,8 +15,7 @@ pub struct ScriptEngine {
 impl ScriptEngine {
     pub fn new(state: Arc<RwLock<SystemState>>, with_fn: bool) -> Self {
         let mut engine = Self::init_rhai_engine();
-        let scope = Self::init_rhai_scope(state.clone());
-
+        let scope = Self::init_rhai_scope(&state.read().unwrap());
         Self::register_proxies(state.clone(), &mut engine);
         if with_fn {
             Self::register_functions(state.clone(), &mut engine);
@@ -30,6 +29,7 @@ impl ScriptEngine {
     }
 
     pub fn set_self_service(&mut self, service_id: &Option<ServiceId>) {
+        // `self` is the last cached binding; replace it without rebuilding the services map.
         self.scope.rewind(self.scope_len - 1);
         match service_id {
             Some(service_id) => self.scope.push_constant(
@@ -43,14 +43,22 @@ impl ScriptEngine {
     }
 
     pub fn eval(&mut self, script: &str) -> RhaiResult {
+        // Reuse the cached service proxies and constants; discard only script-local bindings
+        // left by the previous evaluation, including one that failed. The proxies read live
+        // service state from SystemState, which is not affected by rewinding the scope.
         self.scope.rewind(self.scope_len);
         self.engine
             .eval_with_scope::<Dynamic>(&mut self.scope, script)
     }
 
-    fn init_rhai_scope<'a>(state_arc: Arc<RwLock<SystemState>>) -> Scope<'a> {
-        let mut scope = Scope::<'a>::new();
-        let state = state_arc.read().unwrap();
+    fn init_rhai_scope(state: &SystemState) -> Scope<'static> {
+        // Service membership is fixed after profile loading. Building this cached map earlier
+        // would permanently capture an empty set, even though proxy state reads remain live.
+        assert!(
+            state.current_profile.is_some(),
+            "Initialize Rhai only after loading a profile"
+        );
+        let mut scope = Scope::new();
         let mut services_map = Map::new();
 
         state.iter_services().for_each(|service| {
@@ -67,9 +75,8 @@ impl ScriptEngine {
         scope.push_constant("OK", "Ok");
         scope.push_constant("ERROR", "Error");
 
-        // Push the self-constant last, so that rewinding to scope.len() - 1 will remove it.
+        // Keep this last so changing the current service only replaces one binding.
         scope.push_constant("self", Dynamic::from(()));
-
         scope
     }
 
@@ -249,4 +256,179 @@ struct ServiceProxy {
 struct BlockProxy {
     service_id: String,
     block_id: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{Config, Settings};
+
+    fn state() -> Arc<RwLock<SystemState>> {
+        let service = serde_yaml::from_str(
+            r#"
+id: some-library
+workdir: .
+blocks:
+  - id: build
+    type: cmd-seq
+    commands: []
+    status_line: {symbol: C, slot: 20}
+"#,
+        )
+        .unwrap();
+        let profile =
+            serde_yaml::from_str("id: test\nworkdir: .\nservices: [{id: some-library}]").unwrap();
+        let empty_profile = serde_yaml::from_str("id: empty\nworkdir: .\nservices: []").unwrap();
+        Arc::new(RwLock::new(SystemState::new(
+            Config {
+                conf_dir: ".".into(),
+                settings: Settings::default(),
+                services: vec![service],
+                profiles: vec![profile, empty_profile],
+            },
+            ".".into(),
+        )))
+    }
+
+    #[test]
+    fn executor_handles_manual_and_automatic_profile_selection() {
+        use crate::runner::scripting::executor::{RhaiRequest, ScriptExecutor};
+        use std::{thread, time::Duration};
+
+        for autolaunch in [false, true] {
+            let state = state();
+            if autolaunch {
+                state.write().unwrap().select_profile("test");
+            }
+            let executor = ScriptExecutor::new(state.clone());
+            let handle = executor.start();
+            if !autolaunch {
+                // Exercise time spent in the menu with the executor thread already running.
+                thread::sleep(Duration::from_millis(100));
+            }
+            {
+                let mut state = state.write().unwrap();
+                if !autolaunch {
+                    state.select_profile("test");
+                }
+                state.update_service(&ServiceId::new("some-library"), |service| {
+                    service.update_block_action(&BlockId::new("build"), None);
+                    service.update_block_status(
+                        &BlockId::new("build"),
+                        BlockStatus::Ok { was_worked: true },
+                    );
+                });
+            }
+
+            let results: Vec<_> = [false, true].into_iter().map(|allow_functions| {
+                executor.enqueue(RhaiRequest {
+                    script: "services[\"some-library\"].blocks.build.is_idle && services[\"some-library\"].blocks.build.status == OK".into(),
+                    allow_functions,
+                    service_id: None,
+                }).recv_timeout(Duration::from_secs(2))
+            }).collect();
+            executor.stop();
+            handle.join().unwrap();
+            for result in results {
+                assert!(result.unwrap().unwrap().as_bool().unwrap());
+            }
+        }
+    }
+
+    #[test]
+    fn cached_scope_reads_live_service_state() {
+        let state = state();
+        state.write().unwrap().select_profile("test");
+        let mut engine = ScriptEngine::new(state.clone(), false);
+        assert_eq!(engine.eval("services.len()").unwrap().as_int().unwrap(), 1);
+        assert!(
+            engine
+                .eval("services[\"some-library\"].blocks.build.status == INITIAL")
+                .unwrap()
+                .as_bool()
+                .unwrap()
+        );
+        state
+            .write()
+            .unwrap()
+            .update_service(&ServiceId::new("some-library"), |service| {
+                service.update_block_status(
+                    &BlockId::new("build"),
+                    BlockStatus::Ok { was_worked: true },
+                );
+            });
+        assert!(
+            engine
+                .eval("services[\"some-library\"].blocks.build.status == OK")
+                .unwrap()
+                .as_bool()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn self_and_actions_work_with_cached_scope() {
+        let state = state();
+        state.write().unwrap().select_profile("test");
+        let mut engine = ScriptEngine::new(state.clone(), true);
+        engine.set_self_service(&Some(ServiceId::new("some-library")));
+        let _ = engine.eval("disable(self.id, \"build\")").unwrap();
+        assert!(matches!(
+            state
+                .read()
+                .unwrap()
+                .get_service(&ServiceId::new("some-library"))
+                .unwrap()
+                .get_block_action(&BlockId::new("build")),
+            Some(BlockAction::Disable)
+        ));
+        assert!(
+            engine
+                .eval("self.id == services[\"some-library\"].id")
+                .unwrap()
+                .as_bool()
+                .unwrap()
+        );
+        engine.set_self_service(&None);
+        assert!(engine.eval("self == ()").unwrap().as_bool().unwrap());
+    }
+
+    #[test]
+    fn cached_scope_discards_script_locals_after_success_and_failure() {
+        let state = state();
+        state.write().unwrap().select_profile("test");
+        let mut engine = ScriptEngine::new(state, false);
+        assert_eq!(
+            engine
+                .eval("let local = 42; local")
+                .unwrap()
+                .as_int()
+                .unwrap(),
+            42
+        );
+        assert!(engine.eval("local").is_err());
+        assert!(
+            engine
+                .eval("let failed_local = 42; throw \"error\";")
+                .is_err()
+        );
+        assert!(engine.eval("failed_local").is_err());
+        assert_eq!(engine.eval("services.len()").unwrap().as_int().unwrap(), 1);
+    }
+
+    #[test]
+    fn workers_can_stop_while_waiting_in_the_main_menu() {
+        use crate::runner::scripting::executor::ScriptExecutor;
+        use crate::runner::service_worker::ServiceWorker;
+
+        let state = state();
+        let executor = Arc::new(ScriptExecutor::new(state.clone()));
+        let worker = ServiceWorker::new(state, executor.clone());
+        let executor_handle = executor.start();
+        let worker_handle = worker.start();
+        executor.stop();
+        worker.stop();
+        executor_handle.join().unwrap();
+        worker_handle.join().unwrap();
+    }
 }

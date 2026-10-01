@@ -189,29 +189,31 @@ impl BlockProcessor for ServiceBlockContext {
 
             WorkStep::ResourceGroupCheck {
                 skip_work_if_healthy,
+                ..
             } => {
                 self.clear_all_operations();
-                let rg_in_use = if let Some(self_group) =
-                    self.query_block(|block| block.resource_group.clone())
-                {
+                let resource_group = self.query_block(|block| block.resource_group.clone());
+                // Collect the holders' identities as well as detecting contention, so a
+                // pending block can explain exactly which other blocks it is waiting for.
+                let holders = if let Some(self_group) = &resource_group {
                     self.query_state(|system_state| {
                         system_state
                             .current_profile
                             .as_ref()
                             .iter()
                             .flat_map(|profile| profile.services.iter())
-                            .any(|service| {
-                                // The resource group is in use if the profile has block that shares the same resource
-                                // group, and is currently in working-state. But we do not count "resource group check"
-                                // as a working state here.
+                            .flat_map(|service| {
+                                // Blocks doing work or health checks hold their resource group.
+                                // Blocks still waiting for prerequisites or the group itself do
+                                // not hold it; counting them would make waiters block each other.
                                 service
                                     .definition
                                     .blocks
                                     .iter()
-                                    .filter(|block| {
+                                    .filter(move |block| {
                                         block.resource_group.as_deref() == Some(self_group.as_str())
                                     })
-                                    .any(|block| match service.get_block_status(&block.id) {
+                                    .filter(|block| match service.get_block_status(&block.id) {
                                         BlockStatus::Working {
                                             step:
                                                 WorkStep::ResourceGroupCheck { .. }
@@ -220,13 +222,15 @@ impl BlockProcessor for ServiceBlockContext {
                                         BlockStatus::Working { .. } => true,
                                         _ => false,
                                     })
+                                    .map(|block| format!("{}.{}", service.definition.id, block.id))
                             })
+                            .collect::<Vec<_>>()
                     })
                 } else {
-                    false
+                    Vec::new()
                 };
 
-                if !rg_in_use {
+                if holders.is_empty() {
                     self.update_status(BlockStatus::Working {
                         step: if skip_work_if_healthy && !is_process {
                             WorkStep::PreWorkHealthCheck {
@@ -241,6 +245,15 @@ impl BlockProcessor for ServiceBlockContext {
                             }
                         },
                     });
+                } else {
+                    self.report_wait(
+                        format!(
+                            "Waiting for resource group {:?}, held by {}",
+                            resource_group.unwrap(),
+                            holders.join(", "),
+                        ),
+                        Instant::now(),
+                    );
                 }
             }
 
@@ -249,6 +262,7 @@ impl BlockProcessor for ServiceBlockContext {
                 start_time,
                 checks_completed,
                 last_failure,
+                ..
             } => {
                 let context = self.create_work_context(OperationType::Check, true);
                 let result = RequirementChecker {
@@ -271,27 +285,37 @@ impl BlockProcessor for ServiceBlockContext {
                         self.update_status(BlockStatus::Working {
                             step: WorkStep::ResourceGroupCheck {
                                 skip_work_if_healthy,
+                                last_informed_timestamp: None,
+                                last_informed_reason: None,
                             },
                         });
                     }
-                    RequirementCheckResult::CurrentCheckOk => {
-                        self.update_status(BlockStatus::Working {
-                            step: WorkStep::PrerequisiteCheck {
-                                start_time,
-                                skip_work_if_healthy,
-                                checks_completed: checks_completed + 1,
-                                last_failure: None,
-                            },
-                        });
-                    }
-                    RequirementCheckResult::CurrentCheckFailed => {
-                        self.update_status(BlockStatus::Working {
-                            step: WorkStep::PrerequisiteCheck {
-                                skip_work_if_healthy,
-                                start_time,
-                                checks_completed: 0,
-                                last_failure: Some(Instant::now()),
-                            },
+                    RequirementCheckResult::CurrentCheckOk
+                    | RequirementCheckResult::CurrentCheckFailed => {
+                        let successful = matches!(result, RequirementCheckResult::CurrentCheckOk);
+                        // Read the latest status and write it back under the same state lock.
+                        // The async check may have recorded a diagnostic since the earlier
+                        // snapshot; preserve its timestamp and reason when updating progress.
+                        self.update_service(|service| {
+                            let mut status = service.get_block_status(&self.block_id);
+                            if let BlockStatus::Working {
+                                step:
+                                    WorkStep::PrerequisiteCheck {
+                                        checks_completed,
+                                        last_failure,
+                                        ..
+                                    },
+                            } = &mut status
+                            {
+                                if successful {
+                                    *checks_completed += 1;
+                                    *last_failure = None;
+                                } else {
+                                    *checks_completed = 0;
+                                    *last_failure = Some(Instant::now());
+                                }
+                                service.update_block_status(&self.block_id, status);
+                            }
                         });
                     }
                     RequirementCheckResult::Timeout => {
@@ -468,9 +492,11 @@ impl BlockProcessor for ServiceBlockContext {
                     WorkDefinition::Process {
                         command: executable,
                     } => {
-                        match create_cmd(&executable, Some(work_dir)) {
+                        match create_cmd(&executable, Some(&work_dir)) {
                             Ok(mut command) => {
-                                self.add_system_output(format!("Exec: {executable}"));
+                                self.add_system_output(format!(
+                                    "Exec: {executable} (workdir={work_dir:?})"
+                                ));
 
                                 match command.spawn() {
                                     Ok(process_handle) => {

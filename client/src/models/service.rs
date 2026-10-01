@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -113,6 +113,10 @@ pub enum WorkStep {
         /// is always performed. Has no effect if the block is a non-detatched process -- such blocks must always be
         /// executed.
         skip_work_if_healthy: bool,
+        /// Reminder history belongs to this waiting phase and is dropped when the phase ends.
+        last_informed_timestamp: Option<Instant>,
+        /// Keep the reason so a changed blocker can be reported before the next reminder.
+        last_informed_reason: Option<String>,
     },
     PrerequisiteCheck {
         /// If `true`, then the actual work step will be skipped if the block is deemed healthy
@@ -123,6 +127,9 @@ pub enum WorkStep {
         start_time: Instant,
         checks_completed: usize,
         last_failure: Option<Instant>,
+        /// Preserve this across retries; a new run starts with no reminder history.
+        last_informed_timestamp: Option<Instant>,
+        last_informed_reason: Option<String>,
     },
     PreWorkHealthCheck {
         start_time: Instant,
@@ -150,7 +157,40 @@ impl WorkStep {
             start_time: Instant::now(),
             checks_completed: 0,
             last_failure: None,
+            last_informed_timestamp: None,
+            last_informed_reason: None,
         }
+    }
+
+    /// Records a waiting diagnostic if it is new, changed, or due for a reminder.
+    /// Returns whether the caller should emit it to the output destinations.
+    pub fn record_wait_report(&mut self, reason: &str, now: Instant) -> bool {
+        let (last_informed_timestamp, last_informed_reason) = match self {
+            Self::PrerequisiteCheck {
+                last_informed_timestamp,
+                last_informed_reason,
+                ..
+            }
+            | Self::ResourceGroupCheck {
+                last_informed_timestamp,
+                last_informed_reason,
+                ..
+            } => (last_informed_timestamp, last_informed_reason),
+            _ => return false,
+        };
+
+        if let (Some(last), Some(previous)) =
+            (*last_informed_timestamp, last_informed_reason.as_deref())
+        {
+            if previous == reason && now.duration_since(last) < Duration::from_secs(300) {
+                return false;
+            }
+        }
+        // Only advance the timestamp when emitting. Updating it on every poll would
+        // postpone the reminder indefinitely while the block remains stuck.
+        *last_informed_timestamp = Some(now);
+        *last_informed_reason = Some(reason.to_owned());
+        true
     }
 }
 

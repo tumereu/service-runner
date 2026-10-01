@@ -3,7 +3,7 @@
 This repository contains a tool written in Rust that is intended for running services locally during development.
 A service here refers to some application that requires some preparation (such as compiling it) and/or can be started
 and stopped.
-Service-runner offers a terminal based user-interface for managing the services, allowing quick restarts, compilations 
+Service-runner offers a terminal based user-interface for managing the services, allowing quick restarts, compilations
 and other operations that are often convenient during software development.
 
 ## Building
@@ -40,16 +40,18 @@ Use arrow keys to select a profile and press Enter to activate it.
 
 ### Main screen
 
-This screen features a dual-pane interface: the **Services Pane** and the **Output Pane**. 
+This screen features a dual-pane interface: the **Services Pane** and the **Output Pane**.
 Below is a primer on the controls for this.
 
 #### General Controls
+
 - **`Ctrl+Q`** — Quit the tool
 - **`Tab`** — Switch focus between the Services Pane and the Output Pane
 
 ---
 
 ### Output Pane Controls
+
 - **Arrow Keys** — Navigate output
 - **`Ctrl + Arrow Keys`** — Faster navigation
 - **`g`** — Jump to the beginning of the output
@@ -59,6 +61,7 @@ Below is a primer on the controls for this.
 ---
 
 ### Services Pane Controls
+
 - **Arrow Keys** — Navigate service selection
 - **`r`** — Toggle a service on/off
 - **`e`** — Restart a service
@@ -70,7 +73,8 @@ Below is a primer on the controls for this.
 > Autocompilation may interfere with tasks like compiling unit tests. It's recommended to disable it in such cases to avoid conflicts from simultaneous recompilation.
 
 #### Bulk Actions
+
 Hold **Shift** while pressing a command key to apply it to **all services**.  
 For example:
-- **`Shift+A`** — Toggle autocompilation for all services
 
+- **`Shift+A`** — Toggle autocompilation for all services

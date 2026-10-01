@@ -43,7 +43,8 @@ impl<'a, W: WorkContext> WorkSequenceExecutor<'a, W> {
         match self.context.get_concurrent_operation_status() {
             None => match create_cmd(entry, Some(self.workdir.clone())) {
                 Ok(mut command) => {
-                    self.context.add_system_output(format!("Exec: {entry}"));
+                    self.context
+                        .add_system_output(format!("Exec: {entry} (workdir={:?})", self.workdir));
 
                     match command.spawn() {
                         Ok(process_handle) => {
